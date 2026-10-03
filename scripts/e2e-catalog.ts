@@ -202,6 +202,29 @@ const main = async (): Promise<void> => {
   const catMissing = await request(app).get('/api/v1/categories/getById/nope');
   record('unknown category -> 404', catMissing.status === 404, `status=${catMissing.status}`);
 
+  // The slug route used to reuse the getById handler, which read req.params.id and
+  // so looked up an undefined id. It needs its own coverage.
+  const catSlug = String(catById.body?.result?.slug ?? '');
+  const catBySlug = await request(app).get(`/api/v1/categories/getBySlug/${catSlug}`);
+  record(
+    'GET /categories/getBySlug/:slug -> 200',
+    catBySlug.status === 200 && catBySlug.body?.result?.categoryId === rootId,
+    `status=${catBySlug.status} slug=${catSlug}`,
+  );
+  record(
+    'getBySlug returns the same shape as getById',
+    Array.isArray(catBySlug.body?.result?.childList) &&
+      catBySlug.body?.result?.name === catById.body?.result?.name,
+    JSON.stringify(Object.keys(catBySlug.body?.result ?? {})),
+  );
+
+  const catSlugMissing = await request(app).get('/api/v1/categories/getBySlug/no-such-slug-xyz');
+  record(
+    'unknown category slug -> 404',
+    catSlugMissing.status === 404,
+    `status=${catSlugMissing.status}`,
+  );
+
   // Update + cycle guard
   const catUpdated = await request(app)
     .patch(`/api/v1/categories/updateCategory/${rootId}`)

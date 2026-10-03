@@ -265,7 +265,7 @@ country.get(
 /** POST /countries/checkPincode — public */
 country.post(
   '/checkPincode',
-  validate({ body: schema.checkPincodeBodySchema }),
+  validate({ body: schema.checkPincodeSchema }),
   controller.checkPincode,
 );
 

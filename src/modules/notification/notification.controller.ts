@@ -23,7 +23,13 @@ export const guards = {
 };
 
 /** Staff are the only side that may see internal notes. */
-const isStaff = (req: Request): boolean => isAdminRole(D.str(req.auth!.role));
+/**
+ * Whether the caller is staff.
+ *
+ * `req.auth` is optional: /tickets/getCategories is public so a signed-out visitor
+ * can open a ticket, and reading `req.auth!.role` there threw a 500.
+ */
+const isStaff = (req: Request): boolean => isAdminRole(D.str(req.auth?.role));
 
 // ═══ Notifications ═══════════════════════════════════════════════════════════
 
@@ -223,7 +229,7 @@ export const startConversation = asyncHandler(async (req, res) => {
 export const getMessages = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
 
-  const { rows, total } = await service.getMessages(D.str(req.params.id), userId(req), {
+  const { rows, total } = await service.getMessages(D.str(req.params.conversationId), userId(req), {
     ...(req.query as any),
     skip,
     take,
@@ -231,7 +237,10 @@ export const getMessages = asyncHandler(async (req, res) => {
 
   return ApiResponse.paginated(res, {
     message: SUCCESS.CHAT.MESSAGES_FETCHED,
-    result: { conversationId: D.str(req.params.id), itemList: rows.map(serializeMessage) },
+    result: {
+      conversationId: D.str(req.params.conversationId),
+      itemList: rows.map(serializeMessage),
+    },
     totalRecord: total,
     currentPage: page,
     limit,
@@ -249,7 +258,12 @@ export const getMessages = asyncHandler(async (req, res) => {
  *       403: { description: Blocked in either direction }
  */
 export const sendMessage = asyncHandler(async (req, res) => {
-  const message = await service.sendMessage(D.str(req.params.id), userId(req), req.body, req);
+  const message = await service.sendMessage(
+    D.str(req.body.conversationId),
+    userId(req),
+    req.body,
+    req,
+  );
   return ApiResponse.created(res, SUCCESS.CHAT.MESSAGE_SENT, serializeMessage(message));
 });
 
@@ -264,7 +278,7 @@ export const sendMessage = asyncHandler(async (req, res) => {
  */
 export const markConversationRead = asyncHandler(async (req, res) => {
   const count = await service.markConversationRead(
-    D.str(req.params.id),
+    D.str(req.params.conversationId),
     userId(req),
     req.body.lastReadAt,
   );
@@ -307,7 +321,7 @@ export const chatUnread = asyncHandler(async (req, res) => {
 
 /**
  * @openapi
- * /chat/block:
+ * /chat/blockUser/:userId:
  *   post:
  *     tags: [Chat]
  *     summary: Block a user
@@ -315,10 +329,11 @@ export const chatUnread = asyncHandler(async (req, res) => {
  *       200: { description: Blocked }
  */
 export const block = asyncHandler(async (req, res) => {
-  await service.blockUser(userId(req), D.str(req.body.userId), D.str(req.body.reason), req);
+  const targetId = D.str(req.params.userId);
+  await service.blockUser(userId(req), targetId, D.str(req.body.reason), req);
   return ApiResponse.success(res, {
     message: SUCCESS.CHAT.USER_BLOCKED,
-    result: { userId: D.str(req.body.userId), isBlocked: true },
+    result: { userId: targetId, isBlocked: true },
   });
 });
 

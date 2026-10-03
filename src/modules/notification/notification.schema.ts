@@ -65,32 +65,38 @@ export const startConversationSchema = z
   })
   .strict();
 
-/** POST /chat/:id/sendMessage */
+/** POST /chat/sendMessage — the thread is named in the body, there is no path param. */
 export const sendMessageSchema = z
   .object({
+    conversationId: id,
     body: z.string().trim().min(1, ERROR.CHAT.EMPTY_MESSAGE).max(NAME.COMMENT_MAX_LENGTH),
     attachments: z.array(z.string().trim().max(300)).max(6).optional().default([]),
   })
   .strict();
 
-/** POST /chat/:id/read */
+/** PATCH /chat/markRead/:conversationId */
 export const readConversationSchema = z
   .object({
     lastReadAt: common.dateString.optional(),
   })
   .strict();
 
-export const conversationIdParamSchema = z.object({ id });
+export const conversationIdParamSchema = z.object({ conversationId: id });
 
-/** POST /chat/block */
+/** POST /chat/unblock/:id */
+export const unblockIdParamSchema = z.object({ id });
+
+/**
+ * POST /chat/blockUser/:userId — the target is the path param, so the body only
+ * carries the optional reason.
+ */
 export const blockUserSchema = z
   .object({
-    userId: id,
     reason: z.string().trim().max(500).optional(),
   })
   .strict();
 
-export const blockIdParamSchema = z.object({ id });
+export const blockIdParamSchema = z.object({ userId: id });
 
 // ─── Ticket ───────────────────────────────────────────────────────────────────
 

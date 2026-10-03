@@ -133,7 +133,7 @@ router.post(
   '/createShipment/:subOrderId',
   authenticate,
   ...controller.guards.vendor,
-  validate({ params: idParamSchema, body: schema.createShipmentSchema }),
+  validate({ params: schema.subOrderIdParamSchema, body: schema.createShipmentSchema }),
   controller.shipmentCreate,
 );
 
@@ -356,7 +356,7 @@ admin.patch(
   '/updatePermissions/:id',
   authenticate,
   ...controller.guards.superAdmin,
-  validate({ params: idParamSchema, body: schema.setPermissionsSchema }),
+  validate({ params: schema.roleIdParamSchema, body: schema.setPermissionsSchema }),
   controller.permissionsSetByRole,
 );
 

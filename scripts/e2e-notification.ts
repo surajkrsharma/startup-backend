@@ -10,6 +10,9 @@
  */
 import request from 'supertest';
 import { createApp } from '../src/app';
+import { toSlug } from '../src/utils/slug';
+
+const slugOf = (name: string): string => toSlug(name);
 
 const app = createApp();
 
@@ -249,14 +252,14 @@ const main = async (): Promise<void> => {
     `status=${readAll.status}`,
   );
 
-  const delNotif = await cu.del(`/api/v1/notifications/${notifId}/delete`);
+  const delNotif = await cu.del(`/api/v1/notifications/delete/${notifId}`);
   record(
-    'DELETE /notifications/:id/delete -> 200',
+    'DELETE /notifications/delete/:id -> 200',
     delNotif.status === 200,
     `status=${delNotif.status}`,
   );
 
-  const foreignNotif = await api(bystander.token).del(`/api/v1/notifications/${notifId}/delete`);
+  const foreignNotif = await api(bystander.token).del(`/api/v1/notifications/delete/${notifId}`);
   record(
     'deleting another user notification -> 404',
     foreignNotif.status === 404,
@@ -407,7 +410,9 @@ const main = async (): Promise<void> => {
     `status=${intruder.status}`,
   );
 
+  // sendMessage names the thread in the body — there is no path param.
   const intruderSend = await api(bystander.token).post(`/api/v1/chat/sendMessage`, {
+    conversationId,
     body: 'let me in',
   });
   record(
@@ -416,11 +421,22 @@ const main = async (): Promise<void> => {
     `status=${intruderSend.status}`,
   );
 
+  const noConversation = await shop.post(`/api/v1/chat/sendMessage`, {
+    body: 'nowhere to put this',
+  });
+  record(
+    'a message with no conversationId -> 400',
+    noConversation.status === 400 &&
+      String(noConversation.body?.message).includes('conversationId'),
+    `status=${noConversation.status} msg=${noConversation.body?.message}`,
+  );
+
   const reply = await shop.post(`/api/v1/chat/sendMessage`, {
+    conversationId,
     body: 'Yes, plenty in stock.',
   });
   record(
-    'POST /chat/:id/sendMessage -> 201',
+    'POST /chat/sendMessage -> 201',
     reply.status === 201,
     `status=${reply.status} msg=${reply.body?.message}`,
   );
@@ -430,7 +446,7 @@ const main = async (): Promise<void> => {
     JSON.stringify(reply.body?.result?.senderData),
   );
 
-  const emptyBody = await shop.post(`/api/v1/chat/sendMessage`, { body: '   ' });
+  const emptyBody = await shop.post(`/api/v1/chat/sendMessage`, { conversationId, body: '   ' });
   record('an empty message -> 400', emptyBody.status === 400, `status=${emptyBody.status}`);
 
   const customerUnread = await cu.get('/api/v1/chat/getUnreadCount');
@@ -441,7 +457,11 @@ const main = async (): Promise<void> => {
   );
 
   const messages = await cu.get(`/api/v1/chat/getMessages/${conversationId}`);
-  record('GET /chat/getMessages/:id -> 200', messages.status === 200, `status=${messages.status}`);
+  record(
+    'GET /chat/getMessages/:conversationId -> 200',
+    messages.status === 200,
+    `status=${messages.status}`,
+  );
   record(
     'the thread holds three messages',
     D_num(messages.body?.result?.totalRecord) === 3,
@@ -449,7 +469,11 @@ const main = async (): Promise<void> => {
   );
 
   const readIt = await shop.patch(`/api/v1/chat/markRead/${conversationId}`);
-  record('PATCH /chat/markRead/:id -> 200', readIt.status === 200, `status=${readIt.status}`);
+  record(
+    'PATCH /chat/markRead/:conversationId -> 200',
+    readIt.status === 200,
+    `status=${readIt.status}`,
+  );
   record(
     'it reports how many were marked',
     D_num(readIt.body?.result?.markedCount) === 2,
@@ -463,11 +487,19 @@ const main = async (): Promise<void> => {
     `total=${shopUnreadAfter.body?.result?.total}`,
   );
 
-  const delOther = await shop.del(`/api/v1/chat/${conversationId}/deleteMessage`);
+  const ownMessageId = reply.body?.result?.messageId ?? '';
+  const delOther = await shop.del(`/api/v1/chat/deleteMessage/${ownMessageId}`);
   record(
-    'deleting a message without an id -> 404',
-    delOther.status === 404,
+    'the sender can delete their own message -> 200',
+    delOther.status === 200,
     `status=${delOther.status}`,
+  );
+
+  const delMissing = await shop.del('/api/v1/chat/deleteMessage/nope123');
+  record(
+    'deleting an unknown message -> 404',
+    delMissing.status === 404,
+    `status=${delMissing.status}`,
   );
 
   // ══ Blocking ═══════════════════════════════════════════════════════════════
@@ -483,9 +515,14 @@ const main = async (): Promise<void> => {
 
   const blocked = await cu.post(`/api/v1/chat/blockUser/${bystander.userId}`, { reason: 'spam' });
   record(
-    'POST /chat/block -> 200',
+    'POST /chat/blockUser/:userId -> 200',
     blocked.status === 200,
     `status=${blocked.status} msg=${blocked.body?.message}`,
+  );
+  record(
+    'the block echoes the target',
+    blocked.body?.result?.userId === bystander.userId && blocked.body?.result?.isBlocked === true,
+    JSON.stringify(blocked.body?.result),
   );
 
   const blockedList = await cu.get('/api/v1/chat/getBlocked');
@@ -494,6 +531,13 @@ const main = async (): Promise<void> => {
     'the block is listed with the user',
     D_arr(blockedList.body?.result?.itemList).some((b: any) => b.userId === bystander.userId),
     `n=${blockedList.body?.result?.itemCount}`,
+  );
+
+  const unblocked = await cu.post(`/api/v1/chat/unblock/${bystander.userId}`);
+  record(
+    'POST /chat/unblock/:id -> 200',
+    unblocked.status === 200,
+    `status=${unblocked.status} msg=${unblocked.body?.message}`,
   );
 
   const blockedListAfter = await cu.get('/api/v1/chat/getBlocked');
@@ -517,6 +561,7 @@ const main = async (): Promise<void> => {
   );
 
   const blockedPost = await cu.post(`/api/v1/chat/sendMessage`, {
+    conversationId,
     body: 'let me back in',
   });
   record(
@@ -535,7 +580,15 @@ const main = async (): Promise<void> => {
     `status=${blockedRestart.status} msg=${blockedRestart.body?.message}`,
   );
 
+  const shopUnblocks = await shop.post(`/api/v1/chat/unblock/${customer.userId}`);
+  record(
+    'the shop can unblock the customer',
+    shopUnblocks.status === 200,
+    `status=${shopUnblocks.status}`,
+  );
+
   const afterUnblock = await cu.post(`/api/v1/chat/sendMessage`, {
+    conversationId,
     body: 'thanks for clearing me',
   });
   record(
@@ -552,8 +605,54 @@ const main = async (): Promise<void> => {
     `status=${anonTicket.status}`,
   );
 
+  // The category list starts empty on a fresh database, so the suite creates the one
+  // it needs — POST /tickets/categories is admin-only.
+  const seedCatAsCustomer = await cu.post('/api/v1/tickets/categories', { name: 'Nope' });
+  record(
+    'a customer cannot create a ticket category -> 403',
+    seedCatAsCustomer.status === 403,
+    `status=${seedCatAsCustomer.status}`,
+  );
+
+  const categoryName = `Refunds ${run}`;
+  const created = await admin.post('/api/v1/tickets/categories', {
+    name: categoryName,
+    sortOrder: 1,
+  });
+  record(
+    'POST /tickets/categories -> 201',
+    created.status === 201,
+    `status=${created.status} msg=${created.body?.message}`,
+  );
+  const categoryId = created.body?.result?.categoryId ?? '';
+  record(
+    'the category slug is generated from the name',
+    created.body?.result?.slug === slugOf(categoryName),
+    created.body?.result?.slug,
+  );
+
+  // The slug is unique, the name is not — a repeated name is suffixed rather than
+  // refused, the same way vendor shop slugs behave.
+  const dupCat = await admin.post('/api/v1/tickets/categories', { name: categoryName });
+  record(
+    'a duplicate category name is allowed with a suffixed slug',
+    dupCat.status === 201 && dupCat.body?.result?.slug === `${slugOf(categoryName)}-2`,
+    `status=${dupCat.status} slug=${dupCat.body?.result?.slug}`,
+  );
+
   const categories = await admin.get('/api/v1/tickets/getCategories');
-  const categoryId = (categories.body?.result?.itemList ?? [])[0]?.categoryId ?? 'GENERAL';
+  record(
+    'GET /tickets/getCategories is public',
+    categories.status === 200,
+    `status=${categories.status}`,
+  );
+
+  const anonCats = await request(app).get('/api/v1/tickets/getCategories');
+  record(
+    'GET /tickets/getCategories without a token -> 200',
+    anonCats.status === 200 && Array.isArray(anonCats.body?.result?.itemList),
+    `status=${anonCats.status}`,
+  );
 
   const cats = await cu.get('/api/v1/tickets/getCategories');
   record('GET /tickets/getCategories -> 200', cats.status === 200, `status=${cats.status}`);
@@ -580,7 +679,7 @@ const main = async (): Promise<void> => {
     attachments: ['https://cdn.example.com/a.png'],
   });
   record(
-    'POST /tickets/createTicket -> 201',
+    'POST /tickets/create -> 201',
     ticket.status === 201,
     `status=${ticket.status} msg=${ticket.body?.message}`,
   );
@@ -777,15 +876,22 @@ const main = async (): Promise<void> => {
   });
   record('closing twice -> 422', doubleClose.status === 422, `status=${doubleClose.status}`);
 
-  const stats = await admin.get('/api/v1/tickets/getAll');
+  const stats = await admin.get('/api/v1/tickets/getStats');
   record('GET /tickets/getStats -> 200', stats.status === 200, `status=${stats.status}`);
   record(
     'the stats count every status',
-    typeof stats.body?.result?.total === 'number',
+    ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].every(
+      (s) => typeof stats.body?.result?.[s] === 'number',
+    ),
     JSON.stringify(stats.body?.result),
   );
+  record(
+    'the closed ticket is counted as CLOSED',
+    D_num(stats.body?.result?.CLOSED) >= 1,
+    `closed=${stats.body?.result?.CLOSED}`,
+  );
 
-  const statsAsCustomer = await cu.get('/api/v1/tickets/getAll');
+  const statsAsCustomer = await cu.get('/api/v1/tickets/getStats');
   record(
     'a customer cannot read the stats -> 403',
     statsAsCustomer.status === 403,
@@ -807,7 +913,10 @@ const main = async (): Promise<void> => {
   await prisma.conversationParticipant.deleteMany({ where: { conversationId } });
   await prisma.conversation.deleteMany({ where: { id: conversationId } });
   await prisma.userBlock.deleteMany({ where: { blockerId: customer.userId } });
-  await prisma.user.deleteMany({ where: { email: { contains: 'nt_' } } });
+  // Scoped by the run id: Prisma compiles `contains` to a LIKE without escaping `_`,
+  // so a prefix pattern like `nt_` is really `%nt_%` and would match
+  // "superadmin@projectname.com" too. Digits are not LIKE metacharacters.
+  await prisma.user.deleteMany({ where: { email: { contains: run } } });
 
   const passed = checks.filter((c) => c.passed).length;
   const failed = checks.filter((c) => !c.passed);

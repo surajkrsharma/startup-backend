@@ -63,6 +63,18 @@ export const getById = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /categories/getBySlug/:slug — a separate handler from getById, because the
+ * path param is named and `req.params.id` would be undefined here.
+ */
+export const getBySlug = asyncHandler(async (req, res) => {
+  const category = await service.getCategoryBySlug(req.params.slug);
+  return ApiResponse.success(res, {
+    message: SUCCESS.COMMON.FETCHED,
+    result: serializeCategory(category),
+  });
+});
+
 // ══ Admin ════════════════════════════════════════════════════════════════════
 
 /** POST /categories/createCategory */

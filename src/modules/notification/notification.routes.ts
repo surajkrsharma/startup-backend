@@ -178,6 +178,14 @@ chat.post(
   controller.block,
 );
 
+/** POST /chat/unblock/:id */
+chat.post(
+  '/unblock/:id',
+  authenticate,
+  validate({ params: schema.unblockIdParamSchema }),
+  controller.unblock,
+);
+
 /** GET /chat/getBlocked */
 chat.get('/getBlocked', authenticate, controller.getBlocked);
 
@@ -193,6 +201,18 @@ ticket.get(
   validate({ query: schema.listTicketsSchema }),
   controller.getCategories,
 );
+
+/** POST /tickets/categories — admin */
+ticket.post(
+  '/categories',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ body: schema.ticketCategorySchema }),
+  controller.createCategory,
+);
+
+/** GET /tickets/getStats — staff only */
+ticket.get('/getStats', authenticate, ...controller.guards.admin, controller.getStats);
 
 /** POST /tickets/create */
 ticket.post(

@@ -2026,6 +2026,15 @@ export const uploadFiles = async (
 ): Promise<Record<string, any>> => {
   requireStorage();
 
+  /**
+   * multer is happy to run with no file at all, which used to fall straight through
+   * and answer 201 "Image uploaded successfully." for a request that uploaded
+   * nothing. An empty upload is a client error, not a silent success.
+   */
+  if (!Array.isArray(files) || files.length === 0) {
+    throw AppError.badRequest(ERROR.UPLOAD.FILE_REQUIRED, ERROR_CODE.FILE_REQUIRED);
+  }
+
   const uploaded: any[] = [];
 
   for (const file of files) {

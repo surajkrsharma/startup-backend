@@ -38,7 +38,7 @@ cart.delete(
   '/removeItem/:cartItemId',
   authenticate,
   customerOnly,
-  validate({ params: idParamSchema }),
+  validate({ params: schema.cartItemIdParamSchema }),
   controller.removeItem,
 );
 

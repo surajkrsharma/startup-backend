@@ -568,7 +568,15 @@ export const listStates = asyncHandler(async (req, res) => {
 export const listCities = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
 
-  const { rows, total } = await service.listCities({ ...(req.query as any), skip, take });
+  // The state is the path param; the query copy is optional and only a fallback.
+  const stateCode = D.str(req.params.stateCode) || D.str((req.query as any).stateCode);
+
+  const { rows, total } = await service.listCities({
+    ...(req.query as any),
+    stateCode,
+    skip,
+    take,
+  });
 
   return ApiResponse.paginated(res, {
     message: SUCCESS.COUNTRY.CITIES_FETCHED,
@@ -598,7 +606,8 @@ export const listCities = asyncHandler(async (req, res) => {
  *       200: { description: Serviceability plus the resolved location }
  */
 export const checkPincode = asyncHandler(async (req, res) => {
-  const result = await service.checkPincode(D.str((req.query as any).pincode));
+  // The pincode arrives in the body — the route validates it there.
+  const result = await service.checkPincode(D.str(req.body?.pincode));
 
   return ApiResponse.success(res, { message: SUCCESS.COUNTRY.PINCODE_CHECKED, result });
 });

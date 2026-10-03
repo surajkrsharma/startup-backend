@@ -1056,13 +1056,20 @@ const main = async (): Promise<void> => {
     `status=${twice.status} msg=${twice.body?.message}`,
   );
 
-  // ══ Admin can read any order ══════════════════════════════════════════════
-  const adminRead = await admin.get(`/api/v1/orders/getById/${orderId}`);
-  record('admin reads any order -> 200', adminRead.status === 200, `status=${adminRead.status}`);
-
-  const customerTriesAdmin = await cu.get(`/api/v1/orders/getById/${orderId}`);
+  // ══ Order reads are owner-only, for staff too ═════════════════════════════
+  // There is no admin read-order route, and getOrderById deliberately 404s for
+  // anyone who is not the owner — so staff cannot use this route to bypass that.
+  const staffRead = await admin.get(`/api/v1/orders/getById/${orderId}`);
   record(
-    'a customer cannot use the admin route -> 403',
+    'staff cannot read a customer order through getById -> 404',
+    staffRead.status === 404,
+    `status=${staffRead.status}`,
+  );
+
+  // A customer is refused on a genuinely admin-only surface.
+  const customerTriesAdmin = await cu.get('/api/v1/admin/getDashboardStats');
+  record(
+    'a customer cannot use an admin-only route -> 403',
     customerTriesAdmin.status === 403,
     `status=${customerTriesAdmin.status}`,
   );

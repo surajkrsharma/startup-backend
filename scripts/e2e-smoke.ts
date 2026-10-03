@@ -193,11 +193,14 @@ const main = async (): Promise<void> => {
   );
 
   // ── Validation: strict object rejects unknown fields ──────────────────────
+  // Every payload below is otherwise valid, so the ONLY reason it can be rejected is the
+  // extra key. A second problem in the body (a one-character name, say) would make the
+  // 400 pass while testing nothing.
   const unknownField = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type: 'CUSTOMER',
-      name: 'X',
+      name: 'Valid Name',
       email: `u_${Date.now()}@x.com`,
       password: 'Secret@123',
       isAdmin: true,
@@ -205,25 +208,36 @@ const main = async (): Promise<void> => {
 
   record(
     'unknown field rejected -> 400 VALIDATION_ERROR',
-    unknownField.status === 400 && String(unknownField.body?.message).includes('VALIDATION_ERROR'),
+    unknownField.status === 400 &&
+      String(unknownField.body?.message).includes('VALIDATION_ERROR') &&
+      String(unknownField.body?.message).includes('isAdmin'),
     `status=${unknownField.status} msg=${unknownField.body?.message}`,
   );
 
   // ── Validation: bad email ─────────────────────────────────────────────────
-  const badEmail = await request(app)
-    .post('/api/v1/auth/register')
-    .send({ type: 'CUSTOMER', name: 'X', email: 'not-an-email', password: 'Secret@123' });
+  const badEmail = await request(app).post('/api/v1/auth/register').send({
+    type: 'CUSTOMER',
+    name: 'Valid Name',
+    email: 'not-an-email',
+    password: 'Secret@123',
+  });
 
   record(
-    'invalid email -> 400',
-    badEmail.status === 400,
+    'invalid email -> 400 "Please enter a valid email address."',
+    badEmail.status === 400 &&
+      String(badEmail.body?.message).startsWith('Please enter a valid email address.'),
     `status=${badEmail.status} msg=${badEmail.body?.message}`,
   );
 
   // ── Validation: invalid register type ─────────────────────────────────────
   const badType = await request(app)
     .post('/api/v1/auth/register')
-    .send({ type: 'ADMIN', name: 'X', email: `a_${Date.now()}@x.com`, password: 'Secret@123' });
+    .send({
+      type: 'ADMIN',
+      name: 'Valid Name',
+      email: `a_${Date.now()}@x.com`,
+      password: 'Secret@123',
+    });
 
   /**
    * The message text is the contract (the code suffix is appended by the error handler), so
@@ -238,12 +252,53 @@ const main = async (): Promise<void> => {
   // ── Validation: vendor without shopName ───────────────────────────────────
   const noShop = await request(app)
     .post('/api/v1/auth/register')
-    .send({ type: 'VENDOR', name: 'X', email: `b_${Date.now()}@x.com`, password: 'Secret@123' });
+    .send({
+      type: 'VENDOR',
+      name: 'Valid Name',
+      email: `b_${Date.now()}@x.com`,
+      password: 'Secret@123',
+    });
 
   record(
-    'vendor without shopName -> 400',
-    noShop.status === 400,
+    'vendor without shopName -> 400 and shopName is named',
+    noShop.status === 400 && String(noShop.body?.message).includes('shopName'),
     `status=${noShop.status} msg=${noShop.body?.message}`,
+  );
+
+  // ── Validation: a weak password is refused on its own account of the error ──
+  const weakPassword = await request(app)
+    .post('/api/v1/auth/register')
+    .send({
+      type: 'CUSTOMER',
+      name: 'Valid Name',
+      email: `w_${Date.now()}@x.com`,
+      password: 'weakpassword',
+    });
+
+  record(
+    'password without uppercase -> 400 and password is named',
+    weakPassword.status === 400 && String(weakPassword.body?.message).includes('password'),
+    `status=${weakPassword.status} msg=${weakPassword.body?.message}`,
+  );
+
+  // ── Validation: a smuggled role is refused ─────────────────────────────────
+  // A caller must not be able to make itself an admin by sending an extra key.
+  const smuggledEmail = `r_${runId}@projectname.com`;
+  await sendOtp(smuggledEmail);
+
+  const smuggledRole = await request(app).post('/api/v1/auth/register').send({
+    type: 'CUSTOMER',
+    name: 'Valid Name',
+    otp: OTP,
+    email: smuggledEmail,
+    password: 'Secret@123',
+    role: 'SUPER_ADMIN',
+  });
+
+  record(
+    'smuggled role rejected -> 400, not silently honoured',
+    smuggledRole.status === 400,
+    `status=${smuggledRole.status} msg=${smuggledRole.body?.message}`,
   );
 
   // ── Duplicate email → 409 ─────────────────────────────────────────────────

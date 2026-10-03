@@ -116,6 +116,9 @@ export const updatePartnerSchema = createPartnerSchema
 
 export const partnerIdParamSchema = z.object({ id });
 
+/** POST /shipping/createShipment/:subOrderId — the path param is named, not a bare `id`. */
+export const subOrderIdParamSchema = z.object({ subOrderId: common.cuid });
+
 /** POST /shipping/checkServiceable */
 export const checkServiceableSchema = z
   .object({
@@ -324,6 +327,13 @@ export const listActivityLogsSchema = z
   .strict();
 
 export const roleParamSchema = z.object({ role: z.nativeEnum(Role) });
+
+/**
+ * PATCH /admin/updatePermissions/:id — the path param is named `id` but carries a
+ * ROLE. Validating it as an enum turns an unknown role into a 400 instead of a
+ * Prisma enum error surfacing as a 500.
+ */
+export const roleIdParamSchema = z.object({ id: z.nativeEnum(Role) });
 
 export const actorParamSchema = z.object({ userId: common.cuid });
 

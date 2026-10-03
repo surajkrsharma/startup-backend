@@ -30,6 +30,9 @@ export const updateItemSchema = z
 
 export const cartItemParamSchema = z.object({ id });
 
+/** DELETE /cart/removeItem/:cartItemId — the path param is named, not a bare `id`. */
+export const cartItemIdParamSchema = z.object({ cartItemId: id });
+
 /** POST /cart/removeItem — accept the item id or the product id. */
 export const removeItemSchema = z
   .object({

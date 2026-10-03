@@ -174,8 +174,23 @@ const main = async (): Promise<void> => {
   };
 
   // ══ Guards ═════════════════════════════════════════════════════════════════
+  // The review list is deliberately public (optionalAuth) — a product page has to
+  // render ratings for a signed-out visitor. It is the writes that need a token.
   const anon = await request(app).get('/api/v1/reviews/getAll');
-  record('GET /reviews/getAll without token -> 401', anon.status === 401, `status=${anon.status}`);
+  record(
+    'GET /reviews/getAll is readable without a token',
+    anon.status === 200 && Array.isArray(anon.body?.result?.itemList),
+    `status=${anon.status}`,
+  );
+
+  const anonWrite = await request(app)
+    .post('/api/v1/reviews/addReview')
+    .send({ productId, rating: 5 });
+  record(
+    'POST /reviews/addReview without a token -> 401',
+    anonWrite.status === 401,
+    `status=${anonWrite.status}`,
+  );
 
   const badRating = await cu.post('/api/v1/reviews/addReview', { productId, rating: 9 });
   record('rating above 5 -> 400', badRating.status === 400, `status=${badRating.status}`);
@@ -490,25 +505,37 @@ const main = async (): Promise<void> => {
     `answers=${D_arr(withAnswer.body?.result?.itemList)[0]?.answerList?.length}`,
   );
 
+  // /questions/approve/:id is approve-only per the contract — there is no "hide"
+  // route, so a body asking to un-approve must not be honoured.
+  const approveAsVendor = await api(vendor.token).patch(`/api/v1/questions/approve/${questionId}`);
+  record(
+    'a vendor cannot moderate a question -> 403',
+    approveAsVendor.status === 403,
+    `status=${approveAsVendor.status}`,
+  );
+
   const hidden = await admin.patch(`/api/v1/questions/approve/${questionId}`, {
     isApproved: false,
   });
+  record('PATCH /questions/approve/:id -> 200', hidden.status === 200, `status=${hidden.status}`);
   record(
-    'PATCH /reviews/questions/:id/moderate -> 200',
-    hidden.status === 200,
-    `status=${hidden.status}`,
-  );
-  record(
-    'the question is hidden',
-    hidden.body?.result?.isApproved === false,
+    'the question is approved',
+    hidden.body?.result?.isApproved === true,
     String(hidden.body?.result?.isApproved),
   );
 
-  const delQuestion = await cu.del(`/api/v1/questions/${questionId}/delete`);
+  const delQuestion = await cu.del(`/api/v1/questions/delete/${questionId}`);
   record(
-    'DELETE /reviews/questions/:id/delete -> 200',
+    'DELETE /questions/delete/:id -> 200',
     delQuestion.status === 200,
     `status=${delQuestion.status}`,
+  );
+
+  const delAgain = await cu.del(`/api/v1/questions/delete/${questionId}`);
+  record(
+    'deleting the same question twice -> 404',
+    delAgain.status === 404,
+    `status=${delAgain.status}`,
   );
 
   // ══ Coupons ═════════════════════════════════════════════════════════════════

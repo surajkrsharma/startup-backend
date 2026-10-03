@@ -40,7 +40,10 @@ export const guards = {
 export const getAll = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
 
-  const { rows, total } = await service.listPayments(userId(req), {
+  // This listing is admin-only and is meant to be the whole book, so the caller's
+  // id is deliberately NOT passed as a filter — `listPayments` narrows by user only
+  // when one is given.
+  const { rows, total } = await service.listPayments(null, {
     ...(req.query as any),
     skip,
     take,
@@ -91,7 +94,13 @@ export const getByOrder = asyncHandler(async (req, res) => {
  *       422: { description: No token pending, or already paid }
  */
 export const verifyTokenPayment = asyncHandler(async (req, res) => {
-  const payment = await service.verifyTokenPayment(userId(req), req.body, req);
+  // The route carries the order in the path and the schema omits it from the body,
+  // so the service still needs it merged back in.
+  const payment = await service.verifyTokenPayment(
+    userId(req),
+    { ...req.body, orderId: D.str(req.params.orderId) },
+    req,
+  );
   return ApiResponse.success(res, {
     message: SUCCESS.PAYMENT.TOKEN_PAID,
     result: serializePayment(payment),
@@ -109,7 +118,11 @@ export const verifyTokenPayment = asyncHandler(async (req, res) => {
  *       422: { description: Nothing outstanding }
  */
 export const payBalance = asyncHandler(async (req, res) => {
-  const payment = await service.payBalance(userId(req), req.body, req);
+  const payment = await service.payBalance(
+    userId(req),
+    { ...req.body, orderId: D.str(req.params.orderId) },
+    req,
+  );
   return ApiResponse.success(res, {
     message: SUCCESS.PAYMENT.BALANCE_PAID,
     result: serializePayment(payment),
@@ -126,7 +139,11 @@ export const payBalance = asyncHandler(async (req, res) => {
  *       200: { description: Cash recorded }
  */
 export const codCollect = asyncHandler(async (req, res) => {
-  const payment = await service.collectCod(req.body, req.auth!.userId, req);
+  const payment = await service.collectCod(
+    { ...req.body, orderId: D.str(req.params.orderId) },
+    req.auth!.userId,
+    req,
+  );
   return ApiResponse.success(res, {
     message: SUCCESS.PAYMENT.COD_COLLECTED,
     result: serializePayment(payment),

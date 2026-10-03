@@ -287,7 +287,7 @@ export const vendorOrders = asyncHandler(async (req, res) => {
  */
 export const updateSubOrderStatus = asyncHandler(async (req, res) => {
   const sub = await service.updateSubOrderStatus(
-    D.str(req.params.id),
+    D.str(req.params.subOrderId),
     vendorId(req),
     req.body,
     req.auth!.userId,
@@ -375,7 +375,7 @@ export const updateStatus = asyncHandler(async (req, res) => {
  */
 export const assignDeliveryBoy = asyncHandler(async (req, res) => {
   const sub = await service.assignDeliveryBoy(
-    D.str(req.params.id),
+    D.str(req.params.subOrderId),
     D.str(req.body.deliveryBoyId),
     req.auth!.userId,
     req,

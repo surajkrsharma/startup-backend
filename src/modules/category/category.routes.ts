@@ -36,7 +36,7 @@ router.get('/getById/:id', validate({ params: schema.categoryIdParamSchema }), c
 router.get(
   '/getBySlug/:slug',
   validate({ params: schema.categorySlugParamSchema }),
-  controller.getById,
+  controller.getBySlug,
 );
 
 /**

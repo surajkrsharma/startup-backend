@@ -546,10 +546,6 @@ export const countryCodeParamSchema = z.object({
 export const stateCodeParamSchema = z.object({ stateCode: z.string().trim().min(1).max(8) });
 
 /** POST /countries/checkPincode */
-export const checkPincodeBodySchema = z
-  .object({ pincode: z.string().trim().min(3, VALIDATION.REQUIRED('pincode')).max(10) })
-  .strict();
-
 type Assert<T> = T;
 export type ReportInput = Assert<z.infer<typeof reportSchema>>;
 export type CreateScheduleInput = z.infer<typeof createScheduleSchema>;
