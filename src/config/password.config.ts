@@ -1,0 +1,34 @@
+export const PASSWORD = {
+  MIN_LENGTH: 8,
+  MAX_LENGTH: 64,
+  REQUIRE_UPPERCASE: true,
+  REQUIRE_LOWERCASE: true,
+  REQUIRE_NUMBER: true,
+  REQUIRE_SPECIAL: true,
+  SPECIAL_CHARACTERS: '!@#$%^&*()_+-=[]{}|;:,.<>?',
+  BCRYPT_ROUNDS: 12,
+  RESET_TOKEN_EXPIRY_MIN: 30,
+};
+
+export const NAME = {
+  MIN_LENGTH: 2,
+  MAX_LENGTH: 100,
+  SHOP_MIN_LENGTH: 2,
+  SHOP_MAX_LENGTH: 100,
+  ADDRESS_MAX_LENGTH: 200,
+  COMMENT_MAX_LENGTH: 2000,
+  TITLE_MAX_LENGTH: 200,
+};
+
+export const SLUG = {
+  MIN_LENGTH: 2,
+  MAX_LENGTH: 120,
+  SEPARATOR: '-',
+  MAX_SUFFIX: 100,
+};
+
+export const PHONE = {
+  MIN_LENGTH: 7,
+  MAX_LENGTH: 15,
+  DEFAULT_COUNTRY_CODE: '+91',
+};

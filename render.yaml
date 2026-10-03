@@ -1,0 +1,134 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# Every `sync: false` value must be filled in the Render dashboard (or with
+# `render envvars pull`). Secrets are never stored in this file.
+#
+# Why the build command looks like this:
+#
+#   npm ci --include=dev
+#     This blueprint sets NODE_ENV=production, and npm turns that into
+#     `omit=dev` (verify with `npm config get omit`). prisma, typescript and tsx
+#     are all devDependencies, so a bare `npm ci` would install a runtime
+#     without a compiler. --include=dev forces them back in for the build.
+#
+#   NOT --ignore-scripts
+#     bcrypt resolves its native binary through an `install` script
+#     (node-pre-gyp). Skipping scripts leaves `bcrypt_lib.node` missing and every
+#     login throws at runtime. HUSKY=0 below neutralises the `prepare` hook
+#     instead, which is the only script we actually want gone.
+#
+#   npx prisma migrate deploy
+#     Creates the schema. It does NOT insert the super admin or any settings —
+#     that is what `npm run seed` is for. Both are needed on a fresh database.
+services:
+  - type: web
+    name: projectname-api
+    runtime: node
+    plan: starter # free tier + bcrypt cost 12 + per-request tracking writes
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run seed && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      # ── Runtime ────────────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+      - key: HUSKY
+        value: "0" # no-op the prepare hook during install
+      # Render injects PORT automatically; 5000 is the local default.
+      - key: PORT
+        value: 5000
+      - key: LOG_LEVEL
+        value: info
+      # App name is the JWT issuer/audience — changing it invalidates all tokens.
+      - key: APP_NAME
+        value: projectname
+      - key: JWT_ACCESS_EXPIRY
+        value: 15m
+      - key: JWT_REFRESH_EXPIRY
+        value: 7d
+      - key: GEO_LOOKUP_ENABLED
+        value: "true"
+
+      # ── Data stores ────────────────────────────────────────────────────────
+      - key: DATABASE_URL
+        sync: false # Render Postgres → Internal Database URL
+      - key: REDIS_URL
+        sync: false # Render Key Value, or an Upstash/Redis Cloud URL
+      - key: QUEUE_ENABLED
+        value: "true" # requires REDIS_URL, else the process throws at boot
+      - key: WORKER_ENABLED
+        value: "true"
+      - key: TRACKING_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_ENABLED
+        value: "true" # disabling this also removes the OTP brute-force guard
+      # Registration demands a code and writes the user row only after it
+      # verifies. Declared here because it defaults to true, and production
+      # refuses to boot when it is true with no delivery provider — so the
+      # provider keys below must be filled in.
+      - key: OTP_REQUIRED
+        value: "true"
+      # Must stay empty. A fixed OTP would let anyone log in as any account, so
+      # the env schema refuses to boot in production when this is non-empty.
+      - key: OTP_STATIC_CODE
+        value: ""
+      # Set OTP_SMS_ENABLED to "true" and fill MSG91_* to deliver codes to
+      # phone numbers as well as email addresses.
+      - key: OTP_SMS_ENABLED
+        value: "false"
+      - key: MSG91_AUTHKEY
+        sync: false
+      - key: MSG91_SENDER_ID
+        sync: false
+      - key: MSG91_TEMPLATE_ID
+        sync: false
+
+      # ── Secrets ────────────────────────────────────────────────────────────
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false # default in code is SuperSecret@123 — never ship that
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+
+      # ── Transport / CORS ───────────────────────────────────────────────────
+      # Comma-separated, no wildcard. A rejected origin is refused at boot when
+      # NODE_ENV=production and the list contains "*".
+      - key: CORS_ORIGINS
+        sync: false # e.g. https://app.yourdomain.com
+      - key: SOCKET_CORS_ORIGINS
+        sync: false # falls back to CORS_ORIGINS when empty
+
+      # ── Media (optional — uploads 503 without these) ───────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # ── Email (optional — OTP/reset mails are silently skipped without it) ──
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
+
+      # ── Field-level AES-256-GCM (optional, off by default) ─────────────────
+      # Leave both unset to disable. Enabling requires ENCRYPTION_KEY to be
+      # exactly 64 hex chars:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: ENCRYPTION_ENABLED
+        value: "false"
+      - key: ENCRYPTION_KEY
+        sync: false

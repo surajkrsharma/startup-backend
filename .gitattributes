@@ -1,0 +1,34 @@
+# Pin line endings so a Windows checkout cannot rewrite a file that a Linux CI
+# run (or `npm run env:check`) compares byte for byte.
+#
+# `.env` and `.env.example` are generated from one another, so a CRLF checkout
+# made `env:check` report a stale file even when the contents were identical.
+
+* text=auto eol=lf
+
+# Generated, and compared byte for byte by scripts/env-sync.ts
+.env        text eol=lf
+.env.example text eol=lf
+
+*.ts   text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.prisma text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+
+# Windows-only tooling
+*.ps1    text eol=crlf
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+# Binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.webp   binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.node   binary

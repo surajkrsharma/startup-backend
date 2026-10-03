@@ -1,0 +1,214 @@
+import { z } from 'zod';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { VALIDATION } from '../../messages/validation';
+import { NAME } from '../../config/password.config';
+import { PHONE_REGEX } from '../../constants/countries';
+import { common, paginationSchema } from '../../middlewares/validate.middleware';
+import { ORDER_STATUS } from '../../constants/statuses';
+
+const id = common.cuid;
+
+const name = z
+  .string()
+  .trim()
+  .min(2, VALIDATION.MIN_LENGTH('fullName', 2))
+  .max(NAME.MAX_LENGTH, VALIDATION.MAX_LENGTH('fullName', NAME.MAX_LENGTH));
+
+const phone = z.string().trim().max(15).regex(PHONE_REGEX, VALIDATION.INVALID_PHONE);
+const pincode = z
+  .string()
+  .trim()
+  .regex(/^\d{4,10}$/, VALIDATION.INVALID_PINCODE);
+
+/** GET /orders/getAll */
+export const listOrdersSchema = z
+  .object({
+    status: z.nativeEnum(OrderStatus).optional(),
+    paymentStatus: z.nativeEnum(PaymentStatus).optional(),
+    paymentMethod: z.nativeEnum(PaymentMethod).optional(),
+    vendorId: id.optional(),
+    from: common.isoDate.optional(),
+    to: common.isoDate.optional(),
+    search: z.string().trim().max(120).optional(),
+  })
+  .merge(paginationSchema)
+  .strict();
+
+/** GET /orders/getById/:id and /orders/getByNumber/:orderNumber */
+export const orderIdParamSchema = z.object({ id });
+
+export const orderNumberParamSchema = z.object({ orderNumber: z.string().trim().min(4).max(32) });
+
+/**
+ * POST /orders/placeOrder
+ *
+ * One order per vendor split, so the address and payment are given once and the
+ * service derives the sub-orders, commission split and stock movements.
+ */
+export const placeOrderSchema = z
+  .object({
+    addressId: id.optional(),
+    /** Inline address, used when the customer has nothing saved yet. */
+    address: z
+      .object({
+        fullName: name,
+        phone,
+        line1: z.string().trim().min(1).max(NAME.ADDRESS_MAX_LENGTH),
+        line2: z.string().trim().max(NAME.ADDRESS_MAX_LENGTH).optional(),
+        landmark: z.string().trim().max(200).optional(),
+        city: z.string().trim().min(1).max(80),
+        state: z.string().trim().min(1).max(80),
+        stateCode: z.string().trim().max(10).optional(),
+        country: z.string().trim().max(80).optional(),
+        pincode,
+      })
+      .strict()
+      .optional(),
+    paymentMethod: z.nativeEnum(PaymentMethod).default(PaymentMethod.COD),
+    /** A coupon code to try; silently ignored when it does not qualify. */
+    couponCode: z.string().trim().max(24).optional(),
+    useWalletBalance: z.boolean().optional().default(false),
+    walletAmount: z.coerce.number().min(0).optional(),
+    notes: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+    /** Skip confirmation so the order lands in CONFIRMED straight away. */
+    skipStatus: z.boolean().optional().default(false),
+  })
+  .strict()
+  .refine((v) => Boolean(v.addressId || v.address), {
+    message: 'Provide addressId or an inline address.',
+  });
+
+/** PATCH /orders/updateStatus/:id */
+export const updateOrderStatusSchema = z
+  .object({
+    status: z.nativeEnum(OrderStatus),
+    remark: z.string().trim().max(500).optional(),
+    location: z.string().trim().max(120).optional(),
+  })
+  .strict();
+
+/**
+ * PATCH /orders/updateSubOrderStatus/:id — a vendor moving only their own
+ * sub-order through the state machine.
+ */
+export const updateSubOrderStatusSchema = z
+  .object({
+    status: z.nativeEnum(OrderStatus),
+    remark: z.string().trim().max(500).optional(),
+  })
+  .strict();
+
+/** POST /orders/cancelOrder/:id */
+export const cancelOrderSchema = z
+  .object({
+    reason: z.string().trim().min(3, VALIDATION.REQUIRED('reason')).max(500),
+    /** Cancel a single vendor's portion instead of the whole order. */
+    subOrderId: id.optional(),
+  })
+  .strict();
+
+/** POST /orders/cancelSubOrder/:id */
+export const cancelSubOrderSchema = z
+  .object({
+    reason: z.string().trim().min(3, VALIDATION.REQUIRED('reason')).max(500),
+  })
+  .strict();
+
+/** POST /orders/assignDeliveryBoy/:id */
+export const assignDeliveryBoySchema = z
+  .object({
+    deliveryBoyId: id,
+  })
+  .strict();
+
+/** POST /orders/reorder — repopulate the cart from a past order. */
+export const reorderSchema = z
+  .object({
+    orderId: id,
+    /** Skip lines whose product is gone or unavailable instead of failing. */
+    skipUnavailable: z.boolean().optional().default(true),
+  })
+  .strict();
+
+/** POST /orders/confirmDelivery/:id */
+export const confirmDeliverySchema = z
+  .object({
+    otp: z.string().trim().length(4).optional(),
+    remarks: z.string().trim().max(300).optional(),
+    /** Cash collected at the door; required when the order is COD. */
+    collectedAmount: z.coerce.number().min(0).optional(),
+  })
+  .strict();
+
+/** GET /orders/vendorOrders */
+export const vendorOrdersSchema = z
+  .object({
+    status: z.nativeEnum(OrderStatus).optional(),
+    from: common.isoDate.optional(),
+    to: common.isoDate.optional(),
+  })
+  .merge(paginationSchema)
+  .strict();
+
+/** GET /orders/getInvoice/:id — rendered as HTML by default. */
+export const invoiceParamSchema = z.object({ id });
+
+export const invoiceQuerySchema = z
+  .object({
+    format: z.enum(['html', 'json']).optional().default('html'),
+  })
+  .strict();
+
+/** GET /orders/track/:orderNumber */
+export const trackParamSchema = z.object({ id: z.string().trim().min(4).max(32) });
+
+/** Sub-order ids share the id shape, so they get their own name for readability. */
+export const subOrderParamSchema = z.object({ subOrderId: z.string().trim().min(1).max(40) });
+
+export const returnIdParamSchema = z.object({ returnId: z.string().trim().min(1).max(40) });
+
+/** POST /orders/returnRequest/:id — same shape as the returns module's create request. */
+export const returnRequestSchema = z
+  .object({
+    subOrderId: z.string().trim().min(1).max(40).optional(),
+    reasonId: z.string().trim().min(1).max(40).optional(),
+    reasonText: z.string().trim().max(500).optional(),
+    comment: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+    images: z.array(z.string().trim().max(300)).max(6).optional(),
+    items: z
+      .array(
+        z
+          .object({
+            orderItemId: z.string().trim().min(1).max(40),
+            qty: z.coerce.number().int().min(1).max(999),
+          })
+          .strict(),
+      )
+      .min(1, VALIDATION.REQUIRED('items'))
+      .max(50),
+  })
+  .strict()
+  .refine((v) => Boolean(v.reasonId || v.reasonText), {
+    message: 'Provide reasonId or reasonText.',
+  });
+
+/** The status is fixed by the route, so only the free-text fields remain. */
+export const returnDecisionSchema = z
+  .object({
+    remark: z.string().trim().max(500).optional(),
+    itemApproval: z
+      .array(z.object({ returnItemId: z.string().trim().min(1), isApproved: z.boolean() }).strict())
+      .max(50)
+      .optional(),
+  })
+  .strict();
+
+export const rejectReturnDecisionSchema = returnDecisionSchema.refine(
+  (v) => Boolean(v.remark && String(v.remark).trim().length > 0),
+  { message: VALIDATION.REQUIRED('remark') },
+);
+
+export const ORDER_STATUS_VALUES = Object.values(ORDER_STATUS);
+
+export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
+export type ListOrdersInput = z.infer<typeof listOrdersSchema>;

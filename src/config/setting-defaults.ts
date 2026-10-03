@@ -1,0 +1,259 @@
+/**
+ * The seeded value of every `SystemSetting` key.
+ *
+ * Seed and `settings/resetToDefault` both read this list, so an admin resetting to defaults
+ * can never land somewhere the seed would not.
+ */
+export interface SettingSeed {
+  key: string;
+  value: any;
+  category: string;
+  isPublic: boolean;
+}
+
+export const SETTINGS: SettingSeed[] = [
+  // ── General / Site ──────────────────────────────────────────────────────
+  { key: 'site.name', value: 'ProjectName', category: 'general', isPublic: true },
+  { key: 'site.logo', value: '', category: 'general', isPublic: true },
+  {
+    key: 'site.supportEmail',
+    value: 'support@projectname.com',
+    category: 'general',
+    isPublic: true,
+  },
+  { key: 'site.supportPhones', value: [], category: 'general', isPublic: true },
+  { key: 'site.favicon', value: '', category: 'general', isPublic: true },
+  { key: 'site.tagline', value: '', category: 'general', isPublic: true },
+  { key: 'site.addressLine', value: '', category: 'general', isPublic: true },
+  {
+    key: 'site.socialLinks',
+    value: { facebook: '', instagram: '', twitter: '', youtube: '' },
+    category: 'general',
+    isPublic: true,
+  },
+  { key: 'site.maintenanceImage', value: '', category: 'general', isPublic: true },
+
+  // ── Locale / Timezone / Currency ────────────────────────────────────────
+  { key: 'currency.code', value: 'INR', category: 'currency', isPublic: true },
+  { key: 'currency.symbol', value: '₹', category: 'currency', isPublic: true },
+  { key: 'currency.decimals', value: 2, category: 'currency', isPublic: true },
+  { key: 'locale.default', value: 'en', category: 'locale', isPublic: true },
+  { key: 'locale.supported', value: ['en', 'hi'], category: 'locale', isPublic: true },
+  { key: 'timezone.default', value: 'Asia/Kolkata', category: 'locale', isPublic: true },
+  { key: 'date.format', value: 'DD-MM-YYYY', category: 'locale', isPublic: true },
+  { key: 'time.format', value: 'hh:mm A', category: 'locale', isPublic: true },
+
+  // ── Business / Commission ───────────────────────────────────────────────
+  { key: 'commission.default', value: 10, category: 'business', isPublic: false },
+  { key: 'commission.minPercent', value: 0, category: 'business', isPublic: false },
+  { key: 'commission.maxPercent', value: 50, category: 'business', isPublic: false },
+  { key: 'tax.defaultGstPercent', value: 18, category: 'tax', isPublic: true },
+  { key: 'tax.inclusive', value: false, category: 'tax', isPublic: true },
+
+  // ── Order ───────────────────────────────────────────────────────────────
+  { key: 'order.minAmount', value: 100, category: 'business', isPublic: true },
+  { key: 'order.maxItems', value: 50, category: 'business', isPublic: true },
+  { key: 'order.cancelWindowMin', value: 30, category: 'business', isPublic: true },
+  { key: 'order.autoCancelUnpaidMin', value: 1440, category: 'order', isPublic: false },
+  { key: 'order.allowGuestCheckout', value: false, category: 'order', isPublic: true },
+  { key: 'order.requirePhoneVerify', value: true, category: 'order', isPublic: true },
+  { key: 'order.maxPerCustomerPerDay', value: 20, category: 'order', isPublic: false },
+  { key: 'order.showVendorSplit', value: true, category: 'order', isPublic: true },
+
+  // ── Payment — COD / UPI / Bank ──────────────────────────────────────────
+  { key: 'payment.cod.enabled', value: true, category: 'payment', isPublic: true },
+  { key: 'payment.upi.enabled', value: true, category: 'payment', isPublic: true },
+  { key: 'payment.bank.enabled', value: true, category: 'payment', isPublic: true },
+  { key: 'payment.upi.id', value: 'projectname@upi', category: 'payment', isPublic: true },
+  {
+    key: 'payment.bank.holderName',
+    value: 'ProjectName Pvt Ltd',
+    category: 'payment',
+    isPublic: true,
+  },
+  { key: 'payment.bank.accountNo', value: '000000000000', category: 'payment', isPublic: true },
+  { key: 'payment.bank.ifsc', value: 'HDFC0000000', category: 'payment', isPublic: true },
+  { key: 'payment.cod.maxAmount', value: 20000, category: 'payment', isPublic: true },
+  { key: 'payment.cod.enabledAbove', value: 0, category: 'payment', isPublic: true },
+  { key: 'payment.cod.extraCharge', value: 0, category: 'payment', isPublic: true },
+  { key: 'payment.razorpay.enabled', value: false, category: 'payment', isPublic: false },
+  { key: 'payment.razorpay.keyId', value: '', category: 'payment', isPublic: false },
+  { key: 'payment.razorpay.webhookSecret', value: '', category: 'payment', isPublic: false },
+
+  // ── Payment — Token / Advance ───────────────────────────────────────────
+  { key: 'payment.token.enabled', value: false, category: 'payment', isPublic: true },
+  { key: 'payment.token.mode', value: 'percent', category: 'payment', isPublic: true },
+  { key: 'payment.token.percent', value: 20, category: 'payment', isPublic: true },
+  { key: 'payment.token.fixedAmount', value: 100, category: 'payment', isPublic: true },
+  { key: 'payment.token.minAmount', value: 50, category: 'payment', isPublic: true },
+  { key: 'payment.token.maxAmount', value: 5000, category: 'payment', isPublic: true },
+  { key: 'payment.token.applicableAbove', value: 2000, category: 'payment', isPublic: true },
+  {
+    key: 'payment.token.allowedMethods',
+    value: ['UPI', 'CARD', 'NETBANKING'],
+    category: 'payment',
+    isPublic: true,
+  },
+  { key: 'payment.token.refundable', value: true, category: 'payment', isPublic: true },
+  { key: 'payment.token.refundPercent', value: 100, category: 'payment', isPublic: true },
+  { key: 'payment.token.cancelWindowMin', value: 60, category: 'payment', isPublic: true },
+  { key: 'payment.token.balanceDueDays', value: 7, category: 'payment', isPublic: true },
+  {
+    key: 'payment.token.balanceReminderHours',
+    value: [24, 48, 72],
+    category: 'payment',
+    isPublic: false,
+  },
+  { key: 'payment.token.forfeitOnNoPay', value: true, category: 'payment', isPublic: false },
+  { key: 'payment.token.autoCancelAfterDue', value: true, category: 'payment', isPublic: false },
+
+  // ── Shipping / Delivery ─────────────────────────────────────────────────
+  { key: 'shipping.enabled', value: true, category: 'shipping', isPublic: true },
+  { key: 'shipping.defaultCharge', value: 49, category: 'shipping', isPublic: true },
+  { key: 'shipping.freeAbove', value: 999, category: 'shipping', isPublic: true },
+  { key: 'shipping.estimatedDays', value: 5, category: 'shipping', isPublic: true },
+  { key: 'shipping.perKgCharge', value: 0, category: 'shipping', isPublic: true },
+  { key: 'shipping.maxDistanceKm', value: 0, category: 'shipping', isPublic: true },
+  { key: 'shipping.serviceablePincodes', value: [], category: 'shipping', isPublic: true },
+
+  // ── Return / Refund ─────────────────────────────────────────────────────
+  { key: 'return.enabled', value: true, category: 'return', isPublic: true },
+  { key: 'return.windowDays', value: 7, category: 'return', isPublic: true },
+  { key: 'return.reasonRequired', value: true, category: 'return', isPublic: true },
+  { key: 'return.imagesRequired', value: true, category: 'return', isPublic: true },
+  { key: 'return.maxQtyPerOrder', value: 0, category: 'return', isPublic: false },
+  { key: 'refund.processingDays', value: 5, category: 'refund', isPublic: true },
+  { key: 'refund.mode', value: 'original', category: 'refund', isPublic: true },
+
+  // ── Wallet / Loyalty ────────────────────────────────────────────────────
+  { key: 'wallet.enabled', value: false, category: 'wallet', isPublic: true },
+  { key: 'wallet.maxBalance', value: 50000, category: 'wallet', isPublic: true },
+  { key: 'wallet.minRedeem', value: 100, category: 'wallet', isPublic: true },
+  { key: 'wallet.expiryDays', value: 365, category: 'wallet', isPublic: true },
+  { key: 'loyalty.enabled', value: false, category: 'loyalty', isPublic: true },
+  { key: 'loyalty.pointsPerRupee', value: 1, category: 'loyalty', isPublic: true },
+  { key: 'loyalty.pointValue', value: 0.01, category: 'loyalty', isPublic: true },
+  { key: 'loyalty.minRedeemPoints', value: 100, category: 'loyalty', isPublic: true },
+
+  // ── Coupon ──────────────────────────────────────────────────────────────
+  { key: 'coupon.maxPerOrder', value: 1, category: 'coupon', isPublic: true },
+  { key: 'coupon.stackable', value: false, category: 'coupon', isPublic: true },
+  { key: 'coupon.minOrderAmount', value: 0, category: 'coupon', isPublic: true },
+  { key: 'coupon.maxDiscount', value: 0, category: 'coupon', isPublic: true },
+
+  // ── Features ────────────────────────────────────────────────────────────
+  { key: 'feature.reviews', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.wishlist', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.coupons', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.chat', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.multiVendor', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.guestCheckout', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.productCompare', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.recentlyViewed', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.liveTracking', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.wallet', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.loyalty', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.referral', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.giftCards', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.chatSupport', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.ticketSupport', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.socialLogin', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.twoFactor', value: false, category: 'feature', isPublic: true },
+  { key: 'feature.analytics', value: true, category: 'feature', isPublic: true },
+  { key: 'feature.tracking', value: true, category: 'feature', isPublic: true },
+
+  // ── Catalog ─────────────────────────────────────────────────────────────
+  { key: 'catalog.productsPerPage', value: 20, category: 'catalog', isPublic: true },
+  { key: 'catalog.showOutOfStock', value: true, category: 'catalog', isPublic: true },
+  { key: 'catalog.allowBackorder', value: false, category: 'catalog', isPublic: true },
+  { key: 'catalog.defaultSort', value: '-createdAt', category: 'catalog', isPublic: true },
+  { key: 'catalog.maxImagesPerProduct', value: 10, category: 'catalog', isPublic: false },
+
+  // ── Cart ────────────────────────────────────────────────────────────────
+  { key: 'cart.maxItems', value: 50, category: 'cart', isPublic: true },
+  { key: 'cart.holdMinutes', value: 30, category: 'cart', isPublic: false },
+  { key: 'cart.persistAcrossDevices', value: true, category: 'cart', isPublic: true },
+
+  // ── Vendor / Payout ─────────────────────────────────────────────────────
+  { key: 'vendor.autoApprove', value: false, category: 'vendor', isPublic: false },
+  { key: 'vendor.maxProducts', value: 500, category: 'vendor', isPublic: false },
+  { key: 'vendor.minPayoutAmount', value: 500, category: 'vendor', isPublic: false },
+  { key: 'vendor.payoutCycleDays', value: 7, category: 'vendor', isPublic: false },
+  { key: 'vendor.payoutHoldDays', value: 3, category: 'vendor', isPublic: false },
+  { key: 'vendor.commissionOverrideAllowed', value: true, category: 'vendor', isPublic: false },
+
+  // ── Notification ────────────────────────────────────────────────────────
+  { key: 'notification.email.enabled', value: true, category: 'notification', isPublic: false },
+  { key: 'notification.sms.enabled', value: false, category: 'notification', isPublic: false },
+  { key: 'notification.push.enabled', value: true, category: 'notification', isPublic: false },
+  { key: 'notification.whatsapp.enabled', value: false, category: 'notification', isPublic: false },
+  {
+    key: 'notification.orderEvents',
+    value: ['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+    category: 'notification',
+    isPublic: false,
+  },
+  {
+    key: 'notification.tokenBalanceReminder',
+    value: true,
+    category: 'notification',
+    isPublic: false,
+  },
+
+  // ── Security ────────────────────────────────────────────────────────────
+  { key: 'security.otpLoginEnabled', value: false, category: 'security', isPublic: false },
+  { key: 'security.twoFactorEnabled', value: false, category: 'security', isPublic: false },
+  { key: 'security.maxLoginAttempts', value: 5, category: 'security', isPublic: false },
+  { key: 'security.lockoutMinutes', value: 15, category: 'security', isPublic: false },
+  { key: 'security.passwordMinLength', value: 8, category: 'security', isPublic: false },
+  { key: 'security.requireEmailVerify', value: false, category: 'security', isPublic: false },
+  { key: 'security.requirePhoneVerify', value: true, category: 'security', isPublic: false },
+  { key: 'security.sessionDays', value: 7, category: 'security', isPublic: false },
+
+  // ── System / Maintenance ────────────────────────────────────────────────
+  { key: 'maintenance.enabled', value: false, category: 'system', isPublic: false },
+  { key: 'maintenance.message', value: "We'll be back soon.", category: 'system', isPublic: true },
+  { key: 'maintenance.allowedIps', value: [], category: 'system', isPublic: false },
+  { key: 'system.encryptionEnabled', value: false, category: 'system', isPublic: false },
+  { key: 'system.apiRateLimitPerMin', value: 100, category: 'system', isPublic: false },
+
+  // ── App / Android / iOS ─────────────────────────────────────────────────
+  { key: 'app.minAndroidVersion', value: '1.0.0', category: 'app', isPublic: true },
+  { key: 'app.forceUpdateAndroid', value: false, category: 'app', isPublic: true },
+  { key: 'app.latestAndroidVersion', value: '1.0.0', category: 'app', isPublic: true },
+  { key: 'app.minIosVersion', value: '1.0.0', category: 'app', isPublic: true },
+  { key: 'app.forceUpdateIos', value: false, category: 'app', isPublic: true },
+  { key: 'app.latestIosVersion', value: '1.0.0', category: 'app', isPublic: true },
+  { key: 'app.updateMessage', value: '', category: 'app', isPublic: true },
+
+  // ── Tracking & Analytics ────────────────────────────────────────────────
+  { key: 'tracking.enabled', value: true, category: 'tracking', isPublic: false },
+  { key: 'tracking.sessionTimeoutMin', value: 30, category: 'tracking', isPublic: false },
+  { key: 'tracking.geoLookupEnabled', value: true, category: 'tracking', isPublic: false },
+  { key: 'tracking.botFilterEnabled', value: true, category: 'tracking', isPublic: false },
+  { key: 'tracking.rawRetentionDays', value: 90, category: 'tracking', isPublic: false },
+  { key: 'analytics.realtimeWindowMin', value: 5, category: 'analytics', isPublic: false },
+  { key: 'analytics.aggregationCron', value: '0 2 * * *', category: 'analytics', isPublic: false },
+  { key: 'analytics.exportMaxRows', value: 50000, category: 'analytics', isPublic: false },
+
+  // ── Referral / Gift Cards ───────────────────────────────────────────────
+  { key: 'referral.enabled', value: false, category: 'referral', isPublic: true },
+  { key: 'referral.referrerReward', value: 100, category: 'referral', isPublic: false },
+  { key: 'referral.refereeReward', value: 50, category: 'referral', isPublic: false },
+  { key: 'referral.expiryDays', value: 90, category: 'referral', isPublic: false },
+  { key: 'giftCard.enabled', value: false, category: 'giftCard', isPublic: true },
+  { key: 'giftCard.minAmount', value: 100, category: 'giftCard', isPublic: true },
+  { key: 'giftCard.maxAmount', value: 50000, category: 'giftCard', isPublic: true },
+  { key: 'giftCard.expiryDays', value: 365, category: 'giftCard', isPublic: true },
+
+  // ── Support / Chat ──────────────────────────────────────────────────────
+  { key: 'support.ticket.enabled', value: true, category: 'support', isPublic: true },
+  { key: 'support.chat.enabled', value: false, category: 'support', isPublic: true },
+  { key: 'support.chatAutoReply', value: true, category: 'support', isPublic: false },
+  {
+    key: 'support.workingHours',
+    value: { start: '10:00', end: '19:00' },
+    category: 'support',
+    isPublic: true,
+  },
+];

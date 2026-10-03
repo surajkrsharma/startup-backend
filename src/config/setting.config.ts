@@ -1,0 +1,240 @@
+/** Every `SystemSetting.key` the code reads by name. */
+export const SETTING_KEY = {
+  // general
+  SITE_NAME: 'site.name',
+  SITE_LOGO: 'site.logo',
+  SITE_TAGLINE: 'site.tagline',
+  SITE_SUPPORT_EMAIL: 'site.supportEmail',
+  SITE_SUPPORT_PHONES: 'site.supportPhones',
+  SITE_SOCIAL_LINKS: 'site.socialLinks',
+  SITE_FAVICON: 'site.favicon',
+  SITE_ADDRESS_LINE: 'site.addressLine',
+  SITE_MAINTENANCE_IMAGE: 'site.maintenanceImage',
+
+  // locale / currency
+  CURRENCY_CODE: 'currency.code',
+  CURRENCY_SYMBOL: 'currency.symbol',
+  CURRENCY_DECIMALS: 'currency.decimals',
+  LOCALE_DEFAULT: 'locale.default',
+  LOCALE_SUPPORTED: 'locale.supported',
+  TIMEZONE_DEFAULT: 'timezone.default',
+  DATE_FORMAT: 'date.format',
+  TIME_FORMAT: 'time.format',
+
+  // business
+  COMMISSION_DEFAULT: 'commission.default',
+  COMMISSION_MIN_PERCENT: 'commission.minPercent',
+  COMMISSION_MAX_PERCENT: 'commission.maxPercent',
+  TAX_DEFAULT_GST_PERCENT: 'tax.defaultGstPercent',
+  TAX_INCLUSIVE: 'tax.inclusive',
+
+  // order
+  ORDER_MIN_AMOUNT: 'order.minAmount',
+  ORDER_MAX_ITEMS: 'order.maxItems',
+  ORDER_CANCEL_WINDOW_MIN: 'order.cancelWindowMin',
+  ORDER_AUTO_CANCEL_UNPAID_MIN: 'order.autoCancelUnpaidMin',
+  ORDER_ALLOW_GUEST_CHECKOUT: 'order.allowGuestCheckout',
+  ORDER_REQUIRE_PHONE_VERIFY: 'order.requirePhoneVerify',
+  ORDER_MAX_PER_CUSTOMER_PER_DAY: 'order.maxPerCustomerPerDay',
+  ORDER_SHOW_VENDOR_SPLIT: 'order.showVendorSplit',
+
+  // payment — cod / upi / bank
+  PAYMENT_COD_ENABLED: 'payment.cod.enabled',
+  PAYMENT_UPI_ENABLED: 'payment.upi.enabled',
+  PAYMENT_BANK_ENABLED: 'payment.bank.enabled',
+  PAYMENT_UPI_ID: 'payment.upi.id',
+  PAYMENT_BANK_HOLDER: 'payment.bank.holderName',
+  PAYMENT_BANK_ACCOUNT: 'payment.bank.accountNo',
+  PAYMENT_BANK_IFSC: 'payment.bank.ifsc',
+  PAYMENT_COD_MAX_AMOUNT: 'payment.cod.maxAmount',
+  PAYMENT_COD_ENABLED_ABOVE: 'payment.cod.enabledAbove',
+  PAYMENT_COD_EXTRA_CHARGE: 'payment.cod.extraCharge',
+  PAYMENT_RAZORPAY_ENABLED: 'payment.razorpay.enabled',
+  PAYMENT_RAZORPAY_KEY_ID: 'payment.razorpay.keyId',
+  PAYMENT_RAZORPAY_WEBHOOK_SECRET: 'payment.razorpay.webhookSecret',
+
+  // payment — token / advance
+  PAYMENT_TOKEN_ENABLED: 'payment.token.enabled',
+  PAYMENT_TOKEN_MODE: 'payment.token.mode',
+  PAYMENT_TOKEN_PERCENT: 'payment.token.percent',
+  PAYMENT_TOKEN_FIXED_AMOUNT: 'payment.token.fixedAmount',
+  PAYMENT_TOKEN_MIN_AMOUNT: 'payment.token.minAmount',
+  PAYMENT_TOKEN_MAX_AMOUNT: 'payment.token.maxAmount',
+  PAYMENT_TOKEN_APPLICABLE_ABOVE: 'payment.token.applicableAbove',
+  PAYMENT_TOKEN_ALLOWED_METHODS: 'payment.token.allowedMethods',
+  PAYMENT_TOKEN_REFUNDABLE: 'payment.token.refundable',
+  PAYMENT_TOKEN_REFUND_PERCENT: 'payment.token.refundPercent',
+  PAYMENT_TOKEN_CANCEL_WINDOW_MIN: 'payment.token.cancelWindowMin',
+  PAYMENT_TOKEN_BALANCE_DUE_DAYS: 'payment.token.balanceDueDays',
+  PAYMENT_TOKEN_BALANCE_REMINDER_HOURS: 'payment.token.balanceReminderHours',
+  PAYMENT_TOKEN_FORFEIT_ON_NO_PAY: 'payment.token.forfeitOnNoPay',
+  PAYMENT_TOKEN_AUTO_CANCEL_AFTER_DUE: 'payment.token.autoCancelAfterDue',
+
+  // shipping
+  SHIPPING_ENABLED: 'shipping.enabled',
+  SHIPPING_DEFAULT_CHARGE: 'shipping.defaultCharge',
+  SHIPPING_FREE_ABOVE: 'shipping.freeAbove',
+  SHIPPING_ESTIMATED_DAYS: 'shipping.estimatedDays',
+  SHIPPING_PER_KG_CHARGE: 'shipping.perKgCharge',
+  SHIPPING_MAX_DISTANCE_KM: 'shipping.maxDistanceKm',
+  SHIPPING_SERVICEABLE_PINCODES: 'shipping.serviceablePincodes',
+
+  // return / refund
+  RETURN_ENABLED: 'return.enabled',
+  RETURN_WINDOW_DAYS: 'return.windowDays',
+  RETURN_REASON_REQUIRED: 'return.reasonRequired',
+  RETURN_IMAGES_REQUIRED: 'return.imagesRequired',
+  RETURN_MAX_QTY_PER_ORDER: 'return.maxQtyPerOrder',
+  REFUND_PROCESSING_DAYS: 'refund.processingDays',
+  REFUND_MODE: 'refund.mode',
+
+  // wallet / loyalty
+  WALLET_ENABLED: 'wallet.enabled',
+  WALLET_MAX_BALANCE: 'wallet.maxBalance',
+  WALLET_MIN_REDEEM: 'wallet.minRedeem',
+  WALLET_EXPIRY_DAYS: 'wallet.expiryDays',
+  LOYALTY_ENABLED: 'loyalty.enabled',
+  LOYALTY_POINTS_PER_RUPEE: 'loyalty.pointsPerRupee',
+  LOYALTY_POINT_VALUE: 'loyalty.pointValue',
+  LOYALTY_MIN_REDEEM_POINTS: 'loyalty.minRedeemPoints',
+
+  // coupon
+  COUPON_MAX_PER_ORDER: 'coupon.maxPerOrder',
+  COUPON_STACKABLE: 'coupon.stackable',
+  COUPON_MIN_ORDER_AMOUNT: 'coupon.minOrderAmount',
+  COUPON_MAX_DISCOUNT: 'coupon.maxDiscount',
+
+  // features
+  FEATURE_REVIEWS: 'feature.reviews',
+  FEATURE_WISHLIST: 'feature.wishlist',
+  FEATURE_COUPONS: 'feature.coupons',
+  FEATURE_CHAT: 'feature.chat',
+  FEATURE_MULTI_VENDOR: 'feature.multiVendor',
+  FEATURE_GUEST_CHECKOUT: 'feature.guestCheckout',
+  FEATURE_PRODUCT_COMPARE: 'feature.productCompare',
+  FEATURE_RECENTLY_VIEWED: 'feature.recentlyViewed',
+  FEATURE_LIVE_TRACKING: 'feature.liveTracking',
+  FEATURE_WALLET: 'feature.wallet',
+  FEATURE_LOYALTY: 'feature.loyalty',
+  FEATURE_REFERRAL: 'feature.referral',
+  FEATURE_GIFT_CARDS: 'feature.giftCards',
+  FEATURE_CHAT_SUPPORT: 'feature.chatSupport',
+  FEATURE_TICKET_SUPPORT: 'feature.ticketSupport',
+  FEATURE_SOCIAL_LOGIN: 'feature.socialLogin',
+  FEATURE_TWO_FACTOR: 'feature.twoFactor',
+  FEATURE_ANALYTICS: 'feature.analytics',
+  FEATURE_TRACKING: 'feature.tracking',
+
+  // catalog
+  CATALOG_PRODUCTS_PER_PAGE: 'catalog.productsPerPage',
+  CATALOG_SHOW_OUT_OF_STOCK: 'catalog.showOutOfStock',
+  CATALOG_ALLOW_BACKORDER: 'catalog.allowBackorder',
+  CATALOG_DEFAULT_SORT: 'catalog.defaultSort',
+  CATALOG_MAX_IMAGES_PER_PRODUCT: 'catalog.maxImagesPerProduct',
+
+  // cart
+  CART_MAX_ITEMS: 'cart.maxItems',
+  CART_HOLD_MINUTES: 'cart.holdMinutes',
+  CART_PERSIST_ACROSS_DEVICES: 'cart.persistAcrossDevices',
+
+  // vendor / payout
+  VENDOR_AUTO_APPROVE: 'vendor.autoApprove',
+  VENDOR_MAX_PRODUCTS: 'vendor.maxProducts',
+  VENDOR_MIN_PAYOUT_AMOUNT: 'vendor.minPayoutAmount',
+  VENDOR_PAYOUT_CYCLE_DAYS: 'vendor.payoutCycleDays',
+  VENDOR_PAYOUT_HOLD_DAYS: 'vendor.payoutHoldDays',
+  VENDOR_COMMISSION_OVERRIDE_ALLOWED: 'vendor.commissionOverrideAllowed',
+
+  // notification
+  NOTIFICATION_EMAIL_ENABLED: 'notification.email.enabled',
+  NOTIFICATION_SMS_ENABLED: 'notification.sms.enabled',
+  NOTIFICATION_PUSH_ENABLED: 'notification.push.enabled',
+  NOTIFICATION_WHATSAPP_ENABLED: 'notification.whatsapp.enabled',
+  NOTIFICATION_ORDER_EVENTS: 'notification.orderEvents',
+  NOTIFICATION_TOKEN_BALANCE_REMINDER: 'notification.tokenBalanceReminder',
+
+  // security
+  SECURITY_OTP_LOGIN_ENABLED: 'security.otpLoginEnabled',
+  SECURITY_TWO_FACTOR_ENABLED: 'security.twoFactorEnabled',
+  SECURITY_MAX_LOGIN_ATTEMPTS: 'security.maxLoginAttempts',
+  SECURITY_LOCKOUT_MINUTES: 'security.lockoutMinutes',
+  SECURITY_PASSWORD_MIN_LENGTH: 'security.passwordMinLength',
+  SECURITY_REQUIRE_EMAIL_VERIFY: 'security.requireEmailVerify',
+  SECURITY_REQUIRE_PHONE_VERIFY: 'security.requirePhoneVerify',
+  SECURITY_SESSION_DAYS: 'security.sessionDays',
+
+  // system / maintenance
+  MAINTENANCE_ENABLED: 'maintenance.enabled',
+  MAINTENANCE_MESSAGE: 'maintenance.message',
+  MAINTENANCE_ALLOWED_IPS: 'maintenance.allowedIps',
+  SYSTEM_ENCRYPTION_ENABLED: 'system.encryptionEnabled',
+  SYSTEM_API_RATE_LIMIT_PER_MIN: 'system.apiRateLimitPerMin',
+
+  // app
+  APP_MIN_ANDROID_VERSION: 'app.minAndroidVersion',
+  APP_FORCE_UPDATE_ANDROID: 'app.forceUpdateAndroid',
+  APP_LATEST_ANDROID_VERSION: 'app.latestAndroidVersion',
+  APP_MIN_IOS_VERSION: 'app.minIosVersion',
+  APP_FORCE_UPDATE_IOS: 'app.forceUpdateIos',
+  APP_LATEST_IOS_VERSION: 'app.latestIosVersion',
+  APP_UPDATE_MESSAGE: 'app.updateMessage',
+
+  // tracking
+  TRACKING_ENABLED: 'tracking.enabled',
+  TRACKING_SESSION_TIMEOUT_MIN: 'tracking.sessionTimeoutMin',
+  TRACKING_GEO_LOOKUP_ENABLED: 'tracking.geoLookupEnabled',
+  TRACKING_BOT_FILTER_ENABLED: 'tracking.botFilterEnabled',
+  TRACKING_RAW_RETENTION_DAYS: 'tracking.rawRetentionDays',
+  ANALYTICS_REALTIME_WINDOW_MIN: 'analytics.realtimeWindowMin',
+  ANALYTICS_AGGREGATION_CRON: 'analytics.aggregationCron',
+  ANALYTICS_EXPORT_MAX_ROWS: 'analytics.exportMaxRows',
+
+  // referral / gift card
+  REFERRAL_ENABLED: 'referral.enabled',
+  REFERRAL_REFERRER_REWARD: 'referral.referrerReward',
+  REFERRAL_REFEREE_REWARD: 'referral.refereeReward',
+  REFERRAL_EXPIRY_DAYS: 'referral.expiryDays',
+  GIFT_CARD_ENABLED: 'giftCard.enabled',
+  GIFT_CARD_MIN_AMOUNT: 'giftCard.minAmount',
+  GIFT_CARD_MAX_AMOUNT: 'giftCard.maxAmount',
+  GIFT_CARD_EXPIRY_DAYS: 'giftCard.expiryDays',
+
+  // support
+  SUPPORT_TICKET_ENABLED: 'support.ticket.enabled',
+  SUPPORT_CHAT_ENABLED: 'support.chat.enabled',
+  SUPPORT_CHAT_AUTO_REPLY: 'support.chatAutoReply',
+  SUPPORT_WORKING_HOURS: 'support.workingHours',
+} as const;
+
+export type SettingKey = (typeof SETTING_KEY)[keyof typeof SETTING_KEY];
+
+export const SETTING_CATEGORY = {
+  GENERAL: 'general',
+  CURRENCY: 'currency',
+  LOCALE: 'locale',
+  BUSINESS: 'business',
+  TAX: 'tax',
+  ORDER: 'order',
+  PAYMENT: 'payment',
+  SHIPPING: 'shipping',
+  RETURN: 'return',
+  REFUND: 'refund',
+  WALLET: 'wallet',
+  LOYALTY: 'loyalty',
+  COUPON: 'coupon',
+  FEATURE: 'feature',
+  CATALOG: 'catalog',
+  CART: 'cart',
+  VENDOR: 'vendor',
+  NOTIFICATION: 'notification',
+  SECURITY: 'security',
+  SYSTEM: 'system',
+  APP: 'app',
+  TRACKING: 'tracking',
+  ANALYTICS: 'analytics',
+  REFERRAL: 'referral',
+  GIFT_CARD: 'giftCard',
+  SUPPORT: 'support',
+} as const;
+
+export type SettingCategory = (typeof SETTING_CATEGORY)[keyof typeof SETTING_CATEGORY];

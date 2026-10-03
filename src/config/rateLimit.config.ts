@@ -1,0 +1,29 @@
+export const RATE_LIMIT = {
+  GLOBAL: { WINDOW_MS: 15 * 60_000, MAX: 300 },
+  AUTH_LOGIN: { WINDOW_MS: 15 * 60_000, MAX: 10 },
+  AUTH_REGISTER: { WINDOW_MS: 60 * 60_000, MAX: 5 },
+  FORGOT_PASSWORD: { WINDOW_MS: 60 * 60_000, MAX: 3 },
+  OTP_SEND: { WINDOW_MS: 60_000, MAX: 1 },
+  OTP_VERIFY: { WINDOW_MS: 15 * 60_000, MAX: 10 },
+  UPLOAD: { WINDOW_MS: 60_000, MAX: 20 },
+  SEARCH: { WINDOW_MS: 60_000, MAX: 60 },
+  TRACKING: { WINDOW_MS: 60_000, MAX: 600 },
+  ANALYTICS: { WINDOW_MS: 60_000, MAX: 120 },
+  PAYMENT: { WINDOW_MS: 60_000, MAX: 30 },
+  EXPORT: { WINDOW_MS: 60_000, MAX: 5 },
+  PASSWORD_RESET: { WINDOW_MS: 60 * 60_000, MAX: 5 },
+  ENABLE_2FA: { WINDOW_MS: 60 * 60_000, MAX: 5 },
+  SOCIAL_LOGIN: { WINDOW_MS: 60_000, MAX: 20 },
+} as const;
+
+export type RateLimitPreset = keyof typeof RATE_LIMIT;
+
+export const RATE_LIMIT_MESSAGE = 'Too many requests, please try again later.';
+
+export const REDIS_RATE_LIMIT_PREFIX = 'rl:';
+
+export const LOGIN_ATTEMPT = {
+  MAX_ATTEMPTS: 5,
+  LOCK_MINUTES: 15,
+  WINDOW_MINUTES: 15,
+};

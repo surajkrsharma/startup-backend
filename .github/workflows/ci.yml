@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  verify:
+    name: typecheck, lint, unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Husky's prepare hook has nothing to install here and would fail before git is fully ready.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Unit/contract tests only: they need no database. The live HTTP suites under
+      # scripts/e2e-*.ts need a real PostgreSQL and take several minutes, so they
+      # are run locally (npm run e2e:content, npm run e2e:engagement) or on a
+      # self-hosted runner with a database service.
+      - name: Unit tests
+        run: npm run test
+
+      # Formatting is enforced by lint-staged on commit, not here: most of the
+      # existing tree predates the Prettier config, so `format:check` would fail
+      # on every run until the whole repo is reformatted in one pass.
