@@ -183,6 +183,22 @@ const ASSET_BASE = `${APP.API_PREFIX}/docs`;
  * emits `.ts`, so the HTML never reached `dist/` and every `/docs` request in a built
  * (deployed) app was a 500 — `ENOENT ... dist/docs/swagger-ui.html`. Keeping it here
  * means the compiler carries it into `dist/docs/swagger.routes.js` on its own.
+ *
+ * Two faults are guarded here, both of which produce a blank page with no visible
+ * error and no failed request in the network tab:
+ *
+ *  1. Relative asset paths. The page is served from `/api/v1/docs` with no trailing
+ *     slash, so a browser resolves `./swagger-ui.css` against `/api/v1/` and asks for
+ *     `/api/v1/swagger-ui.css`, which is not a route. Paths are root-relative.
+ *
+ *  2. `plugins`. swagger-ui-dist 5.x does not export a DownloadUrl plugin from
+ *     SwaggerUIStandalonePreset, so `SwaggerUIStandalonePreset.plugins.DownloadUrl`
+ *     throws "Cannot read properties of undefined" inside window.onload and nothing
+ *     renders at all. The plugin is optional (it only adds a download button), so it
+ *     is left off rather than referenced from the wrong object.
+ *
+ * The loading panel is a deliberate safety net: if the bundle ever fails to execute
+ * again, the page says so instead of showing an empty coloured rectangle.
  */
 const SWAGGER_UI_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -192,32 +208,86 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
     <title>${packageJson.name} API — Swagger UI</title>
     <link rel="stylesheet" href="${ASSET_BASE}/swagger-ui.css" />
     <style>
+      /* Loud on purpose. A dark background makes an empty render obvious at a glance
+         instead of looking like a page that simply has not painted yet. */
       body {
         margin: 0;
-        background: #fafafa;
+        background: #0b1020;
+        color: #e6edf7;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       .topbar {
         display: none;
       }
+      #swagger-fallback {
+        max-width: 780px;
+        margin: 64px auto;
+        padding: 24px 28px;
+        border: 1px solid #2b3550;
+        border-radius: 10px;
+        background: #131a2e;
+        line-height: 1.7;
+      }
+      #swagger-fallback h1 {
+        margin: 0 0 12px;
+        font-size: 17px;
+        color: #7cc4ff;
+      }
+      #swagger-fallback code {
+        background: #1e2a44;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      #swagger-fallback ul {
+        margin: 10px 0 0;
+        padding-left: 20px;
+      }
     </style>
   </head>
   <body>
+    <div id="swagger-fallback">
+      <h1>Swagger UI is loading...</h1>
+      <div>
+        If this message is still here, the swagger-ui JavaScript did not run. Open the
+        browser console (F12) and check for a blocked script or a JavaScript error,
+        then confirm these three URLs return <code>200</code>:
+        <ul>
+          <li><code>${ASSET_BASE}/swagger-ui-bundle.js</code></li>
+          <li><code>${ASSET_BASE}/swagger-ui-standalone-preset.js</code></li>
+          <li><code>${APP.API_PREFIX}/docs.json</code></li>
+        </ul>
+      </div>
+    </div>
     <div id="swagger-ui"></div>
     <script src="${ASSET_BASE}/swagger-ui-bundle.js"></script>
     <script src="${ASSET_BASE}/swagger-ui-standalone-preset.js"></script>
     <script>
-      window.onload = () => {
-        window.ui = SwaggerUIBundle({
-          url: '${APP.API_PREFIX}/docs.json',
-          dom_id: '#swagger-ui',
-          deepLinking: true,
-          displayRequestDuration: true,
-          persistAuthorization: true,
-          tryItOutEnabled: true,
-          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-          plugins: [SwaggerUIStandalonePreset.plugins.DownloadUrl],
-          layout: 'BaseLayout',
-        });
+      window.onload = function () {
+        try {
+          window.ui = SwaggerUIBundle({
+            url: '${APP.API_PREFIX}/docs.json',
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            displayRequestDuration: true,
+            persistAuthorization: true,
+            tryItOutEnabled: true,
+            presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+            layout: 'BaseLayout',
+          });
+
+          // Only reached once Swagger has taken over #swagger-ui.
+          var fallback = document.getElementById('swagger-fallback');
+          if (fallback && fallback.parentNode) fallback.parentNode.removeChild(fallback);
+        } catch (err) {
+          var box = document.getElementById('swagger-fallback');
+          if (box) {
+            box.innerHTML =
+              '<h1>Swagger UI failed to start</h1><div>' +
+              String(err && err.message ? err.message : err) +
+              '</div>';
+          }
+          throw err;
+        }
       };
     </script>
   </body>
