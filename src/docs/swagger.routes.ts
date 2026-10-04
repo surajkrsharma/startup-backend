@@ -131,11 +131,66 @@ const spec = swaggerJsdoc({
   apis: docFiles(),
 });
 
+/**
+ * The Swagger UI page, inlined as a string.
+ *
+ * It used to be a separate `swagger-ui.html` file read with `res.sendFile`. tsc only
+ * emits `.ts`, so the HTML never reached `dist/` and every `/docs` request in a built
+ * (deployed) app was a 500 — `ENOENT ... dist/docs/swagger-ui.html`. Keeping it here
+ * means the compiler carries it into `dist/docs/swagger.routes.js` on its own.
+ *
+ * It loads swagger-ui-dist from a CDN, so it needs outbound internet. That is fine
+ * for the internal API docs; if this ever has to work air-gapped, vendor the three
+ * assets instead.
+ */
+const SWAGGER_UI_HTML = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${packageJson.name} API — Swagger UI</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+      crossorigin="anonymous"
+    />
+    <style>
+      body {
+        margin: 0;
+        background: #fafafa;
+      }
+      .topbar {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin="anonymous"></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: './docs.json',
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          displayRequestDuration: true,
+          persistAuthorization: true,
+          tryItOutEnabled: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          plugins: [SwaggerUIStandalonePreset.plugins.DownloadUrl],
+          layout: 'BaseLayout',
+        });
+      };
+    </script>
+  </body>
+</html>`;
+
 /** Serves Swagger UI at /docs and the raw spec at /docs.json. */
 export const docsRouter = Router();
 
 docsRouter.get('/', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'swagger-ui.html'));
+  res.type('html').send(SWAGGER_UI_HTML);
 });
 
 docsRouter.use(

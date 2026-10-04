@@ -38,6 +38,11 @@ services:
       # Render injects PORT automatically; 5000 is the local default.
       - key: PORT
         value: 5000
+      # Base URL that Swagger's "Try it out" calls. Without it the docs page loads
+      # but every request is sent to localhost:5000 on the visitor's own machine,
+      # so all of them fail. Must include the /api/v1 prefix.
+      - key: PUBLIC_API_URL
+        sync: false # e.g. https://projectname-api.onrender.com/api/v1
       - key: LOG_LEVEL
         value: info
       # App name is the JWT issuer/audience — changing it invalidates all tokens.
