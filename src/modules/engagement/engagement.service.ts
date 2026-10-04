@@ -23,13 +23,6 @@ import { writeActivityLog, writeAuditLog } from '../../services/audit.service';
 const addDays = (date: Date, days: number): Date =>
   new Date(date.getTime() + Math.max(0, D.num(days)) * 24 * 60 * 60 * 1000);
 
-// ═══ Loyalty ══════════════════════════════════════════════════════════════════
-
-/**
- * The ledger is signed: EARN and a positive ADJUSTMENT add, REDEEM and EXPIRE
- * subtract. The balance is therefore a plain sum, so every write type counts and
- * `balanceAfter` can never drift from the rows behind it.
- */
 const currentBalance = async (userId: string): Promise<number> => {
   const total = await prisma.loyaltyTransaction.aggregate({
     where: { userId },
@@ -39,7 +32,6 @@ const currentBalance = async (userId: string): Promise<number> => {
   return D.num(total._sum?.points);
 };
 
-/** The highest tier whose threshold the balance clears. */
 const tierFor = (balance: number) =>
   [...LOYALTY_TIER].reverse().find((t) => balance >= D.num(t.minPoints)) ?? LOYALTY_TIER[0];
 
@@ -72,7 +64,7 @@ export const getLoyaltySummary = async (userId: string): Promise<Record<string, 
     balance,
     tier: D.str(tier.name),
     multiplier: D.float(tier.multiplier),
-    /** How many more points until the next tier, or 0 at the top. */
+
     pointsToNextTier: nextTier ? D.num(nextTier.minPoints) - balance : 0,
     nextTier: D.str(nextTier?.name ?? tier.name),
     totalEarned: D.num(earned._sum.points),
@@ -118,11 +110,6 @@ export const listLoyaltyHistory = async (
   return { rows, total };
 };
 
-/**
- * Appends one signed row and keeps the user's tier in step. `balanceAfter` is
- * the running balance including the row being written, so a reader can verify
- * the ledger by walking the rows.
- */
 const writeLoyaltyTxn = async (
   userId: string,
   input: { type: LoyaltyTxnType; points: number; orderId?: string; description?: string },
@@ -150,7 +137,6 @@ const writeLoyaltyTxn = async (
   return { balanceAfter: balance, row };
 };
 
-/** Grants points for value earned, used by the order flow on delivery. */
 export const earnPoints = async (
   userId: string,
   orderId: string,
@@ -164,7 +150,6 @@ export const earnPoints = async (
 
   if (points <= 0) return { points: 0, balanceAfter: await currentBalance(userId) };
 
-  // One grant per order, however many times the delivery webhook fires.
   const existing = await prisma.loyaltyTransaction.findFirst({
     where: { userId, orderId, type: 'EARN' },
     select: { id: true },
@@ -201,7 +186,6 @@ export const redeemPoints = async (
   if (requested > balance) throw AppError.unprocessable(ERROR.LOYALTY.INSUFFICIENT_POINTS);
 
   const result = await prisma.$transaction((tx) =>
-    // Stored negative: the ledger is signed, so the balance stays a plain sum.
     writeLoyaltyTxn(
       userId,
       { type: 'REDEEM', points: -requested, description: 'Points redeemed for wallet credit' },
@@ -227,7 +211,6 @@ export const redeemPoints = async (
   };
 };
 
-/** Admin correction: a positive value grants, a negative one claws back. */
 export const adjustPoints = async (
   targetUserId: string,
   points: number,
@@ -275,14 +258,6 @@ export const adjustPoints = async (
   };
 };
 
-// ═══ Referral ═════════════════════════════════════════════════════════════════
-
-/**
- * Each referrer holds exactly one row carrying their code and no referee yet;
- * applying it adds a separate row for that referee. The code is shared across
- * those rows, so a lookup always filters on `refereeId: null` to reach the one
- * authoritative code row.
- */
 const ensureReferralCode = async (userId: string): Promise<string> => {
   const existing = await prisma.referral.findFirst({
     where: { referrerId: userId, refereeId: null },
@@ -317,7 +292,6 @@ export const getReferralSummary = async (userId: string): Promise<Record<string,
   const code = await ensureReferralCode(userId);
 
   const [made, completed, rewards] = await Promise.all([
-    // The code row is not a referral anyone has acted on yet.
     prisma.referral.count({ where: { referrerId: userId, refereeId: { not: null } } }),
     prisma.referral.count({ where: { referrerId: userId, status: 'COMPLETED' } }),
     prisma.referral.aggregate({
@@ -355,7 +329,6 @@ export const applyReferralCode = async (
 
   if (existing) throw AppError.conflict(ERROR.REFERRAL.ALREADY_APPLIED, ERROR_CODE.DUPLICATE);
 
-  // The code row is the referrer's own; it carries no referee yet.
   const codeRow = await prisma.referral.findFirst({
     where: { referralCode: D.str(code).toUpperCase(), refereeId: null },
     select: { id: true, referrerId: true },
@@ -364,7 +337,6 @@ export const applyReferralCode = async (
   if (!codeRow) throw AppError.notFound(ERROR.REFERRAL.INVALID_CODE);
   if (codeRow.referrerId === userId) throw AppError.badRequest(ERROR.REFERRAL.SELF_REFERRAL);
 
-  // A new row records the relationship; the referrer's code row stays put.
   const row = await prisma.referral.create({
     data: {
       referrerId: codeRow.referrerId,
@@ -418,7 +390,6 @@ export const listMyReferrals = async (
   return { rows, total };
 };
 
-/** Every referral, for the admin queue that approves or rejects them. */
 export const listAllReferrals = async (
   query: Record<string, any>,
 ): Promise<{ rows: any[]; total: number }> => {
@@ -440,10 +411,6 @@ export const listAllReferrals = async (
   return { rows, total };
 };
 
-/**
- * Settles a referral once the referee has delivered an order. Rewards go to the
- * wallet rather than points, and the transition is idempotent.
- */
 export const completeReferral = async (
   referralId: string,
   req?: any,
@@ -457,7 +424,6 @@ export const completeReferral = async (
 
   if (existing.status !== 'PENDING') throw AppError.unprocessable(ERROR.REFERRAL.EXPIRED);
 
-  // A code row has no referee, so there is nothing to settle.
   if (!existing.refereeId)
     throw AppError.unprocessable('This referral code has not been applied yet.');
 
@@ -465,7 +431,6 @@ export const completeReferral = async (
   const referrerReward = D.float(existing.referrerReward) || config.referrerReward;
   const refereeReward = D.float(existing.refereeReward) || config.refereeReward;
 
-  // The referee is guaranteed non-null by the guard above.
   const payouts: { userId: string; amount: number; description: string }[] = [
     { userId: existing.referrerId, amount: referrerReward, description: 'Referral reward' },
     {
@@ -551,7 +516,6 @@ export const updateReferralStatus = async (
   };
 };
 
-/** Marks lapsed referrals expired; called by the scheduled maintenance job. */
 export const expireStaleReferrals = async (): Promise<number> => {
   const { count } = await prisma.referral.updateMany({
     where: { status: 'PENDING', expiresAt: { lte: new Date() } },
@@ -560,8 +524,6 @@ export const expireStaleReferrals = async (): Promise<number> => {
 
   return D.num(count);
 };
-
-// ═══ Gift cards ═══════════════════════════════════════════════════════════════
 
 const giftCardValue = (input: Record<string, any>): number => {
   const value = money(D.float(input.value));
@@ -634,7 +596,6 @@ export const createGiftCard = async (
     const clash = await prisma.giftCard.findUnique({ where: { code }, select: { id: true } });
     if (clash) throw AppError.conflict('This gift card code already exists.', ERROR_CODE.DUPLICATE);
   } else {
-    // Collision is vanishingly unlikely at20 chars, but a retry keeps it certain.
     for (let i = 0; i < 5; i += 1) {
       code = `GC${generateCode(18)}`;
       const clash = await prisma.giftCard.findUnique({ where: { code }, select: { id: true } });
@@ -689,7 +650,6 @@ export const createGiftCard = async (
   };
 };
 
-/** Public balance lookup by code: value and status only, never the owner. */
 export const checkGiftCard = async (code: string): Promise<Record<string, any>> => {
   const row = await prisma.giftCard.findUnique({ where: { code: D.str(code).toUpperCase() } });
 
@@ -709,10 +669,6 @@ export const checkGiftCard = async (code: string): Promise<Record<string, any>> 
   };
 };
 
-/**
- * Redeems a card against an order. The row is locked and re-checked inside the
- * transaction so two concurrent redemptions cannot both take the balance.
- */
 export const redeemGiftCard = async (
   code: string,
   input: { orderId?: string; amount?: number },
@@ -735,7 +691,6 @@ export const redeemGiftCard = async (
   const applied = Math.min(requested, D.float(card.value));
 
   const row = await prisma.$transaction(async (tx) => {
-    // Re-read under the transaction: the earlier check is only a fast path.
     const locked = await tx.giftCard.findUnique({ where: { id: card.id } });
 
     if (!locked) throw AppError.notFound(ERROR.GIFT_CARD.NOT_FOUND);
@@ -750,7 +705,7 @@ export const redeemGiftCard = async (
       where: { id: locked.id },
       data: {
         value: remaining,
-        // The card is only spent once its balance reaches zero.
+
         status: remaining <= 0 ? 'REDEEMED' : 'ACTIVE',
         redeemedAt: remaining <= 0 ? new Date() : locked.redeemedAt,
         usedOrderId: D.str(input.orderId) || locked.usedOrderId,
@@ -850,12 +805,10 @@ export const getGiftCardBalance = async (userId: string): Promise<Record<string,
   };
 };
 
-// ═══ Message templates ════════════════════════════════════════════════════════
-
 const render = (body: string, values: Record<string, any>): string =>
   body.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key: string) => {
     const value = values?.[key];
-    // An unmatched placeholder is kept so the gap is visible rather than silent.
+
     return value === undefined || value === null ? match : String(value);
   });
 
@@ -961,7 +914,7 @@ export const renderEmailTemplate = async (
     htmlBody: render(D.str(row.htmlBody), values),
     textBody: render(D.str(row.textBody), values),
     variables: D.strArr(row.variables),
-    // Flagged rather than thrown: a partial preview is more useful than none.
+
     missingVariables: missing,
   };
 };

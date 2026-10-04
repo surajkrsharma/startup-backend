@@ -21,8 +21,6 @@ export const guards = {
   superAdmin: [requireRole(ROLES.SUPER_ADMIN)],
 };
 
-// ═══ Loyalty ══════════════════════════════════════════════════════════════════
-
 /**
  * @openapi
  * /loyalty/getSummary:
@@ -117,8 +115,6 @@ export const adjust = asyncHandler(async (req, res) => {
 
   return ApiResponse.success(res, { message: SUCCESS.LOYALTY.POINTS_FETCHED, result });
 });
-
-// ═══ Referral ═════════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -274,8 +270,6 @@ export const updateStatus = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, { message: SUCCESS.REFERRAL.REWARDS_FETCHED, result });
 });
 
-// ═══ Gift cards ═══════════════════════════════════════════════════════════════
-
 /**
  * @openapi
  * /gift-cards/getAll:
@@ -423,8 +417,6 @@ export const removeGiftCard = asyncHandler(async (req, res) => {
     result: { giftCardId: D.str(req.params.id), isDeleted: true },
   });
 });
-
-// ═══ Message templates ════════════════════════════════════════════════════════
 
 const emailRow = (t: any) => ({
   templateId: D.str(t?.id),

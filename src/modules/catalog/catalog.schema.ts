@@ -21,7 +21,6 @@ const slug = z
 
 const image = z.string().trim().url(VALIDATION.INVALID_URL).max(500).optional().or(z.literal(''));
 
-/** POST /brands/createBrand */
 export const createBrandSchema = z
   .object({
     name,
@@ -38,7 +37,6 @@ export const updateBrandSchema = createBrandSchema
 
 export const brandIdParamSchema = z.object({ id });
 
-/** GET /brands/getAll */
 export const listBrandsSchema = paginationSchema.extend({
   search: z.string().trim().max(120).optional(),
   isActive: common.flagQuery,
@@ -46,8 +44,6 @@ export const listBrandsSchema = paginationSchema.extend({
 });
 
 export const brandSlugParamSchema = z.object({ slug: common.cuidOrSlug });
-
-// ─── Tag ─────────────────────────────────────────────────────────────────────
 
 export const createTagSchema = z
   .object({

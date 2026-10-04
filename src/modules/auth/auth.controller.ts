@@ -19,7 +19,6 @@ import {
   serializeAuthUser,
 } from './auth.serializer';
 
-/** Extracts device/session context from headers populated by the tracking middleware. */
 const deviceFrom = (req: Request, input?: any): DeviceContext =>
   ({
     deviceId: req.deviceId ?? '',
@@ -30,7 +29,6 @@ const deviceFrom = (req: Request, input?: any): DeviceContext =>
     appVersion: input?.deviceData?.appVersion ?? '',
   }) as DeviceContext;
 
-/** Refresh token: cookie first, body second. */
 const refreshFrom = (req: Request): string => {
   const fromCookie = (req as any).cookies?.[JWT.REFRESH_COOKIE_NAME];
   if (fromCookie) return String(fromCookie);
@@ -45,10 +43,6 @@ const clearRefreshCookie = (res: Response): void => {
   res.clearCookie(JWT.REFRESH_COOKIE_NAME, { ...JWT.REFRESH_COOKIE_OPTIONS, maxAge: undefined });
 };
 
-/**
- * POST /auth/register
- * Single endpoint, discriminated union on `type`: CUSTOMER | VENDOR.
- */
 export const register = asyncHandler(async (req, res) => {
   const type = req.body.type as string;
 
@@ -86,7 +80,6 @@ export const register = asyncHandler(async (req, res) => {
   );
 });
 
-/** POST /auth/login — password or OTP, any role. */
 export const login = asyncHandler(async (req, res) => {
   const device = deviceFrom(req, req.body);
 
@@ -126,7 +119,6 @@ export const login = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/loginWithOtp */
 export const loginWithOtp = asyncHandler(async (req, res) => {
   const device = deviceFrom(req, req.body);
   const outcome = await authService.loginWithOtp(
@@ -147,7 +139,6 @@ export const loginWithOtp = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/refreshToken */
 export const refreshToken = asyncHandler(async (req, res) => {
   const token = refreshFrom(req);
   if (!token) {
@@ -169,7 +160,6 @@ export const refreshToken = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/logout */
 export const logout = asyncHandler(async (req, res) => {
   const token = refreshFrom(req);
   if (token) await authService.logout(req.auth!.userId, token);
@@ -181,7 +171,6 @@ export const logout = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/logoutAllDevices */
 export const logoutAllDevices = asyncHandler(async (req, res) => {
   const revoked = await authService.logoutAllDevices(req.auth!.userId);
   clearRefreshCookie(res);
@@ -192,7 +181,6 @@ export const logoutAllDevices = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /auth/getMe */
 export const getMe = asyncHandler(async (req, res) => {
   const user = await authService.getCurrentUser(req.auth!.userId);
   if (!user) {
@@ -218,7 +206,6 @@ export const getMe = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/sendOtp — type: REGISTER|FORGOT_PASSWORD|LOGIN|PHONE_VERIFY|EMAIL_VERIFY|TWO_FA */
 export const sendOtp = asyncHandler(async (req, res) => {
   const result = await authService.sendOtp(
     { type: req.body.type, channel: req.body.channel ?? 'BOTH', identifier: req.body.identifier },
@@ -231,7 +218,6 @@ export const sendOtp = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/verifyOtp */
 export const verifyOtp = asyncHandler(async (req, res) => {
   if (req.body.isLoginFlow) {
     const device = deviceFrom(req, req.body);
@@ -255,7 +241,6 @@ export const verifyOtp = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/forgotPassword */
 export const forgotPassword = asyncHandler(async (req, res) => {
   const identifier = req.body.email || req.body.phone;
   const result = await authService.sendOtp(
@@ -269,7 +254,6 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/resetPassword */
 export const resetPassword = asyncHandler(async (req, res) => {
   await authService.resetPassword(req.body);
   clearRefreshCookie(res);
@@ -280,7 +264,6 @@ export const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/changePassword */
 export const changePassword = asyncHandler(async (req, res) => {
   await authService.changePassword(
     req.auth!.userId,
@@ -297,7 +280,6 @@ export const changePassword = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/verifyEmail */
 export const verifyEmail = asyncHandler(async (req, res) => {
   const result = await authService.verifyContact(req.auth!.userId, req.body);
   return ApiResponse.success(res, {
@@ -306,7 +288,6 @@ export const verifyEmail = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/verifyPhone */
 export const verifyPhone = asyncHandler(async (req, res) => {
   const result = await authService.verifyContact(req.auth!.userId, {
     ...req.body,
@@ -318,7 +299,6 @@ export const verifyPhone = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/enable2FA */
 export const enable2FA = asyncHandler(async (req, res) => {
   const result = await authService.enableTwoFactor(req.auth!.userId);
   return ApiResponse.success(res, {
@@ -327,7 +307,6 @@ export const enable2FA = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/disable2FA */
 export const disable2FA = asyncHandler(async (req, res) => {
   await authService.disableTwoFactor(req.auth!.userId, req.body.otp);
   return ApiResponse.success(res, {
@@ -336,7 +315,6 @@ export const disable2FA = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/verify2FA — completes an interrupted login */
 export const verify2FA = asyncHandler(async (req, res) => {
   const device = deviceFrom(req, req.body);
   const identifier = req.body.identifier || req.body.email || req.body.phone;
@@ -350,7 +328,6 @@ export const verify2FA = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/socialLogin */
 export const socialLogin = asyncHandler(async (req, res) => {
   const device = deviceFrom(req, req.body);
   const result = await authService.socialLogin(req.body, device);
@@ -366,7 +343,6 @@ export const socialLogin = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/linkSocial */
 export const linkSocial = asyncHandler(async (req, res) => {
   await authService.linkSocial(req.auth!.userId, req.body);
   return ApiResponse.success(res, {
@@ -375,7 +351,6 @@ export const linkSocial = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/unlinkSocial */
 export const unlinkSocial = asyncHandler(async (req, res) => {
   await authService.unlinkSocial(req.auth!.userId, req.body.provider);
   return ApiResponse.success(res, {
@@ -384,7 +359,6 @@ export const unlinkSocial = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /auth/checkAvailability */
 export const checkAvailability = asyncHandler(async (req, res) => {
   const result = await authService.checkAvailability(req.body);
   return ApiResponse.success(res, {
@@ -396,7 +370,6 @@ export const checkAvailability = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /auth/sessions */
 export const listSessions = asyncHandler(async (req, res) => {
   const rows = await authService.listSessions(req.auth!.userId, req.auth!.sessionKey ?? '');
 
@@ -409,7 +382,6 @@ export const listSessions = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /auth/sessions/:id */
 export const revokeSession = asyncHandler(async (req, res) => {
   await authService.revokeSession(req.auth!.userId, req.params.id);
 

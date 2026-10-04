@@ -8,11 +8,7 @@ export const OTP = {
   MAX_RESENDS_PER_DAY: 10,
   BCRYPT_ROUNDS: 10,
   ATTEMPT_LOCK_MIN: 15,
-  /**
-   * Fixed code for local/testing, e.g. `111111`. Empty disables it and every
-   * OTP is random. The env schema rejects this in production, because a known
-   * code would let anyone log in as any account.
-   */
+
   staticCode: ENV.OTP_STATIC_CODE,
 };
 

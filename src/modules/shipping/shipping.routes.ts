@@ -4,11 +4,8 @@ import { authenticate } from '../../middlewares/auth.middleware';
 import * as controller from './shipping.controller';
 import * as schema from './shipping.schema';
 
-// ── Zones ─────────────────────────────────────────────────────────────────────
-
 const router = Router();
 
-/** GET /shipping/getZones */
 router.get(
   '/getZones',
   authenticate,
@@ -16,7 +13,6 @@ router.get(
   controller.zoneList,
 );
 
-/** POST /shipping/createZone — admin */
 router.post(
   '/createZone',
   authenticate,
@@ -25,7 +21,6 @@ router.post(
   controller.zoneCreate,
 );
 
-/** PATCH /shipping/updateZone/:id — admin */
 router.patch(
   '/updateZone/:id',
   authenticate,
@@ -34,7 +29,6 @@ router.patch(
   controller.zoneUpdate,
 );
 
-/** DELETE /shipping/deleteZone/:id — admin */
 router.delete(
   '/deleteZone/:id',
   authenticate,
@@ -43,9 +37,6 @@ router.delete(
   controller.zoneDelete,
 );
 
-// ── Methods ───────────────────────────────────────────────────────────────────
-
-/** GET /shipping/getMethods */
 router.get(
   '/getMethods',
   authenticate,
@@ -53,7 +44,6 @@ router.get(
   controller.methodList,
 );
 
-/** POST /shipping/createMethod — admin */
 router.post(
   '/createMethod',
   authenticate,
@@ -62,7 +52,6 @@ router.post(
   controller.methodCreate,
 );
 
-/** PATCH /shipping/updateMethod/:id — admin */
 router.patch(
   '/updateMethod/:id',
   authenticate,
@@ -71,7 +60,6 @@ router.patch(
   controller.methodUpdate,
 );
 
-/** DELETE /shipping/deleteMethod/:id — admin */
 router.delete(
   '/deleteMethod/:id',
   authenticate,
@@ -80,9 +68,6 @@ router.delete(
   controller.methodDelete,
 );
 
-// ── Partners ──────────────────────────────────────────────────────────────────
-
-/** GET /shipping/getPartners */
 router.get(
   '/getPartners',
   authenticate,
@@ -90,7 +75,6 @@ router.get(
   controller.partnerList,
 );
 
-/** POST /shipping/createPartner — admin */
 router.post(
   '/createPartner',
   authenticate,
@@ -99,7 +83,6 @@ router.post(
   controller.partnerCreate,
 );
 
-/** PATCH /shipping/updatePartner/:id — admin */
 router.patch(
   '/updatePartner/:id',
   authenticate,
@@ -108,9 +91,6 @@ router.patch(
   controller.partnerUpdate,
 );
 
-// ── Serviceability ────────────────────────────────────────────────────────────
-
-/** POST /shipping/checkServiceability */
 router.post(
   '/checkServiceability',
   authenticate,
@@ -118,7 +98,6 @@ router.post(
   controller.checkServiceable,
 );
 
-/** POST /shipping/calculateRate */
 router.post(
   '/calculateRate',
   authenticate,
@@ -126,9 +105,6 @@ router.post(
   controller.calculateRate,
 );
 
-// ── Shipments ─────────────────────────────────────────────────────────────────
-
-/** POST /shipping/createShipment/:subOrderId — vendor */
 router.post(
   '/createShipment/:subOrderId',
   authenticate,
@@ -137,10 +113,8 @@ router.post(
   controller.shipmentCreate,
 );
 
-/** GET /shipping/track/:awb — public */
 router.get('/track/:awb', validate({ params: schema.awbParamSchema }), controller.shipmentTrack);
 
-/** PATCH /shipping/updateStatus/:id */
 router.patch(
   '/updateStatus/:id',
   authenticate,
@@ -150,11 +124,8 @@ router.patch(
 
 export const shippingRoutes = router;
 
-// ── Delivery boys ─────────────────────────────────────────────────────────────
-
 const deliveryBoy = Router();
 
-/** GET /deliveryBoys/getAll */
 deliveryBoy.get(
   '/getAll',
   authenticate,
@@ -162,7 +133,6 @@ deliveryBoy.get(
   controller.deliveryBoyList,
 );
 
-/** POST /deliveryBoys/create — admin */
 deliveryBoy.post(
   '/create',
   authenticate,
@@ -171,7 +141,6 @@ deliveryBoy.post(
   controller.deliveryBoyCreate,
 );
 
-/** PATCH /deliveryBoys/update/:id — admin */
 deliveryBoy.patch(
   '/update/:id',
   authenticate,
@@ -180,7 +149,6 @@ deliveryBoy.patch(
   controller.deliveryBoyUpdate,
 );
 
-/** DELETE /deliveryBoys/delete/:id — admin */
 deliveryBoy.delete(
   '/delete/:id',
   authenticate,
@@ -189,7 +157,6 @@ deliveryBoy.delete(
   controller.deliveryBoyDelete,
 );
 
-/** PATCH /deliveryBoys/toggleStatus/:id — admin */
 deliveryBoy.patch(
   '/toggleStatus/:id',
   authenticate,
@@ -198,7 +165,6 @@ deliveryBoy.patch(
   controller.deliveryBoyToggle,
 );
 
-/** GET /deliveryBoys/getMyDeliveries */
 deliveryBoy.get(
   '/getMyDeliveries',
   authenticate,
@@ -206,7 +172,6 @@ deliveryBoy.get(
   controller.deliveryList,
 );
 
-/** PATCH /deliveryBoys/updateDeliveryStatus/:id */
 deliveryBoy.patch(
   '/updateDeliveryStatus/:id',
   authenticate,
@@ -216,14 +181,10 @@ deliveryBoy.patch(
 
 export const deliveryBoyRoutes = deliveryBoy;
 
-// ── Settings ──────────────────────────────────────────────────────────────────
-
 const settings = Router();
 
-/** GET /settings/getPublicSettings */
 settings.get('/getPublicSettings', controller.settingsPublic);
 
-/** GET /settings/getAll — admin */
 settings.get(
   '/getAll',
   authenticate,
@@ -232,7 +193,6 @@ settings.get(
   controller.settingsList,
 );
 
-/** PATCH /settings/updateSetting — admin */
 settings.patch(
   '/updateSetting',
   authenticate,
@@ -241,7 +201,6 @@ settings.patch(
   controller.settingsUpdate,
 );
 
-/** POST /settings/bulkUpdateSettings — admin */
 settings.post(
   '/bulkUpdateSettings',
   authenticate,
@@ -250,7 +209,6 @@ settings.post(
   controller.settingsBulkUpdate,
 );
 
-/** GET /settings/getByCategory/:category — admin */
 settings.get(
   '/getByCategory/:category',
   authenticate,
@@ -259,7 +217,6 @@ settings.get(
   controller.settingsByCategory,
 );
 
-/** POST /settings/resetToDefault — super admin */
 settings.post(
   '/resetToDefault',
   authenticate,
@@ -267,10 +224,8 @@ settings.post(
   controller.settingsReset,
 );
 
-/** GET /settings/getFeatureFlags */
 settings.get('/getFeatureFlags', controller.featureFlags);
 
-/** PATCH /settings/toggleFeature — admin */
 settings.patch(
   '/toggleFeature',
   authenticate,
@@ -279,10 +234,8 @@ settings.patch(
   controller.featureToggle,
 );
 
-/** GET /settings/getMaintenance */
 settings.get('/getMaintenance', controller.maintenanceStatus);
 
-/** PATCH /settings/updateMaintenance — super admin */
 settings.patch(
   '/updateMaintenance',
   authenticate,
@@ -293,17 +246,12 @@ settings.patch(
 
 export const settingsRoutes = settings;
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
-
 const admin = Router();
 
-/** GET /admin/getDashboardStats */
 admin.get('/getDashboardStats', authenticate, ...controller.guards.admin, controller.dashboard);
 
-/** GET /admin/getSystemHealth */
 admin.get('/getSystemHealth', authenticate, ...controller.guards.admin, controller.health);
 
-/** POST /admin/createSubAdmin — super admin only */
 admin.post(
   '/createSubAdmin',
   authenticate,
@@ -312,7 +260,6 @@ admin.post(
   controller.subAdminCreate,
 );
 
-/** GET /admin/getAllSubAdmins */
 admin.get(
   '/getAllSubAdmins',
   authenticate,
@@ -321,7 +268,6 @@ admin.get(
   controller.subAdminList,
 );
 
-/** PATCH /admin/updateSubAdmin/:id — super admin */
 admin.patch(
   '/updateSubAdmin/:id',
   authenticate,
@@ -330,7 +276,6 @@ admin.patch(
   controller.subAdminUpdate,
 );
 
-/** DELETE /admin/deleteSubAdmin/:id — super admin */
 admin.delete(
   '/deleteSubAdmin/:id',
   authenticate,
@@ -339,7 +284,6 @@ admin.delete(
   controller.subAdminDelete,
 );
 
-/** PATCH /admin/toggleSubAdminStatus/:id — super admin */
 admin.patch(
   '/toggleSubAdminStatus/:id',
   authenticate,
@@ -348,10 +292,8 @@ admin.patch(
   controller.subAdminToggle,
 );
 
-/** GET /admin/getPermissions — every role's permission matrix */
 admin.get('/getPermissions', authenticate, ...controller.guards.admin, controller.allPermissions);
 
-/** PATCH /admin/updatePermissions/:id — super admin */
 admin.patch(
   '/updatePermissions/:id',
   authenticate,
@@ -360,7 +302,6 @@ admin.patch(
   controller.permissionsSetByRole,
 );
 
-/** GET /admin/getAuditLogs */
 admin.get(
   '/getAuditLogs',
   authenticate,
@@ -369,7 +310,6 @@ admin.get(
   controller.auditLogs,
 );
 
-/** GET /admin/getActivityLogs */
 admin.get(
   '/getActivityLogs',
   authenticate,
@@ -378,13 +318,10 @@ admin.get(
   controller.activityLogs,
 );
 
-/** POST /admin/clearCache — super admin */
 admin.post('/clearCache', authenticate, ...controller.guards.superAdmin, controller.clearCache);
 
-/** GET /admin/getCronJobs — super admin */
 admin.get('/getCronJobs', authenticate, ...controller.guards.superAdmin, controller.cronJobs);
 
-/** POST /admin/triggerJob — super admin */
 admin.post(
   '/triggerJob',
   authenticate,
@@ -395,11 +332,8 @@ admin.post(
 
 export const adminRoutes = admin;
 
-// ── Audit logs ────────────────────────────────────────────────────────────────
-
 const audit = Router();
 
-/** GET /auditLogs/getAll */
 audit.get(
   '/getAll',
   authenticate,
@@ -408,7 +342,6 @@ audit.get(
   controller.auditLogs,
 );
 
-/** GET /auditLogs/getById/:id */
 audit.get(
   '/getById/:id',
   authenticate,
@@ -417,7 +350,6 @@ audit.get(
   controller.auditLogById,
 );
 
-/** GET /auditLogs/getByActor/:userId */
 audit.get(
   '/getByActor/:userId',
   authenticate,
@@ -426,7 +358,6 @@ audit.get(
   controller.auditLogsByActor,
 );
 
-/** GET /auditLogs/export — streams CSV */
 audit.get(
   '/export',
   authenticate,
@@ -435,7 +366,6 @@ audit.get(
   controller.exportAuditLogs,
 );
 
-/** DELETE /auditLogs/purge — super admin */
 audit.delete(
   '/purge',
   authenticate,
@@ -446,9 +376,6 @@ audit.delete(
 
 export const auditRoutes = audit;
 
-// ── Activity logs ─────────────────────────────────────────────────────────────
-
-/** GET /activityLogs/getAll */
 export const activityLogRoutes = Router().get(
   '/getAll',
   authenticate,

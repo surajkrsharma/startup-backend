@@ -1,13 +1,3 @@
-/**
- * Live HTTP tests for notification, chat and ticket modules.
- *
- * Covers: notification listing and unread counts, mark-read (single and bulk),
- * per-channel preferences, chat thread reuse, block enforcement, read cursors,
- * and the full ticket lifecycle including the internal-note boundary between
- * staff and customers.
- *
- * Usage: npx tsx scripts/e2e-notification.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { toSlug } from '../src/utils/slug';
@@ -16,10 +6,6 @@ const slugOf = (name: string): string => toSlug(name);
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -131,7 +117,6 @@ const main = async (): Promise<void> => {
   await admin.patch(`/api/v1/vendors/approveVendor/${vendor.vendorId}`, {});
   record('vendor approved', true);
 
-  // ══ Notification guards ════════════════════════════════════════════════════
   const anon = await request(app).get('/api/v1/notifications/getAll');
   record(
     'GET /notifications/getAll without token -> 401',
@@ -147,7 +132,6 @@ const main = async (): Promise<void> => {
     `total=${empty.body?.result?.totalRecord}`,
   );
 
-  // ══ Broadcast seeds the list ═══════════════════════════════════════════════
   const broadcastAsCustomer = await cu.post('/api/v1/notifications/sendBulk', { title: 'nope' });
   record(
     'a customer cannot broadcast -> 403',
@@ -266,7 +250,6 @@ const main = async (): Promise<void> => {
     `status=${foreignNotif.status}`,
   );
 
-  // ══ Preferences ════════════════════════════════════════════════════════════
   const prefs = await cu.get('/api/v1/notifications/getPreferences');
   record(
     'GET /notifications/getPreferences -> 200',
@@ -327,7 +310,6 @@ const main = async (): Promise<void> => {
     `status=${emptyPrefs.status}`,
   );
 
-  // ══ Chat guards ════════════════════════════════════════════════════════════
   const selfChat = await shop.post('/api/v1/chat/startConversation', {
     vendorId: vendor.vendorId,
     message: 'hello me',
@@ -351,7 +333,6 @@ const main = async (): Promise<void> => {
     `status=${badVendor.status}`,
   );
 
-  // ══ Chat thread ════════════════════════════════════════════════════════════
   const started = await cu.post('/api/v1/chat/startConversation', {
     vendorId: vendor.vendorId,
     message: 'Is the blue one in stock?',
@@ -410,7 +391,6 @@ const main = async (): Promise<void> => {
     `status=${intruder.status}`,
   );
 
-  // sendMessage names the thread in the body — there is no path param.
   const intruderSend = await api(bystander.token).post(`/api/v1/chat/sendMessage`, {
     conversationId,
     body: 'let me in',
@@ -502,7 +482,6 @@ const main = async (): Promise<void> => {
     `status=${delMissing.status}`,
   );
 
-  // ══ Blocking ═══════════════════════════════════════════════════════════════
   const blockSelf = await cu.post(`/api/v1/chat/blockUser/${customer.userId}`);
   record('blocking yourself -> 422', blockSelf.status === 422, `status=${blockSelf.status}`);
 
@@ -547,10 +526,6 @@ const main = async (): Promise<void> => {
     `n=${blockedListAfter.body?.result?.itemCount}`,
   );
 
-  /**
-   * The shop blocks the customer, so the customer can neither post to the existing thread nor
-   * open a new one.
-   */
   const shopBlocks = await shop.post(`/api/v1/chat/blockUser/${customer.userId}`, {
     reason: 'abusive',
   });
@@ -597,7 +572,6 @@ const main = async (): Promise<void> => {
     `status=${afterUnblock.status}`,
   );
 
-  // ══ Tickets ═══════════════════════════════════════════════════════════════
   const anonTicket = await request(app).get('/api/v1/tickets/getAll');
   record(
     'GET /tickets/getAll without token -> 401',
@@ -605,8 +579,6 @@ const main = async (): Promise<void> => {
     `status=${anonTicket.status}`,
   );
 
-  // The category list starts empty on a fresh database, so the suite creates the one
-  // it needs — POST /tickets/categories is admin-only.
   const seedCatAsCustomer = await cu.post('/api/v1/tickets/categories', { name: 'Nope' });
   record(
     'a customer cannot create a ticket category -> 403',
@@ -631,8 +603,6 @@ const main = async (): Promise<void> => {
     created.body?.result?.slug,
   );
 
-  // The slug is unique, the name is not — a repeated name is suffixed rather than
-  // refused, the same way vendor shop slugs behave.
   const dupCat = await admin.post('/api/v1/tickets/categories', { name: categoryName });
   record(
     'a duplicate category name is allowed with a suffixed slug',
@@ -898,7 +868,6 @@ const main = async (): Promise<void> => {
     `status=${statsAsCustomer.status}`,
   );
 
-  // ══ Cleanup ═══════════════════════════════════════════════════════════════
   const ticketIds = (
     await prisma.ticket.findMany({ where: { userId: customer.userId }, select: { id: true } })
   ).map((t) => t.id);
@@ -913,9 +882,7 @@ const main = async (): Promise<void> => {
   await prisma.conversationParticipant.deleteMany({ where: { conversationId } });
   await prisma.conversation.deleteMany({ where: { id: conversationId } });
   await prisma.userBlock.deleteMany({ where: { blockerId: customer.userId } });
-  // Scoped by the run id: Prisma compiles `contains` to a LIKE without escaping `_`,
-  // so a prefix pattern like `nt_` is really `%nt_%` and would match
-  // "superadmin@projectname.com" too. Digits are not LIKE metacharacters.
+
   await prisma.user.deleteMany({ where: { email: { contains: run } } });
 
   const passed = checks.filter((c) => c.passed).length;

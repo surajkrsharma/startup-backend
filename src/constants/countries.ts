@@ -63,7 +63,6 @@ export const DEFAULT_COUNTRY_CODE = COUNTRY_CODE.IN;
 export const DEFAULT_DIAL_CODE = '+91';
 export const DEFAULT_PINCODE_LENGTH = 6;
 
-/** Loose validation — accepts optional `+`, 7–15 digits (E.164 safe range). */
 export const PHONE_REGEX = /^\+?[1-9]\d{6,14}$/;
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

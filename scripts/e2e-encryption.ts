@@ -1,11 +1,3 @@
-/**
- * Encryption + settings integration checks against a live database.
- *
- * Boots the real Express app in-process with ENCRYPTION_ENABLED=true and
- * verifies the AES-256-GCM transport contract in both directions.
- *
- * Usage: npx tsx scripts/e2e-encryption.ts
- */
 import crypto from 'crypto';
 import request from 'supertest';
 
@@ -49,16 +41,14 @@ const key = process.env.ENCRYPTION_KEY;
 
 const main = async (): Promise<void> => {
   /* eslint-disable no-console */
-  // `createApp` is required lazily so env.config reads the flags set above.
+
   const { createApp } = await import('../src/app');
   const app = createApp();
 
-  // ── Plain request still works when encryption is on ──────────────────────
   const plain = await request(app).get('/api/v1/health');
   record('plain request unaffected by encryption', plain.status === 200, `status=${plain.status}`);
   record('plain response is readable JSON', plain.body?.status === true);
 
-  // ── Encrypted request → encrypted response ───────────────────────────────
   const payload = encrypt({ email: 'nobody@example.com', password: 'WrongPass@123' }, key);
   const enc = await request(app).post('/api/v1/auth/login').set('x-encrypted', '1').send(payload);
 
@@ -80,7 +70,6 @@ const main = async (): Promise<void> => {
   );
   record('decrypted error result is empty', JSON.stringify(decoded?.result) === '{}');
 
-  // ── Tampered ciphertext must be rejected ─────────────────────────────────
   const tampered = encrypt({ email: 'a@b.com', password: 'x' }, key);
   tampered.data = Buffer.from('garbage-not-valid-ciphertext').toString('base64');
   const tamperRes = await request(app)
@@ -94,7 +83,6 @@ const main = async (): Promise<void> => {
     `status=${tamperRes.status} msg=${tamperRes.body?.message}`,
   );
 
-  // ── Header set but body not encrypted ────────────────────────────────────
   const badShape = await request(app)
     .post('/api/v1/auth/login')
     .set('x-encrypted', '1')
@@ -106,7 +94,6 @@ const main = async (): Promise<void> => {
     `status=${badShape.status} msg=${badShape.body?.message}`,
   );
 
-  // ── Skip paths are never encrypted ───────────────────────────────────────
   for (const skipPath of ['/api/v1/health', '/api/v1/version', '/api/v1/docs.json']) {
     const res = await request(app).get(skipPath).set('x-encrypted', '1');
     record(
@@ -116,7 +103,6 @@ const main = async (): Promise<void> => {
     );
   }
 
-  // ── Dynamic settings read from the live DB ───────────────────────────────
   const { getSetting, setSetting, getFeatureFlags, toggleFeature, getMaintenanceStatus } =
     await import('../src/services/settings.service');
 
@@ -142,7 +128,6 @@ const main = async (): Promise<void> => {
   record('toggleFeature invalidates the cache', flagsAfter['feature.wallet'] === true);
   await toggleFeature('feature.wallet', false);
 
-  // ── Maintenance mode ─────────────────────────────────────────────────────
   await setSetting('maintenance.enabled', true, 'system', undefined, false);
   const maintenance = await getMaintenanceStatus();
   record('maintenance mode reads ON from DB', maintenance.enabled === true);
@@ -170,7 +155,6 @@ const main = async (): Promise<void> => {
   const restored = await request(app).get('/api/v1/health');
   record('maintenance off restores traffic', restored.status === 200);
 
-  // ── Summary ──────────────────────────────────────────────────────────────
   const failed = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
   if (failed.length) {

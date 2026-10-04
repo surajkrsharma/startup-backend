@@ -1,43 +1,13 @@
-/**
- * Comment structure audit.
- *
- * The project has three comment forms and each has one job. This reports the
- * places that do not follow them, so the style does not drift with whoever
- * touched the file last.
- *
- *   ROUTE MARKER   a one-line doc block holding just the method and path
- *   DOC BLOCK     summary, blank line, then why — two or more lines
- *   INLINE NOTE   a line comment, one line only
- *   BANNER        a divider made of box-drawing characters, never prose
- *
- * Reported:
- *   MULTILINE_SHOULD_BE_DOC   two or more consecutive line comments of prose
- *   NARRATIVE                 wording that describes a past bug or a change
- *   EMPTY_DOC                 a doc block with nothing in it
- *
- * Usage: npm run comments:check
- */
 import fs from 'fs';
 import path from 'path';
 
 const ROOT = path.join(__dirname, '..');
 const DIRS = ['src', 'prisma', 'tests', 'scripts'];
 
-/** A banner is a run of three or more box-drawing characters, with or without a label. */
 const BANNER = /[─═━┄┈▀▔]{3,}/;
 
-/** ESLint directives are tooling, not documentation. */
 const TOOLING = /eslint|no-console|ts-expect-error|ts-ignore|prettier-ignore/;
 
-/**
- * Wording that narrates a fix rather than explaining the code in front of you.
- *
- * A comment that says what *used* to be wrong stops being true the moment
- * someone changes the code, and then it is worse than no comment at all. These
- * patterns are deliberately narrow: words like "silently" or "no longer" are
- * fine when they describe current behaviour, and flagging those would push
- * people to delete accurate comments instead.
- */
 const NARRATIVE = [
   /\bpreviously\b/i,
   /\bused to\b/i,
@@ -93,7 +63,6 @@ for (const dir of DIRS) {
       const isCommentStart = /^\/\//.test(trimmed) || /^\/\*\*/.test(trimmed);
 
       if (isCommentStart && /^\/\//.test(trimmed)) {
-        // A banner, or a directive, or the last line of a run: skip.
         if (BANNER.test(trimmed) || TOOLING.test(trimmed)) {
           i += 1;
           continue;
@@ -124,7 +93,6 @@ for (const dir of DIRS) {
         continue;
       }
 
-      // An empty doc block: /** with no content before */.
       if (/^\/\*\*\s*$/.test(trimmed)) {
         const next = (lines[i + 1] ?? '').trim();
         if (next === '*/') {

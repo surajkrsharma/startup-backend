@@ -169,7 +169,6 @@ router.post(
   controller.verifyOtp,
 );
 
-/** POST /auth/forgotPassword */
 router.post(
   '/forgotPassword',
   forgotPasswordRateLimit,
@@ -177,7 +176,6 @@ router.post(
   controller.forgotPassword,
 );
 
-/** POST /auth/resetPassword */
 router.post(
   '/resetPassword',
   passwordResetRateLimit,
@@ -185,7 +183,6 @@ router.post(
   controller.resetPassword,
 );
 
-/** POST /auth/changePassword */
 router.post(
   '/changePassword',
   authenticate,
@@ -193,7 +190,6 @@ router.post(
   controller.changePassword,
 );
 
-/** POST /auth/verifyEmail */
 router.post(
   '/verifyEmail',
   authenticate,
@@ -201,7 +197,6 @@ router.post(
   controller.verifyEmail,
 );
 
-/** POST /auth/verifyPhone */
 router.post(
   '/verifyPhone',
   authenticate,
@@ -209,10 +204,8 @@ router.post(
   controller.verifyPhone,
 );
 
-/** POST /auth/enable2FA */
 router.post('/enable2FA', authenticate, twoFactorRateLimit, controller.enable2FA);
 
-/** POST /auth/disable2FA */
 router.post(
   '/disable2FA',
   authenticate,
@@ -220,7 +213,6 @@ router.post(
   controller.disable2FA,
 );
 
-/** POST /auth/verify2FA */
 router.post(
   '/verify2FA',
   otpVerifyRateLimit,
@@ -228,7 +220,6 @@ router.post(
   controller.verify2FA,
 );
 
-/** POST /auth/socialLogin */
 router.post(
   '/socialLogin',
   socialLoginRateLimit,
@@ -236,7 +227,6 @@ router.post(
   controller.socialLogin,
 );
 
-/** POST /auth/linkSocial */
 router.post(
   '/linkSocial',
   authenticate,
@@ -244,7 +234,6 @@ router.post(
   controller.linkSocial,
 );
 
-/** POST /auth/unlinkSocial */
 router.post(
   '/unlinkSocial',
   authenticate,
@@ -252,17 +241,14 @@ router.post(
   controller.unlinkSocial,
 );
 
-/** POST /auth/checkAvailability */
 router.post(
   '/checkAvailability',
   validate({ body: schema.checkAvailabilitySchema }),
   controller.checkAvailability,
 );
 
-/** GET /auth/sessions */
 router.get('/sessions', authenticate, controller.listSessions);
 
-/** DELETE /auth/sessions/:id */
 router.delete(
   '/sessions/:id',
   authenticate,

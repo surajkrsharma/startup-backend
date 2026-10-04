@@ -4,11 +4,8 @@ import { authenticate } from '../../middlewares/auth.middleware';
 import * as controller from './notification.controller';
 import * as schema from './notification.schema';
 
-// ── Notifications ────────────────────────────────────────────────────────────
-
 const notification = Router();
 
-/** GET /notifications/getAll */
 notification.get(
   '/getAll',
   authenticate,
@@ -16,10 +13,8 @@ notification.get(
   controller.getAll,
 );
 
-/** GET /notifications/getUnreadCount */
 notification.get('/getUnreadCount', authenticate, controller.getUnreadCount);
 
-/** PATCH /notifications/markRead/:id */
 notification.patch(
   '/markRead/:id',
   authenticate,
@@ -27,10 +22,8 @@ notification.patch(
   controller.markNotificationRead,
 );
 
-/** PATCH /notifications/markAllRead */
 notification.patch('/markAllRead', authenticate, controller.markAllNotificationsRead);
 
-/** DELETE /notifications/delete/:id */
 notification.delete(
   '/delete/:id',
   authenticate,
@@ -38,10 +31,8 @@ notification.delete(
   controller.remove,
 );
 
-/** GET /notifications/getPreferences */
 notification.get('/getPreferences', authenticate, controller.getPreferences);
 
-/** PATCH /notifications/updatePreferences */
 notification.patch(
   '/updatePreferences',
   authenticate,
@@ -49,7 +40,6 @@ notification.patch(
   controller.setPreferences,
 );
 
-/** POST /notifications/registerDevice — stores the FCM token against the caller */
 notification.post(
   '/registerDevice',
   authenticate,
@@ -57,7 +47,6 @@ notification.post(
   controller.registerDevice,
 );
 
-/** POST /notifications/unregisterDevice */
 notification.post(
   '/unregisterDevice',
   authenticate,
@@ -65,7 +54,6 @@ notification.post(
   controller.unregisterDevice,
 );
 
-/** POST /notifications/sendBulk — admin */
 notification.post(
   '/sendBulk',
   authenticate,
@@ -74,7 +62,6 @@ notification.post(
   controller.broadcast,
 );
 
-/** GET /notifications/getTemplates — admin */
 notification.get(
   '/getTemplates',
   authenticate,
@@ -83,7 +70,6 @@ notification.get(
   controller.getTemplates,
 );
 
-/** POST /notifications/createTemplate — admin */
 notification.post(
   '/createTemplate',
   authenticate,
@@ -92,7 +78,6 @@ notification.post(
   controller.createTemplate,
 );
 
-/** PATCH /notifications/updateTemplate/:id — admin */
 notification.patch(
   '/updateTemplate/:id',
   authenticate,
@@ -101,7 +86,6 @@ notification.patch(
   controller.updateTemplate,
 );
 
-/** DELETE /notifications/deleteTemplate/:id — admin */
 notification.delete(
   '/deleteTemplate/:id',
   authenticate,
@@ -112,11 +96,8 @@ notification.delete(
 
 export const notificationRoutes = notification;
 
-// ── Chat ─────────────────────────────────────────────────────────────────────
-
 const chat = Router();
 
-/** GET /chat/getConversations */
 chat.get(
   '/getConversations',
   authenticate,
@@ -124,10 +105,8 @@ chat.get(
   controller.getConversations,
 );
 
-/** GET /chat/getUnreadCount */
 chat.get('/getUnreadCount', authenticate, controller.chatUnread);
 
-/** POST /chat/startConversation */
 chat.post(
   '/startConversation',
   authenticate,
@@ -135,7 +114,6 @@ chat.post(
   controller.startConversation,
 );
 
-/** GET /chat/getMessages/:conversationId */
 chat.get(
   '/getMessages/:conversationId',
   authenticate,
@@ -146,7 +124,6 @@ chat.get(
   controller.getMessages,
 );
 
-/** POST /chat/sendMessage */
 chat.post(
   '/sendMessage',
   authenticate,
@@ -154,7 +131,6 @@ chat.post(
   controller.sendMessage,
 );
 
-/** PATCH /chat/markRead/:conversationId */
 chat.patch(
   '/markRead/:conversationId',
   authenticate,
@@ -162,7 +138,6 @@ chat.patch(
   controller.markConversationRead,
 );
 
-/** DELETE /chat/deleteMessage/:id */
 chat.delete(
   '/deleteMessage/:id',
   authenticate,
@@ -170,7 +145,6 @@ chat.delete(
   controller.deleteMessage,
 );
 
-/** POST /chat/blockUser/:userId */
 chat.post(
   '/blockUser/:userId',
   authenticate,
@@ -178,7 +152,6 @@ chat.post(
   controller.block,
 );
 
-/** POST /chat/unblock/:id */
 chat.post(
   '/unblock/:id',
   authenticate,
@@ -186,23 +159,18 @@ chat.post(
   controller.unblock,
 );
 
-/** GET /chat/getBlocked */
 chat.get('/getBlocked', authenticate, controller.getBlocked);
 
 export const chatRoutes = chat;
 
-// ── Tickets ──────────────────────────────────────────────────────────────────
-
 const ticket = Router();
 
-/** GET /tickets/getCategories — public so a signed-out visitor can open one */
 ticket.get(
   '/getCategories',
   validate({ query: schema.listTicketsSchema }),
   controller.getCategories,
 );
 
-/** POST /tickets/categories — admin */
 ticket.post(
   '/categories',
   authenticate,
@@ -211,10 +179,8 @@ ticket.post(
   controller.createCategory,
 );
 
-/** GET /tickets/getStats — staff only */
 ticket.get('/getStats', authenticate, ...controller.guards.admin, controller.getStats);
 
-/** POST /tickets/create */
 ticket.post(
   '/create',
   authenticate,
@@ -222,7 +188,6 @@ ticket.post(
   controller.createTicket,
 );
 
-/** GET /tickets/getAll */
 ticket.get(
   '/getAll',
   authenticate,
@@ -230,7 +195,6 @@ ticket.get(
   controller.getTickets,
 );
 
-/** GET /tickets/getById/:id */
 ticket.get(
   '/getById/:id',
   authenticate,
@@ -238,7 +202,6 @@ ticket.get(
   controller.getById,
 );
 
-/** POST /tickets/reply/:id */
 ticket.post(
   '/reply/:id',
   authenticate,
@@ -246,7 +209,6 @@ ticket.post(
   controller.reply,
 );
 
-/** PATCH /tickets/updateStatus/:id */
 ticket.patch(
   '/updateStatus/:id',
   authenticate,
@@ -254,7 +216,6 @@ ticket.patch(
   controller.updateStatus,
 );
 
-/** PATCH /tickets/assign/:id — staff only */
 ticket.patch(
   '/assign/:id',
   authenticate,
@@ -263,7 +224,6 @@ ticket.patch(
   controller.assign,
 );
 
-/** PATCH /tickets/close/:id */
 ticket.patch(
   '/close/:id',
   authenticate,
@@ -271,7 +231,6 @@ ticket.patch(
   controller.closeTicket,
 );
 
-/** DELETE /tickets/delete/:id — admin */
 ticket.delete(
   '/delete/:id',
   authenticate,

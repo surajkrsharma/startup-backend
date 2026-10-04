@@ -43,12 +43,6 @@ const docFiles = (): string[] => {
   return files;
 };
 
-/**
- * `package.json` is still named `projectname-api`, which is what the docs page used to
- * show as its title. Taken from the repo name instead, so the header is not a
- * placeholder while `package.json` is left alone - renaming it there would ripple into
- * the lockfile and build output for no documentation gain.
- */
 const API_TITLE = 'Startup Marketplace API';
 
 export const swaggerSpec: swaggerJsdoc.OAS3Definition = {
@@ -136,20 +130,6 @@ export const swaggerSpec: swaggerJsdoc.OAS3Definition = {
   },
 };
 
-/**
- * The spec is built in two passes.
- *
- * `swagger-jsdoc` supplies the prose: summaries, tags, hand-written parameters and any
- * response detail a developer bothered to write. Those are the parts that cannot be
- * derived, because they are explanations rather than facts.
- *
- * `buildFromRouter` then supplies the facts: every path parameter, query parameter,
- * request body field, type and required flag, read straight off the Zod schema the
- * route actually validates with, plus the auth guards and the status codes they imply.
- *
- * A comment goes stale the moment a schema changes; a schema cannot. So the derived
- * facts win, and anything jsdoc said that the generator did not produce is kept.
- */
 const documented = swaggerJsdoc({
   swaggerDefinition: swaggerSpec as any,
   apis: docFiles(),
@@ -157,13 +137,8 @@ const documented = swaggerJsdoc({
 
 let spec: swaggerJsdoc.OAS3Definition = documented;
 
-/**
- * Filled in on the first call to /docs, because deriving the spec needs the Express
- * routing table, and that only exists once `createApp()` has run.
- */
 let derived = false;
 
-/** Express writes `:id`; OpenAPI writes `{id}`. */
 const toBraces = (p: string): string => p.replace(/:([A-Za-z_]\w*)/g, '{$1}');
 
 const ensureDerived = (app: any): void => {
@@ -186,17 +161,11 @@ const ensureDerived = (app: any): void => {
     const normalised = toBraces(rawPath);
     const target = [...real].find((r) => r === normalised || r.endsWith(normalised));
 
-    // Nothing mounted matches, so the comment names an endpoint that does not exist.
     if (!target) continue;
 
     const mountedHere = generated[target];
     if (!mountedHere) continue;
 
-    /*
-     * Only keep methods the routing table actually has. A stale comment claiming
-     * `POST /cart/removeCoupon` (the real route is DELETE) would otherwise publish an
-     * endpoint that cannot be called.
-     */
     const kept: any = {};
     for (const [method, operation] of Object.entries<any>(methods)) {
       if (mountedHere[method]) kept[method] = operation;
@@ -218,8 +187,6 @@ const ensureDerived = (app: any): void => {
         continue;
       }
 
-      // jsdoc kept for the prose, the tags and any explicitly written requestBody.
-      // The generator kept for parameters, security, schemas and implied statuses.
       documentedPaths[path][method] = {
         ...operation,
         ...(existing.summary ? { summary: existing.summary } : {}),
@@ -241,15 +208,6 @@ const ensureDerived = (app: any): void => {
   spec = documented as swaggerJsdoc.OAS3Definition;
 };
 
-/**
- * Whether a derived schema actually says anything about the body.
- *
- * It often cannot. A route validated with `z.any().superRefine(...)` hides its real
- * shape inside the refine callback, so introspection yields a typeless `{}` - and an
- * empty `{}` body would otherwise overwrite a correct hand-written block. An empty
- * `properties` map is the same story: the route genuinely takes no input, and the
- * hand-written block is the only place that can know more.
- */
 const isInformativeBody = (schema: any): boolean => {
   if (!schema || typeof schema !== 'object') return false;
   if (schema.$ref || schema.oneOf || schema.anyOf || schema.allOf) return true;
@@ -262,14 +220,6 @@ const isInformativeBody = (schema: any): boolean => {
   return true;
 };
 
-/**
- * Reconciles a hand-written requestBody with the one derived from the route's Zod schema.
- *
- * The derived schema has to win when it has something to say: it comes from the
- * validator the endpoint actually enforces, so a hand-written block that calls
- * `productId` a bare string documents a field the server would reject. jsdoc is still
- * the source for prose, so its description and example are preserved per media type.
- */
 const resolveRequestBody = (derived?: any, written?: any): Record<string, any> => {
   if (!written) return derived ? { requestBody: derived } : {};
   if (!derived) return { requestBody: written };
@@ -277,7 +227,6 @@ const resolveRequestBody = (derived?: any, written?: any): Record<string, any> =
   const derivedContent = derived.content ?? {};
   const writtenContent = written.content ?? {};
 
-  // Nothing was learned from the validator, so the hand-written block stands as-is.
   const informative = Object.values<any>(derivedContent).some((m) => isInformativeBody(m?.schema));
   if (!informative) return { requestBody: written };
 
@@ -291,7 +240,7 @@ const resolveRequestBody = (derived?: any, written?: any): Record<string, any> =
     requestBody: {
       ...written,
       ...derived,
-      // Only advertise a media type the derived schema actually describes.
+
       content: Object.keys(content).length ? content : derivedContent,
     },
   };
@@ -306,13 +255,6 @@ const envelopeContent = (code: string): Record<string, any> => ({
   },
 });
 
-/**
- * Reconciles hand-written responses with the derived ones.
- *
- * Same rule as `resolveRequestBody`: a written block may keep its prose, but it
- * cannot replace the response body schema. Spreading `written` over `derived` left
- * 166 responses advertising a status with no body at all.
- */
 const resolveResponses = (derived?: any, written?: any): any => {
   if (!derived && !written) return derived;
   if (!written) return derived;
@@ -322,7 +264,6 @@ const resolveResponses = (derived?: any, written?: any): any => {
 
   for (const [code, value] of Object.entries<any>(written)) {
     if (!value?.content) {
-      // Prose only - keep the written description, and still describe the body.
       out[code] = {
         ...(derived[code] ?? {}),
         ...value,
@@ -334,7 +275,7 @@ const resolveResponses = (derived?: any, written?: any): any => {
     out[code] = {
       ...(derived[code] ?? {}),
       ...value,
-      // A written body only wins if the generator had nothing for that status.
+
       content: derived[code]?.content ?? value.content,
     };
   }
@@ -342,22 +283,6 @@ const resolveResponses = (derived?: any, written?: any): any => {
   return out;
 };
 
-/**
- * Where swagger-ui's own assets are served from.
- *
- * The page used to pull CSS and JS from unpkg.com. That works on a developer
- * machine and fails behind a network that blocks the CDN — the symptom being a
- * blank /docs page, because the HTML arrives but the bundle never does.
- *
- * `swagger-ui-dist` already ships with the app as a dependency of
- * `swagger-ui-express`, so the exact same files are on disk. Serving them from here
- * removes the CDN entirely: the docs then work offline, behind a corporate proxy,
- * and on a network that blocks unpkg.
- *
- * Note that `require('swagger-ui-dist')` resolves to the *helpers*
- * (SwaggerUIBundle, absolutePath, ...), not to a map of assets, so the files are
- * read from `getAbsoluteFSPath()` rather than imported.
- */
 const SWAGGER_ASSET_DIR = swaggerUiDist.getAbsoluteFSPath();
 
 const swaggerAsset =
@@ -375,47 +300,8 @@ const swaggerAsset =
       .send(fs.readFileSync(full));
   };
 
-/**
- * Root-relative paths for the page's own assets.
- *
- * Relative ones look right but are not: the page is served from `/api/v1/docs`
- * with no trailing slash, so a browser resolves `./swagger-ui.css` against the
- * directory `/api/v1/` and requests `/api/v1/swagger-ui.css`, which is not a
- * route. Every asset 404s and the page renders blank. Deriving the prefix from
- * APP.API_PREFIX keeps this correct if the prefix ever changes.
- */
 const ASSET_BASE = `${APP.API_PREFIX}/docs`;
 
-/**
- * The Swagger UI page, inlined as a string.
- *
- * It used to be a separate `swagger-ui.html` file read with `res.sendFile`. tsc only
- * emits `.ts`, so the HTML never reached `dist/` and every `/docs` request in a built
- * (deployed) app was a 500 — `ENOENT ... dist/docs/swagger-ui.html`. Keeping it here
- * means the compiler carries it into `dist/docs/swagger.routes.js` on its own.
- *
- * Two faults are guarded here, both of which produce a blank page with no visible
- * error and no failed request in the network tab:
- *
- *  1. Relative asset paths. The page is served from `/api/v1/docs` with no trailing
- *     slash, so a browser resolves `./swagger-ui.css` against `/api/v1/` and asks for
- *     `/api/v1/swagger-ui.css`, which is not a route. Paths are root-relative.
- *
- *  2. `plugins`. swagger-ui-dist 5.x does not export a DownloadUrl plugin from
- *     SwaggerUIStandalonePreset, so `SwaggerUIStandalonePreset.plugins.DownloadUrl`
- *     throws "Cannot read properties of undefined" inside window.onload and nothing
- *     renders at all. The plugin is optional (it only adds a download button), so it
- *     is left off rather than referenced from the wrong object.
- *
- * The loading panel is a deliberate safety net: if the bundle ever fails to execute
- * again, the page says so instead of showing an empty coloured rectangle.
- *
- * Theming: swagger-ui-dist ships no dark stylesheet and its CSS is hardcoded hex,
- * so the dark palette below is a set of overrides keyed off [data-theme="dark"] on
- * <html>. Light is the default; the choice is remembered in localStorage and
- * applied by an inline script that runs before the bundles, so the page never
- * flashes the wrong theme.
- */
 const SWAGGER_UI_HTML = `<!DOCTYPE html>
 <html lang="en" data-theme="light">
   <head>
@@ -720,7 +606,6 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
   </body>
 </html>`;
 
-/** Serves Swagger UI at /docs and the raw spec at /docs.json. */
 export const docsRouter = Router();
 
 docsRouter.get('/swagger-ui.css', swaggerAsset('swagger-ui.css'));
@@ -745,7 +630,6 @@ docsRouter.get('/docs.json', (req, res) => {
   res.json(spec);
 });
 
-/** The spec, deriving the router-derived half on first call. */
 export const getSpec = (app?: any): swaggerJsdoc.OAS3Definition => {
   if (app) ensureDerived(app);
   return spec;

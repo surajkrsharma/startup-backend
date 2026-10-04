@@ -1,9 +1,3 @@
-/**
- * Prints every registered route in the app. Used to check the e2e suites against
- * what is actually mounted, rather than against a hand-written list.
- *
- * Usage: npx tsx scripts/route-dump.ts
- */
 process.env.LOG_LEVEL = 'silent';
 
 import { createApp } from '../src/app';
@@ -34,11 +28,6 @@ const walk = (stack: any[], prefix: string) => {
   }
 };
 
-/**
- * Express encodes a mount path into a regexp. A plain mount looks like
- * `^\/api(?=\/|$)` and a root mount like `^\/?(?=\/|$)`, so the lookahead tail has
- * to be stripped before the remainder is used as a path prefix.
- */
 const mountPath = (src: string): string => {
   const decoded = src.replace(/\\\//g, '/').replace(/^\^/, '');
   const lookahead = decoded.search(/\(\?=/);

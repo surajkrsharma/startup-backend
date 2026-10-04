@@ -23,17 +23,6 @@ import { ENV, isRazorpayConfigured, isStripeConfigured } from '../../config/env.
 import { GATEWAY } from '../../config/payment.config';
 import { verifyGatewaySignature } from '../../utils/crypto';
 
-/**
- * Payments, payouts, wallet and returns.
- *
- * Money moves in one direction only and every transition is guarded: a payment
- * cannot be marked paid twice, a refund cannot exceed what was actually paid,
- * and a payout cannot be requested below the configured minimum or while
- * earnings are still inside their hold period.
- */
-
-// ═══ Payment ══════════════════════════════════════════════════════════════════
-
 const PAYMENT_INCLUDE = {
   order: { select: { id: true, orderNumber: true, status: true, total: true, userId: true } },
   user: { select: { id: true, name: true, email: true } },
@@ -49,10 +38,8 @@ export const listPayments = async (
 ): Promise<{ rows: PaymentRow[]; total: number }> => {
   const where: Prisma.PaymentWhereInput = {};
 
-  // A customer only ever sees their own payments.
   if (userId) where.userId = userId;
 
-  // A vendor sees payments on orders that include their sub-order.
   if (vendorId) where.order = { subOrders: { some: { vendorId } } };
 
   if (D.str(query.status)) where.status = query.status as PaymentStatus;
@@ -104,7 +91,6 @@ export const getPaymentByOrder = async (
   return payments;
 };
 
-/** The amount still owed on an order after token and wallet payments. */
 const outstanding = async (orderId: string): Promise<{ paid: number; due: number }> => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -118,12 +104,6 @@ const outstanding = async (orderId: string): Promise<{ paid: number; due: number
   return { paid, due: money(Math.max(0, order.total - paid)) };
 };
 
-/**
- * Confirms the token / advance payment taken at checkout.
- *
- * The order stays in PENDING_TOKEN until the whole balance clears, so a customer
- * who pays the token but not the remainder still shows as owing money.
- */
 export const verifyTokenPayment = async (
   userId: string,
   input: {
@@ -181,7 +161,6 @@ export const verifyTokenPayment = async (
       throw AppError.notFound(ERROR.PAYMENT.NOT_FOUND);
     });
 
-  // The token is settled; the balance still stands unless the wallet covered it.
   const balanceDue = money(order.total - order.walletAmount);
 
   await prisma.$transaction(async (tx) => {
@@ -229,7 +208,6 @@ export const verifyTokenPayment = async (
   return updated as PaymentRow;
 };
 
-/** Settles the remaining balance on a token order. */
 export const payBalance = async (
   userId: string,
   input: { orderId: string; method?: string; reference?: string },
@@ -259,7 +237,6 @@ export const payBalance = async (
   }
 
   const payment = await prisma.$transaction(async (tx) => {
-    // A token order is only confirmed once the balance clears.
     if (order.tokenPaid && order.status === ORDER_STATUS.PENDING_TOKEN) {
       await tx.order.update({
         where: { id: order.id },
@@ -303,7 +280,6 @@ export const payBalance = async (
   return payment as PaymentRow;
 };
 
-/** Admin records cash collected for a COD order. */
 export const collectCod = async (
   input: { orderId: string; amount?: number; reference?: string },
   actorId?: string,
@@ -366,12 +342,6 @@ export const collectCod = async (
   return updated as PaymentRow;
 };
 
-// ═══ Refund ═══════════════════════════════════════════════════════════════════
-
-/**
- * Opens a refund against what was actually paid.
- * Refunding more than the payment received is refused outright.
- */
 export const initiateRefund = async (
   input: { orderId: string; paymentId?: string; amount?: number; reason: string; mode?: string },
   actorId?: string,
@@ -444,7 +414,6 @@ export const initiateRefund = async (
   return refund;
 };
 
-/** Admin marks a pending refund as paid or failed. */
 export const processRefund = async (
   refundId: string,
   input: { status: string; providerRef?: string; reason?: string },
@@ -474,7 +443,6 @@ export const processRefund = async (
       },
     });
 
-    // Only a successful refund moves the payment's status.
     if (succeeded) {
       const settled = await tx.refund.aggregate({
         where: { paymentId: refund.paymentId, status: PaymentStatus.PAID },
@@ -552,9 +520,6 @@ export const listRefunds = async (
   return { rows, total };
 };
 
-// ═══ Wallet ═══════════════════════════════════════════════════════════════════
-
-/** Balance is derived from the ledger: credits minus debits. */
 export const getWalletBalance = async (userId: string): Promise<number> => {
   const [credits, debits] = await Promise.all([
     prisma.walletTransaction.aggregate({
@@ -627,7 +592,6 @@ export const listWalletTransactions = async (
   return { rows, total };
 };
 
-/** Admin tops a wallet up or takes a balance away. */
 export const adjustWallet = async (
   userId: string,
   input: { amount: number; description?: string; reference?: string },
@@ -682,9 +646,6 @@ export const adjustWallet = async (
   return row;
 };
 
-// ═══ Payout ═══════════════════════════════════════════════════════════════════
-
-/** Records a vendor's earning when their part of an order is delivered. */
 export const recordEarning = async (
   vendorId: string,
   subOrderId: string,
@@ -713,10 +674,6 @@ export const recordEarning = async (
 const periodKey = (date: Date = new Date()): string =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 
-/**
- * Opens a payout for the earnings that have cleared their hold period.
- * Earnings already attached to another pending payout are excluded.
- */
 export const requestPayout = async (
   vendorId: string,
   input: { amount?: number; method?: string; notes?: string },
@@ -741,7 +698,6 @@ export const requestPayout = async (
 
   const minAmount = await getMinPayoutAmount();
 
-  // Earnings that are already claimed by a live payout cannot be claimed twice.
   const claimed = await prisma.vendorEarning.findMany({
     where: {
       vendorId,
@@ -782,7 +738,6 @@ export const requestPayout = async (
     );
   }
 
-  // Claim the oldest earnings until the requested amount is covered.
   let remaining = amount;
   const claimedIds: string[] = [];
 
@@ -806,7 +761,6 @@ export const requestPayout = async (
       },
     });
 
-    // Mark the claimed earnings so a second request cannot pick them up.
     await tx.vendorEarning.updateMany({
       where: { id: { in: claimedIds } },
       data: { status: PayoutStatus.APPROVED },
@@ -896,7 +850,6 @@ export const listEarnings = async (
   return { rows, total, summary };
 };
 
-/** Promotes held earnings to available once their hold period has elapsed. */
 export const releaseEarnings = async (): Promise<number> => {
   const { count } = await prisma.vendorEarning.updateMany({
     where: {
@@ -910,7 +863,6 @@ export const releaseEarnings = async (): Promise<number> => {
   return count;
 };
 
-/** Admin moves a payout through approve -> process -> paid. */
 export const updatePayoutStatus = async (
   payoutId: string,
   input: { status: string; reference?: string; notes?: string; rejectReason?: string },
@@ -959,7 +911,6 @@ export const updatePayoutStatus = async (
       },
     });
 
-    // A rejection releases the claimed earnings back into the available pool.
     if (next === 'REJECTED') {
       const claimed = await tx.vendorEarning.findMany({
         where: { vendorId: payout.vendorId, status: PayoutStatus.APPROVED },
@@ -972,7 +923,6 @@ export const updatePayoutStatus = async (
       });
     }
 
-    // Paying out marks the earnings settled.
     if (next === 'PAID') {
       const claimed = await tx.vendorEarning.findMany({
         where: { vendorId: payout.vendorId, status: PayoutStatus.APPROVED },
@@ -1012,8 +962,6 @@ export const updatePayoutStatus = async (
 
   return updated;
 };
-
-// ═══ Return ═══════════════════════════════════════════════════════════════════
 
 const RETURN_INCLUDE = {
   reason: true,
@@ -1071,12 +1019,6 @@ export const updateReturnReason = async (
   });
 };
 
-/**
- * Opens a return against a delivered order.
- *
- * Only items that were actually bought in that order can be returned, the
- * quantity cannot exceed what was ordered, and the configured window applies.
- */
 export const requestReturn = async (
   userId: string,
   input: {
@@ -1103,7 +1045,6 @@ export const requestReturn = async (
 
   if (!order) throw AppError.notFound(ERROR.ORDER.NOT_FOUND);
 
-  // A return can only follow delivery.
   const delivered =
     order.status === ORDER_STATUS.DELIVERED || order.status === ORDER_STATUS.RETURNED;
   if (!delivered) {
@@ -1145,7 +1086,6 @@ export const requestReturn = async (
     throw AppError.unprocessable(ERROR.RETURN.ITEM_NOT_PURCHASED, ERROR_CODE.PURCHASE_REQUIRED);
   }
 
-  // The total returned per order line cannot exceed what was bought.
   const alreadyReturned = await prisma.returnItem.findMany({
     where: { orderItemId: { in: orderItems.map((i) => i.id) } },
     select: { orderItemId: true, qty: true },
@@ -1175,7 +1115,6 @@ export const requestReturn = async (
     refundAmount = money(refundAmount + (D.float(line!.total) / line!.qty) * request.qty);
   }
 
-  // A return is handled by one vendor, so the scope must not straddle shops.
   const vendorIds = new Set(orderItems.map((i) => i.subOrder?.vendorId).filter(Boolean));
   const subOrderId =
     D.str(input.subOrderId) || (vendorIds.size === 1 ? D.str(orderItems[0].subOrderId) : '');
@@ -1287,14 +1226,12 @@ export const getReturnById = async (
 
   if (!row) throw AppError.notFound(ERROR.RETURN.NOT_FOUND);
 
-  // A customer sees their own return; a vendor sees the ones addressed to them.
   if (userId && row.userId !== userId) throw AppError.notFound(ERROR.RETURN.NOT_FOUND);
   if (vendorId && row.vendorId !== vendorId) throw AppError.notFound(ERROR.RETURN.NOT_FOUND);
 
   return row as ReturnRow;
 };
 
-/** Vendor or admin advances a return through its state machine. */
 export const updateReturnStatus = async (
   id: string,
   input: {
@@ -1320,7 +1257,6 @@ export const updateReturnStatus = async (
     throw AppError.unprocessable('A rejection needs a reason.');
   }
 
-  // Per-item approval lets a shop refuse some lines and accept others.
   if (D.arr(input.itemApproval).length) {
     for (const entry of D.arr(input.itemApproval) as any[]) {
       const item = await prisma.returnItem.findFirst({
@@ -1359,7 +1295,6 @@ export const updateReturnStatus = async (
       },
     });
 
-    // Approving, or fully receiving, closes the order out as returned.
     if (next === 'APPROVED') {
       await tx.order.update({
         where: { id: row.orderId },
@@ -1410,10 +1345,6 @@ export const updateReturnStatus = async (
   return updated as ReturnRow;
 };
 
-/**
- * Completes a return: refunds the money, puts the stock back and, for wallet
- * refunds, credits the wallet.
- */
 export const processReturnRefund = async (
   id: string,
   input: { amount?: number; mode?: string; providerRef?: string },
@@ -1444,13 +1375,8 @@ export const processReturnRefund = async (
   });
 
   const refund = await prisma.$transaction(async (tx) => {
-    /**
-     * The money always moves through a refund record so the ledger is complete, even when the
-     * credit lands in the wallet instead of the gateway.
-     */
-    const created =
-      payment &&
-      (await tx.refund.create({
+    if (payment) {
+      await tx.refund.create({
         data: {
           paymentId: payment.id,
           orderId: row.orderId,
@@ -1462,7 +1388,8 @@ export const processReturnRefund = async (
           processedBy: D.str(actorId) || null,
           processedAt: new Date(),
         },
-      }));
+      });
+    }
 
     if (mode === 'WALLET') {
       const balance = await getWalletBalance(row.userId);
@@ -1480,7 +1407,6 @@ export const processReturnRefund = async (
       });
     }
 
-    // The goods are back, so the stock returns to the shelf.
     for (const item of approved) {
       const orderItem = await tx.orderItem.findUnique({
         where: { id: item.orderItemId },
@@ -1564,20 +1490,11 @@ export const processReturnRefund = async (
   return refund as ReturnRow;
 };
 
-/** A return's expected settlement window, for the customer's expectations. */
 export const getReturnSettlementEta = async (): Promise<number> => {
   const cfg = await getReturnConfig();
   return D.num(cfg.processingDays);
 };
 
-// ═══ Manual / gateway payments ════════════════════════════════════════════════
-
-/**
- * Records a customer-submitted UPI or bank reference.
- *
- * The money is not treated as received here — the row stays PENDING until an
- * admin confirms it, because a reference string alone proves nothing.
- */
 export const submitManualPayment = async (
   userId: string,
   input: {
@@ -1648,7 +1565,6 @@ export const submitManualPayment = async (
   return payment;
 };
 
-/** Admin confirms a submitted reference as genuinely received. */
 export const confirmPayment = async (
   paymentId: string,
   actorId?: string,
@@ -1715,12 +1631,6 @@ export const listRefundsByOrder = async (
   return listRefunds({ ...query, orderId });
 };
 
-/**
- * Gateway helpers.
- *
- * Razorpay and Stripe are optional dependencies, so each one is required lazily and a
- * missing install surfaces as a plain "not configured" refusal rather than a crash at boot.
- */
 const requireGateway = (name: string, configured: boolean): void => {
   if (!configured) {
     throw AppError.serviceUnavailable(
@@ -1775,12 +1685,6 @@ export const createGatewayOrder = async (
   };
 };
 
-/**
- * Confirms a gateway payment.
- *
- * The signature is checked against the order's own amount, so a client cannot reuse a
- * successful response for a cheaper order.
- */
 export const verifyGatewayPayment = async (
   userId: string,
   input: {
@@ -1861,7 +1765,6 @@ export const verifyGatewayPayment = async (
 export const createStripeIntent = async (
   userId: string,
   input: { orderId: string; amount?: number },
-  req?: any,
 ): Promise<Record<string, any>> => {
   requireGateway('Stripe', isStripeConfigured);
 
@@ -1893,9 +1796,6 @@ export const createStripeIntent = async (
   };
 };
 
-// ═══ Payout batch operations ══════════════════════════════════════════════════
-
-/** Totals by status, plus what is still owed to vendors in total. */
 export const getPayoutSummary = async (
   query: Record<string, any>,
 ): Promise<Record<string, any>> => {
@@ -1932,12 +1832,6 @@ export const getPayoutSummary = async (
   };
 };
 
-/**
- * Batch payout run.
- *
- * Releases matured earnings first, then opens one payout per vendor that clears the
- * minimum. Per-vendor failures are reported rather than aborting the whole cycle.
- */
 export const generatePayoutCycles = async (req?: any): Promise<Record<string, any>> => {
   const released = await releaseEarnings();
   const minAmount = await getMinPayoutAmount();
@@ -2034,9 +1928,7 @@ export const bulkApprovePayouts = async (
   return { approvedCount, failedList: failed };
 };
 
-/** What a vendor can still withdraw: matured earnings minus anything already claimed. */
 export const getVendorPendingAmount = async (vendorId: string): Promise<Record<string, any>> => {
-  // Fetched first because the availability query excludes whatever this returns.
   const claimed = await prisma.vendorEarning.findMany({
     where: { vendorId, status: { in: [PayoutStatus.PAID, PayoutStatus.PROCESSING] } },
     select: { id: true },
@@ -2071,7 +1963,6 @@ export const getVendorPendingAmount = async (vendorId: string): Promise<Record<s
   };
 };
 
-/** Rows for the payout statement PDF. */
 export const getVendorStatement = async (
   vendorId: string,
   query: Record<string, any>,
@@ -2148,9 +2039,6 @@ export const getVendorStatement = async (
   };
 };
 
-// ═══ Wallet top-up and redemption ═════════════════════════════════════════════
-
-/** Customer-initiated top-up; the row waits for admin confirmation like any manual payment. */
 export const addMoneyToWallet = async (
   userId: string,
   input: { amount: number; method?: string; reference?: string },
@@ -2203,11 +2091,6 @@ export const addMoneyToWallet = async (
   return row;
 };
 
-/**
- * Reserves wallet balance against an order.
- *
- * The debit is written with the order id so a refund can put it back without guessing.
- */
 export const useWalletForOrder = async (
   userId: string,
   input: { orderId: string; amount?: number },

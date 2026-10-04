@@ -49,15 +49,7 @@ const register = (name: QueueName, jobName: JobName, handler: (data: any) => Pro
   workers.push(worker);
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Email
-// ═══════════════════════════════════════════════════════════════════════════
-
 register(QUEUE.EMAIL, JOB.SEND_EMAIL, async (data) => sendMail(data));
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Notifications
-// ═══════════════════════════════════════════════════════════════════════════
 
 register(QUEUE.NOTIFICATION, JOB.SEND_NOTIFICATION, async (data) => {
   if (data.channel === 'email') return sendMail(data);
@@ -152,10 +144,6 @@ register(QUEUE.NOTIFICATION, JOB.TOKEN_BALANCE_REMINDER, async () => {
   return { reminded };
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Orders
-// ═══════════════════════════════════════════════════════════════════════════
-
 register(QUEUE.ORDER_STATUS, JOB.ROLLUP_ORDER_STATUS, async (data) => {
   const order = await prisma.order.findUnique({
     where: { id: data.orderId },
@@ -202,7 +190,7 @@ register(QUEUE.ORDER_STATUS, JOB.AUTO_CANCEL_UNPAID, async () => {
         where: { orderId: order.id },
         data: { status: ORDER_STATUS.CANCELLED, cancelReason: 'Auto cancelled' },
       }),
-      // restore stock
+
       ...(await buildStockRestores(order.id)),
     ]);
     cancelled += 1;
@@ -236,10 +224,6 @@ const buildStockRestores = async (orderId: string) => {
     return ops;
   });
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Payout
-// ═══════════════════════════════════════════════════════════════════════════
 
 register(QUEUE.PAYOUT, JOB.GENERATE_PAYOUT_CYCLE, async (data) => {
   const period = data.period ?? new Date().toISOString().slice(0, 10);
@@ -290,10 +274,6 @@ register(QUEUE.PAYOUT, JOB.GENERATE_PAYOUT_CYCLE, async (data) => {
 
   return { period, created };
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Analytics
-// ═══════════════════════════════════════════════════════════════════════════
 
 register(QUEUE.ANALYTICS, JOB.AGGREGATE_ANALYTICS, async (data) => {
   const target = data?.date ? new Date(data.date) : subtractDays(1);
@@ -392,10 +372,6 @@ register(QUEUE.ANALYTICS, JOB.AGGREGATE_ANALYTICS, async (data) => {
   return payload;
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Reports
-// ═══════════════════════════════════════════════════════════════════════════
-
 register(QUEUE.REPORT, JOB.GENERATE_REPORT, async (data) => {
   if (D.str(data.type) === 'PAYOUT_STATEMENT' && data.vendorId) {
     const vendor = await prisma.vendorProfile.findUnique({ where: { id: data.vendorId } });
@@ -428,10 +404,6 @@ register(QUEUE.REPORT, JOB.GENERATE_REPORT, async (data) => {
 
   return { skipped: true };
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Cleanup
-// ═══════════════════════════════════════════════════════════════════════════
 
 register(QUEUE.CLEANUP, JOB.CLEANUP_EXPIRED, async () => {
   const now = new Date();

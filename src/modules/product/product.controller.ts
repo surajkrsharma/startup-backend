@@ -40,15 +40,11 @@ export const guards = {
   ],
 };
 
-// ── Vendor: own catalog ──────────────────────────────────────────────────────
-
-/** POST /products/createProduct */
 export const createProduct = asyncHandler(async (req, res) => {
   const product = await service.createProduct(vendorId(req), req.body, req);
   return ApiResponse.created(res, SUCCESS.PRODUCT.CREATED, serializeProductWriteResult(product));
 });
 
-/** PATCH /products/updateProduct/:id */
 export const updateProduct = asyncHandler(async (req, res) => {
   const product = await service.updateProduct(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -85,7 +81,6 @@ export const deleteProduct = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /products/updateStock/:id */
 export const updateStock = asyncHandler(async (req, res) => {
   const result = await service.updateStock(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -94,7 +89,6 @@ export const updateStock = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /products/toggleStatus/:id */
 export const toggleStatus = asyncHandler(async (req, res) => {
   const product = await service.toggleStatus(req.params.id, req.body.status, req);
   return ApiResponse.success(res, {
@@ -139,7 +133,6 @@ export const uploadImages = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.PRODUCT.IMAGES_UPLOADED, serializeImageResult(result));
 });
 
-/** DELETE /products/deleteImage/:id/:imageId */
 export const deleteImage = asyncHandler(async (req, res) => {
   await service.deleteImage(req.params.id, req.params.imageId, req);
   return ApiResponse.success(res, {
@@ -148,7 +141,6 @@ export const deleteImage = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /products/bulkCreate */
 export const bulkCreate = asyncHandler(async (req, res) => {
   const result = await service.bulkCreate(vendorId(req), req.body, req);
   return ApiResponse.created(res, SUCCESS.PRODUCT.BULK_CREATED, {
@@ -164,7 +156,6 @@ export const bulkCreate = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /products/bulkUpdate */
 export const bulkUpdate = asyncHandler(async (req, res) => {
   const result = await service.bulkUpdate(req.body, req);
   return ApiResponse.success(res, {
@@ -181,7 +172,6 @@ export const bulkUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /products/bulkDelete */
 export const bulkDelete = asyncHandler(async (req, res) => {
   const result = await service.bulkDelete(req.body.productIds, req);
   return ApiResponse.success(res, {
@@ -190,7 +180,6 @@ export const bulkDelete = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /products/bulkPriceUpdate */
 export const bulkPriceUpdate = asyncHandler(async (req, res) => {
   const result = await service.bulkPriceUpdate(req.body, req);
   return ApiResponse.success(res, {
@@ -199,7 +188,6 @@ export const bulkPriceUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /products/bulkImportCsv — the uploaded sheet is streamed, not buffered. */
 export const bulkImportCsv = asyncHandler(async (req, res) => {
   const file = getUploadedFiles(req)[0];
 
@@ -216,7 +204,6 @@ export const bulkImportCsv = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.PRODUCT.IMPORTED, result);
 });
 
-/** GET /products/exportCsv — streams CSV rather than a JSON envelope. */
 export const exportCsv = asyncHandler(async (req, res) => {
   const isVendor = req.auth!.role === ROLES.VENDOR;
 
@@ -232,13 +219,6 @@ export const exportCsv = asyncHandler(async (req, res) => {
   return res.status(200).send(csv);
 });
 
-// ── Public listing ───────────────────────────────────────────────────────────
-
-/**
- * GET /products/getAll
- * Vendors automatically see their own drafts; everyone else sees ACTIVE only,
- * and only from approved shops.
- */
 export const getAll = asyncHandler(async (req, res) => {
   const { rows, total, filters } = await service.listProducts(req.query, req);
   const { page, limit } = getPagination(req.query);
@@ -308,7 +288,6 @@ export const getBySlug = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getFilters — facets for the catalog sidebar. */
 export const getFilters = asyncHandler(async (req, res) => {
   const facets = await service.getFilters(req.query);
   return ApiResponse.success(res, {
@@ -317,7 +296,6 @@ export const getFilters = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getRelated/:id */
 export const getRelated = asyncHandler(async (req, res) => {
   const { limit } = getPagination(req.query);
   const rows = await service.getRelated(req.params.id, limit);
@@ -327,7 +305,6 @@ export const getRelated = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getRecommended — personalised for a logged-in customer. */
 export const getRecommended = asyncHandler(async (req, res) => {
   const rows = await service.getRecommended(req.query, req);
   return ApiResponse.success(res, {
@@ -336,7 +313,6 @@ export const getRecommended = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getFrequentlyBought/:id */
 export const getFrequentlyBought = asyncHandler(async (req, res) => {
   const { limit } = getPagination(req.query);
   const rows = await service.getFrequentlyBought(req.params.id, limit);
@@ -346,7 +322,6 @@ export const getFrequentlyBought = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getRecentlyViewed */
 export const getRecentlyViewed = asyncHandler(async (req, res) => {
   const rows = await service.getRecentlyViewed(req.query, req);
   return ApiResponse.success(res, {
@@ -355,7 +330,6 @@ export const getRecentlyViewed = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /products/trackView/:id */
 export const trackView = asyncHandler(async (req, res) => {
   const result = await service.trackView(req.params.id, req);
   return ApiResponse.success(res, {

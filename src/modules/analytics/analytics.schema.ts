@@ -6,9 +6,6 @@ import { common, paginationSchema } from '../../middlewares/validate.middleware'
 
 const id = common.cuid;
 
-// ─── Tracking ────────────────────────────────────────────────────────────────
-
-/** POST /tracking/event — the client reports a behaviour event. */
 export const trackEventSchema = z
   .object({
     name: z.string().trim().min(2, VALIDATION.REQUIRED('name')).max(60),
@@ -17,7 +14,6 @@ export const trackEventSchema = z
   })
   .strict();
 
-/** POST /tracking/pageView */
 export const trackPageViewSchema = z
   .object({
     pageUrl: z.string().trim().min(1, VALIDATION.REQUIRED('pageUrl')).max(500),
@@ -31,7 +27,6 @@ export const trackPageViewSchema = z
   })
   .strict();
 
-/** POST /tracking/crash */
 export const trackCrashSchema = z
   .object({
     errorMessage: z.string().trim().min(3, VALIDATION.REQUIRED('errorMessage')).max(1000),
@@ -46,7 +41,6 @@ export const trackCrashSchema = z
   })
   .strict();
 
-/** POST /tracking/device — register or refresh a device token. */
 export const registerDeviceSchema = z
   .object({
     deviceId: z.string().trim().min(4, VALIDATION.REQUIRED('deviceId')).max(120),
@@ -68,8 +62,6 @@ export const registerDeviceSchema = z
 
 export const deviceIdParamSchema = z.object({ deviceId: z.string().trim().min(4).max(120) });
 
-// ─── Session lifecycle ────────────────────────────────────────────────────────
-
 export const startSessionSchema = z
   .object({
     sessionKey: z.string().trim().max(120).optional(),
@@ -82,7 +74,6 @@ export const startSessionSchema = z
 export const endSessionSchema = z
   .object({
     sessionKey: z.string().trim().max(120).optional(),
-    /** Client-measured duration; the server computes it when omitted. */
     durationSec: z.coerce.number().int().min(0).max(86_400).optional(),
   })
   .strict();
@@ -201,8 +192,6 @@ export const heartbeatSchema = z
   })
   .strict();
 
-// ─── Devices ─────────────────────────────────────────────────────────────────
-
 export const listDevicesSchema = z
   .object({
     platform: z.nativeEnum(Platform).optional(),
@@ -213,14 +202,10 @@ export const listDevicesSchema = z
 
 export const deviceUserParamSchema = z.object({ userId: id });
 
-// ─── Analytics ───────────────────────────────────────────────────────────────
-
-/** Analytics ranges are bounded so one request cannot scan the whole table. */
 export const rangeSchema = z
   .object({
     from: common.isoDate.optional(),
     to: common.isoDate.optional(),
-    /** Shorthand for a relative window; ignored when `from` is given. */
     days: z.coerce.number().int().min(1).max(365).optional(),
   })
   .strict();
@@ -298,15 +283,12 @@ export const exportAnalyticsSchema = rangeSchema
 
 export const funnelReportSchema = rangeSchema
   .extend({
-    /** Funnel slug or id; slug is what a dashboard URL naturally carries. */
     slug: z.string().trim().max(140).optional(),
     funnel: z.string().trim().max(140).optional(),
   })
   .strict();
 
 export { paginationSchema };
-
-// ─── Funnels ─────────────────────────────────────────────────────────────────
 
 export const listFunnelsSchema = z
   .object({
@@ -346,9 +328,6 @@ export const updateFunnelSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
 
-// ─── Search ──────────────────────────────────────────────────────────────────
-
-/** GET /search — global search across products, vendors and categories. */
 export const globalSearchSchema = z
   .object({
     q: z.string().trim().min(1, VALIDATION.REQUIRED('q')).max(120),
@@ -357,7 +336,6 @@ export const globalSearchSchema = z
   })
   .strict();
 
-/** GET /search/products */
 export const searchProductsSchema = z
   .object({
     q: z.string().trim().min(1, VALIDATION.REQUIRED('q')).max(120),
@@ -397,11 +375,8 @@ export const searchLogsSchema = z
   .merge(paginationSchema)
   .strict();
 
-// ─── Upload ──────────────────────────────────────────────────────────────────
-
 export const uploadResultSchema = z
   .object({
-    /** Client-supplied public id, so an upload can overwrite deterministically. */
     publicId: z.string().trim().max(200).optional(),
     folder: z.string().trim().max(100).optional(),
   })

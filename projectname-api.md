@@ -83,7 +83,7 @@ Ye **sirf backend** hai. Sabhi web apps + Android + iOS isko consume karenge.
 | Central Error Handler | `AppError` class + `errorHandler` middleware — consistent JSON error shape |
 | Async wrapper | `asyncHandler(fn)` — har controller mai try/catch repeat na karo |
 | Request ID middleware | `nanoid` se `req.id` — ek request ke saare logs trace karne ke liye |
-| Health route | `/health` for Render — uptime check ke liye |
+| Health route | `/api/v1/health` for Render — uptime check ke liye |
 | Graceful shutdown | SIGTERM pe Prisma disconnect + Redis quit + Socket close — data loss na ho |
 | BullMQ queue | Email, payout calc, order status, analytics aggregate, notification blast background mai — response fast rahe |
 | Email templates | HTML templates (order confirm, reset password) — reusable |
@@ -483,7 +483,7 @@ export const ENCRYPTION = {
   IV_LENGTH: 12,
   TAG_LENGTH: 16,
   HEADER_NAME: 'x-encrypted',
-  SKIP_PATHS: ['/health', '/docs', '/webhooks', '/track'],
+  SKIP_PATHS: ['/health', '/docs', '/docs.json', '/webhooks', '/track'],
 };
 ```
 
@@ -702,7 +702,7 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 
 ### 4.6 Rules / Notes
 
-- `/health`, `/docs`, `/webhooks`, `/track` encrypt nahi honge (skip list).
+- `/health`, `/docs`, `/docs.json`, `/webhooks`, `/track` encrypt nahi honge (skip list).
 - Swagger docs mai bhi 2 modes document karo: plain aur encrypted.
 - Key rotation: `ENCRYPTION_KEY` change karne pe purane tokens/data invalid ho sakte — version field add karo future mai.
 
@@ -1757,6 +1757,7 @@ export const errorHandler = (
 | GET | `/api/v1/health/db` | ❌ | Public | DB check |
 | GET | `/api/v1/health/redis` | ❌ | Public | Redis check |
 | GET | `/api/v1/health/queue` | ❌ | Public | Queue check |
+| GET | `/api/v1/activityLogs/getAll` | ✅ | ADMIN | List activity logs |
 | GET | `/api/v1/analytics/funnels` | ✅ | ADMIN | List funnels |
 | POST | `/api/v1/analytics/funnels` | ✅ | ADMIN | Create funnel |
 | PATCH | `/api/v1/analytics/funnels/:id` | ✅ | ADMIN | Update funnel |
@@ -1766,6 +1767,7 @@ export const errorHandler = (
 | POST | `/api/v1/categories/bulkCreate` | ✅ | ADMIN | Bulk create |
 | GET | `/api/v1/categories/getBySlug/:slug` | ❌ | Public | Category by slug |
 | GET | `/api/v1/chat/getBlocked` | ✅ | Any | Blocked users |
+| POST | `/api/v1/chat/unblock/:id` | ✅ | Any | Remove block |
 | GET | `/api/v1/collections/getById/:id` | ❌ | Public | Single collection |
 | GET | `/api/v1/collections/getBySlug/:slug` | ❌ | Public | Collection by slug |
 | GET | `/api/v1/collections/getProducts/:id` | ❌ | Public | Collection products |
@@ -1803,6 +1805,8 @@ export const errorHandler = (
 | POST | `/api/v1/templates/sms/:key/render` | ✅ | ADMIN | Render with values |
 | GET | `/api/v1/templates/sms/getAll` | ✅ | ADMIN | List SMS templates |
 | POST | `/api/v1/templates/sms/upsert` | ✅ | ADMIN | Create or update |
+| POST | `/api/v1/tickets/categories` | ✅ | ADMIN | Create ticket category |
+| GET | `/api/v1/tickets/getStats` | ✅ | ADMIN | Ticket counts by status |
 | POST | `/api/v1/uploads/uploadImage/single` | ✅ | Any | Single file upload |
 | PATCH | `/api/v1/users/updateAvatar` | ❌ | Public | Change avatar |
 | POST | `/api/v1/webhooks/:id/rotateSecret` | ✅ | ADMIN | Rotate secret |
@@ -3185,7 +3189,7 @@ function calcTokenAmount(orderTotal: number, cfg: {
 | `x-encrypted:1` but plain body | 400 `INVALID_ENCRYPTED_PAYLOAD` |
 | Wrong key | 400 `DECRYPT_FAILED` |
 | Encryption OFF, header present | Ignore, treat plain |
-| Skip paths | `/health`, `/docs`, `/webhooks`, `/track` |
+| Skip paths | `/health`, `/docs`, `/docs.json`, `/webhooks`, `/track` |
 | File upload | Skip (binary) |
 
 ## 8.13 DB / Prisma
@@ -3244,33 +3248,34 @@ projectname-api/
 |   |   `-- 20260101000000_init/   # poori schema ek hi folder me (97 models)
 |   `-- seed.ts
 |-- src/
-|   |-- constants/        # roles, permissions, statuses, enums, http codes
+|   |-- constants/        # roles, permissions, statuses, http, countries, tracking
 |   |-- messages/         # success, error, validation texts
 |   |-- config/           # env, app, pagination, upload, jwt, otp, otp-policy,
 |   |                     # password, rateLimit, encryption, currency, logger,
-|   |                     # tracking, shipping, analytics, pdf, socket, setting
+|   |                     # tracking, shipping, analytics, pdf, socket, payment,
+|   |                     # setting + setting-defaults
 |   |-- middlewares/      # auth, rbac, error, validate, rateLimit, upload,
 |   |                     # requestId, encryption, maintenance, tracking, common
 |   |-- modules/
 |   |   |-- auth/         # register, login, otp, password, sessions, social, 2fa
-|   |   |-- user/         # profile, addresses, wishlist
+|   |   |-- user/         # profile, addresses, account
 |   |   |-- vendor/       # apply, kyc, payouts, ratings, wallet
 |   |   |-- product/      # products, variants, inventory
-|   |   |-- category/     # categories, attributes
-|   |   |-- catalog/      # brand, tag, collection
-|   |   |-- cart/
+|   |   |-- category/     # categories
+|   |   |-- catalog/      # brand, tag, collection, attribute
+|   |   |-- cart/         # cart, wishlist
 |   |   |-- order/
 |   |   |-- payment/      # payment, payout, return, wallet
 |   |   |-- review/       # review, q&a, coupon, flashSale
-|   |   |-- engagement/   # loyalty, referral, giftCard
+|   |   |-- engagement/   # loyalty, referral, giftCard, template
 |   |   |-- content/      # page, blog, faq, banner, contact, newsletter,
-|   |   |                 # report, bulk, apiKey, webhook, currency, tax, country
+|   |   |                 # report, bulk, apiKey, webhook, currency, tax, country,
+|   |   |                 # i18n, dropdown
 |   |   |-- notification/ # notification, chat, ticket
-|   |   |-- shipping/     # shipping, deliveryBoy, settings, admin, audit
-|   |   |-- analytics/    # analytics, tracking, search, upload
+|   |   |-- shipping/     # shipping, deliveryBoy, settings, admin, audit, activityLog
+|   |   |-- analytics/    # tracking, device, analytics, search, upload
 |   |   |-- system/       # version, maintenance
-|   |   |-- health/       # /api/v1/health
-|   |   `-- vendor/       # (vendor upar hai)
+|   |   `-- health/       # /api/v1/health
 |   |-- services/
 |   |   |-- mail/mail.service.ts     # brevo → smtp → log
 |   |   |-- sms/sms.service.ts       # msg91
@@ -3288,10 +3293,11 @@ projectname-api/
 |   `-- server.ts
 |-- scripts/              # dev tooling — build me compile nahi hota
 |   |-- db.ts, apply-migrations.ts, db-reset.ts, seed-check.ts
-|   |-- doctor.ts, env-sync.ts
+|   |-- doctor.ts, env-sync.ts, pglite-server.ts
+|   |-- comment-audit.ts, comment-normalise.ts
+|   |-- route-dump.ts, route-param-audit.ts, generate-postman.ts
 |   `-- e2e-*.ts, run-e2e.ps1
 |-- tests/                # vitest
-|-- prisma/migrations/
 |-- .github/workflows/    # ci
 |-- .env, .env.example    # .env.example generated — npm run env:sync
 |-- .gitattributes
@@ -3308,8 +3314,19 @@ projectname-api/
 ```
 
 Har module me: `<name>.routes.ts`, `<name>.controller.ts`, `<name>.service.ts`,
-`<name>.schema.ts`, `<name>.types.ts`, aur jahan zaroori ho
-`<name>.serializer.ts`.
+`<name>.schema.ts`, `<name>.types.ts`.
+
+Entity serializer ka **ek hi registry** hai � `src/utils/serialize.ts`. Ek entity
+ka shape do jagah define kabhi nahi hona chahiye, warna same record do alag JSON
+shapes me chala jaayega. Module ka `<name>.serializer.ts` sirf us module ke
+apne response shapes banata hai (`serializeProfile`, `serializeUserList`,
+`serializeCategoryTree`, `serializeEstimate`�) aur canonical entity serializer ko
+import karke use karta hai � re-declare nahi karta. Canonical registry ko chahiye
+se chhoti nested projection ke liye alag naam hota hai, jaise `serializeUserSummary`
+(review author, activity-log actor, nested `userData`).
+
+`npm test` me `serializer-registry.test.ts` ye guard karta hai: koi module serializer
+canonical naam dobara declare kare to test fail ho jaata hai.
 
 **Route prefix → module mapping** (`src/routes/index.ts` se):
 
@@ -3317,19 +3334,19 @@ Har module me: `<name>.routes.ts`, `<name>.controller.ts`, `<name>.service.ts`,
 | --- | --- |
 | `auth/` | `/auth` |
 | `user/` | `/users` |
-| `vendor/` | `/vendors`, `/vendor` |
+| `vendor/` | `/vendors` |
 | `product/` | `/products` |
-| `category/` | `/categories`, `/attributes` |
-| `catalog/` | `/brands`, `/tags`, `/collections` |
-| `cart/` | `/cart` |
+| `category/` | `/categories` |
+| `catalog/` | `/brands`, `/tags`, `/collections`, `/attributes` |
+| `cart/` | `/cart`, `/wishlist` |
 | `order/` | `/orders` |
-| `payment/` | `/payments`, `/wallet` |
-| `review/` | `/reviews`, `/questions`, `/coupons`, `/flash-sales` |
-| `engagement/` | `/loyalty`, `/referrals`, `/gift-cards` |
-| `content/` | `/content`, `/pages`, `/blogs`, `/faqs`, `/banners`, `/contact`, `/newsletter`, `/reports`, `/bulk`, `/api-keys`, `/webhooks`, `/taxes`, `/countries`, `/i18n` |
+| `payment/` | `/payments`, `/payouts`, `/returns`, `/wallet` |
+| `review/` | `/reviews`, `/questions`, `/coupons`, `/flashSales` |
+| `engagement/` | `/loyalty`, `/referral`, `/giftCards`, `/templates` |
+| `content/` | `/pages`, `/blogs`, `/faqs`, `/banners`, `/contact`, `/newsletter`, `/countries`, `/currencies`, `/tax`, `/i18n`, `/content`, `/webhooks`, `/bulk`, `/reports`, `/apiKeys` |
 | `notification/` | `/notifications`, `/chat`, `/tickets` |
-| `shipping/` | `/shipping`, `/delivery-boys`, `/admin` |
-| `analytics/` | `/analytics`, `/tracking`, `/search`, `/upload` |
+| `shipping/` | `/shipping`, `/deliveryBoys`, `/settings`, `/admin`, `/auditLogs`, `/activityLogs` |
+| `analytics/` | `/track`, `/devices`, `/analytics`, `/search`, `/uploads` |
 | `system/` | `/version` |
 | `health/` | `/health` |
 
@@ -3357,7 +3374,7 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - `Payment` (method, status, reference)
 - `Refund`
 - `Payout` (vendorId, amount, status, period)
-- `Return` / `ReturnItem` / `ReturnReason`
+- `ReturnRequest` / `ReturnItem` / `ReturnReason`
 - `Review`
 - `Question` / `Answer`
 - `Coupon` / `CouponUsage`
@@ -3399,6 +3416,7 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 # 11. API Routes Outline (`/api/v1`)
 
 ```
+/activityLogs     getAll
 /brands          getAll, getById/:id, getBySlug/:slug
                  createBrand, updateBrand/:id, deleteBrand/:id
 /tags            getAll, createTag, bulkCreate
@@ -3448,7 +3466,7 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
                  reorder, bulkCreate
 /chat            getConversations, getUnreadCount, startConversation
                  getMessages/:conversationId, sendMessage, markRead/:conversationId
-                 deleteMessage/:id, blockUser/:userId, getBlocked
+                 deleteMessage/:id, blockUser/:userId, unblock/:id, getBlocked
 /contact         submit, getAll, :id/markRead
 /content         dropdowns, dropdowns/create, dropdowns/:id/update
                  dropdowns/:id/delete
@@ -3546,6 +3564,7 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 /tickets         getCategories, create, getAll
                  getById/:id, reply/:id, updateStatus/:id
                  assign/:id, close/:id, delete/:id
+                 categories, getStats
 /track           event, pageView, session/start
                  session/end, device, appInstall
                  appOpen, crash, performance
@@ -3721,6 +3740,8 @@ Production ke liye plan upgrade karo.
 - `AppError` throw karo service layer se, `errorHandler` catch karega
 - `asyncHandler(fn)` — try/catch repetition na karo
 - `serializeX()` har entity ke liye — raw Prisma response mai kabhi nahi
+- Entity serializer sirf `src/utils/serialize.ts` me define karo — module serializer usse import kare, dobara declare na kare
+- Chhoti nested projection ka alag naam rakho (`serializeUserSummary`), taaki endpoint ka user shape guess na karna pade
 - `serializeXList()` sirf `xxxList` deta hai — pagination nums `ApiResponse.paginated()` deta hai
 - `getPagination(query)` se consistent page/limit/skip
 
@@ -3755,7 +3776,7 @@ Production ke liye plan upgrade karo.
 - Upload: MIME + size validation
 - Rate limit: Redis store + fallback
 - Maintenance: 503 except `/health`, `/docs`, `/admin/*`
-- Encryption: skip `/health`, `/docs`, `/webhooks`, `/track`
+- Encryption: skip `/health`, `/docs`, `/docs.json`, `/webhooks`, `/track`
 - Tracking: bot filter, geo fallback, dedup
 - Zod `.strict()` — unknown fields reject
 - Prisma errors mapped (`P2002` → 409, `P2025` → 404)
@@ -3840,6 +3861,7 @@ Production ke liye plan upgrade karo.
 
 - Raw Prisma object → response (`res.json(prismaResult)`)
 - `serializeX()` skip karna
+- Ek entity ka `serializeX()` do jagah define karna — ek shape, ek jagah
 - try/catch in every controller — `asyncHandler` use karo
 - Leaking `passwordHash`, `internalId`, `deletedAt` unless needed
 - Business logic in controller — service layer mai rakho
@@ -3950,7 +3972,7 @@ wording. `npm run comments:fix` pehli wali automatically theek kar deta hai.
 
 ### Encryption
 
-- `/health`, `/docs`, `/webhooks`, `/track` ko encrypt karna
+- `/health`, `/docs`, `/docs.json`, `/webhooks`, `/track` ko encrypt karna
 - File upload (binary) ko encrypt karna
 - Encryption OFF hone pe bhi header respect karna — ignore karo
 

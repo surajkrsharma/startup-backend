@@ -24,10 +24,6 @@ const fromRequest = (req: any, input: AuditInput) => ({
   requestId: D.str(req?.id),
 });
 
-/**
- * Writes an `AuditLog` row. SUPER_ADMIN self-edits are logged too — the guard is
- * never skipped for admins, only the description is enriched.
- */
 export const writeAuditLog = async (input: AuditInput): Promise<void> => {
   try {
     const ctx = fromRequest(input.req, input);
@@ -48,7 +44,6 @@ export const writeAuditLog = async (input: AuditInput): Promise<void> => {
       },
     });
   } catch (err) {
-    // Audit failures must never break the business operation.
     logger.error({ err: (err as Error)?.message, entity: input.entity }, '[audit] write failed');
   }
 };
@@ -80,7 +75,6 @@ export const writeActivityLog = async (input: {
   }
 };
 
-/** Diffs before/after for the audit `changes` column — only changed keys kept. */
 export const diffChanges = (
   before: Record<string, any> | null | undefined,
   after: Record<string, any> | null | undefined,

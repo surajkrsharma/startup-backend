@@ -25,8 +25,6 @@ export const guards = {
   vendor: [requireRole('VENDOR')],
 };
 
-// ─── Customer ─────────────────────────────────────────────────────────────────
-
 /**
  * @openapi
  * /orders/getAll:
@@ -246,8 +244,6 @@ export const getInvoice = asyncHandler(async (req, res) => {
   return res.send(pdf);
 });
 
-// ─── Vendor ───────────────────────────────────────────────────────────────────
-
 /**
  * @openapi
  * /orders/vendorOrders:
@@ -325,7 +321,6 @@ export const vendorCancelSubOrder = asyncHandler(async (req, res) => {
   });
 });
 
-/** Resolves a sub-order id to its parent order id. */
 const findOrderIdForSub = async (subOrderId: string): Promise<string> => {
   const { prisma } = await import('../../services/prisma.service');
   const sub = await prisma.subOrder.findUnique({
@@ -334,8 +329,6 @@ const findOrderIdForSub = async (subOrderId: string): Promise<string> => {
   });
   return D.str(sub?.orderId);
 };
-
-// ─── Admin ────────────────────────────────────────────────────────────────────
 
 /**
  * @openapi
@@ -529,7 +522,6 @@ export const returnRequest = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /orders/approveReturn/:returnId — vendor or admin */
 export const approveReturn = asyncHandler(async (req, res) => {
   const row = await service.decideReturnForOrder(
     D.str(req.params.returnId),
@@ -545,7 +537,6 @@ export const approveReturn = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /orders/rejectReturn/:returnId — vendor or admin */
 export const rejectReturn = asyncHandler(async (req, res) => {
   const row = await service.decideReturnForOrder(
     D.str(req.params.returnId),

@@ -1,16 +1,3 @@
-/**
- * Regenerates `.env.example` from `.env` so the two can never drift apart.
- *
- * A second hand-edited copy goes stale, and the failure is silent: a new
- * developer picks up the wrong database URL with nothing to point at it. The
- * copy is byte-identical apart from a header line at the top.
- *
- * Line endings are normalised before comparing — see `normalise` below.
- *
- * Usage:
- *   npm run env:sync    rewrite .env.example from .env
- *   npm run env:check   exit non-zero if the two differ
- */
 import fs from 'fs';
 import path from 'path';
 
@@ -41,11 +28,6 @@ const main = (): void => {
     process.exit(1);
   }
 
-  /**
-   * Normalise to LF before comparing. A Windows checkout with core.autocrlf=true returns the
-   * working-tree copy with CRLF while the header above is built with \n, so a raw byte comparison
-   * fails on line endings alone. They carry no meaning in a dotenv file.
-   */
   const normalise = (text: string): string => text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 
   const source = normalise(fs.readFileSync(SOURCE, 'utf8'));

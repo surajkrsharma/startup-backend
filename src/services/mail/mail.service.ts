@@ -38,11 +38,6 @@ const getTransporter = (): Transporter | null => {
   return transporter;
 };
 
-/**
- * Brevo's transactional API. Used in preference to SMTP because it needs no
- * credentials in a password manager and no open relay — just one API key.
- * Docs: https://developers.brevo.com/reference/sendtransacemail
- */
 const sendViaBrevo = async (p: {
   to: string;
   subject: string;
@@ -128,11 +123,6 @@ const sendViaSmtp = async (p: {
   }
 };
 
-/**
- * Sends transactional mail through whichever provider is configured, preferring
- * Brevo over SMTP. With neither configured the message is logged rather than
- * thrown, so a flow never breaks just because email was never set up.
- */
 export const sendMail = async (payload: MailPayload): Promise<SendResult> => {
   let subject = D.str(payload.subject);
   let html = D.str(payload.html);

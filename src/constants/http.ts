@@ -23,7 +23,6 @@ export const HTTP_STATUS = {
 
 export type HttpStatus = (typeof HTTP_STATUS)[keyof typeof HTTP_STATUS];
 
-/** Canonical error codes appended to every error message as `Error Code (CODE)`. */
 export const ERROR_CODE = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   INVALID_ENCRYPTED_PAYLOAD: 'INVALID_ENCRYPTED_PAYLOAD',

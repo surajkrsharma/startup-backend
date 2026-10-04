@@ -6,17 +6,8 @@ import * as schema from './order.schema';
 
 const router = Router();
 
-// ─── Public ───────────────────────────────────────────────────────────────────
-
-/**
- * GET /orders/track/:id — public tracking, no auth.
- * Declared before the authenticated routes so `track` is never shadowed.
- */
 router.get('/track/:id', validate({ params: schema.trackParamSchema }), controller.track);
 
-// ─── Customer ─────────────────────────────────────────────────────────────────
-
-/** GET /orders/getAll */
 router.get(
   '/getAll',
   authenticate,
@@ -24,7 +15,6 @@ router.get(
   controller.getAll,
 );
 
-/** POST /orders/placeOrder */
 router.post(
   '/placeOrder',
   authenticate,
@@ -32,7 +22,6 @@ router.post(
   controller.placeOrder,
 );
 
-/** POST /orders/reorder/:id — body may carry `skipUnavailable` */
 router.post(
   '/reorder/:id',
   authenticate,
@@ -40,7 +29,6 @@ router.post(
   controller.reorder,
 );
 
-/** POST /orders/cancelOrder/:id */
 router.post(
   '/cancelOrder/:id',
   authenticate,
@@ -48,7 +36,6 @@ router.post(
   controller.cancelOrder,
 );
 
-/** GET /orders/getById/:id — accepts an id or an order number */
 router.get(
   '/getById/:id',
   authenticate,
@@ -56,7 +43,6 @@ router.get(
   controller.getById,
 );
 
-/** GET /orders/getTimeline/:id */
 router.get(
   '/getTimeline/:id',
   authenticate,
@@ -64,7 +50,6 @@ router.get(
   controller.getTimeline,
 );
 
-/** GET /orders/getInvoice/:id — PDF by default, JSON with ?format=json */
 router.get(
   '/getInvoice/:id',
   authenticate,
@@ -72,7 +57,6 @@ router.get(
   controller.getInvoice,
 );
 
-/** POST /orders/returnRequest/:id */
 router.post(
   '/returnRequest/:id',
   authenticate,
@@ -80,9 +64,6 @@ router.post(
   controller.returnRequest,
 );
 
-// ─── Vendor ───────────────────────────────────────────────────────────────────
-
-/** GET /orders/getVendorOrders */
 router.get(
   '/getVendorOrders',
   authenticate,
@@ -91,7 +72,6 @@ router.get(
   controller.vendorOrders,
 );
 
-/** PATCH /orders/updateVendorStatus/:subOrderId */
 router.patch(
   '/updateVendorStatus/:subOrderId',
   authenticate,
@@ -103,7 +83,6 @@ router.patch(
   controller.updateSubOrderStatus,
 );
 
-/** GET /orders/getPackingSlip/:id — targets a sub-order id */
 router.get(
   '/getPackingSlip/:id',
   authenticate,
@@ -112,7 +91,6 @@ router.get(
   controller.getPackingSlip,
 );
 
-/** GET /orders/getShippingLabel/:subOrderId */
 router.get(
   '/getShippingLabel/:subOrderId',
   authenticate,
@@ -121,9 +99,6 @@ router.get(
   controller.getShippingLabel,
 );
 
-// ─── Admin ────────────────────────────────────────────────────────────────────
-
-/** PATCH /orders/updateStatus/:id */
 router.patch(
   '/updateStatus/:id',
   authenticate,
@@ -132,7 +107,6 @@ router.patch(
   controller.updateStatus,
 );
 
-/** PATCH /orders/assignDeliveryBoy/:subOrderId */
 router.patch(
   '/assignDeliveryBoy/:subOrderId',
   authenticate,
@@ -141,7 +115,6 @@ router.patch(
   controller.assignDeliveryBoy,
 );
 
-/** POST /orders/verifyDeliveryOtp/:subOrderId — vendor or admin */
 router.post(
   '/verifyDeliveryOtp/:subOrderId',
   authenticate,
@@ -149,7 +122,6 @@ router.post(
   controller.verifyDeliveryOtp,
 );
 
-/** PATCH /orders/approveReturn/:returnId — vendor or admin */
 router.patch(
   '/approveReturn/:returnId',
   authenticate,
@@ -157,7 +129,6 @@ router.patch(
   controller.approveReturn,
 );
 
-/** PATCH /orders/rejectReturn/:returnId — vendor or admin */
 router.patch(
   '/rejectReturn/:returnId',
   authenticate,

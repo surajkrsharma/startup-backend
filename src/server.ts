@@ -22,10 +22,6 @@ const start = async (): Promise<void> => {
   await startCronJobs();
 
   server.listen(SERVER.PORT, SERVER.HOST, async () => {
-    /**
-     * `isRedisAvailable` only means REDIS_URL is set, so ping for real — a configured-but-dead
-     * Redis must not be reported as connected.
-     */
     const [dbOk, redisOk] = await Promise.all([
       isDatabaseHealthy(),
       isRedisAvailable ? isRedisHealthy() : Promise.resolve(false),
@@ -56,7 +52,6 @@ const start = async (): Promise<void> => {
     if (warn) logger.warn(warn);
   });
 
-  // ── Graceful shutdown ──────────────────────────────────────────────────────
   let shuttingDown = false;
 
   const shutdown = async (signal: string): Promise<void> => {

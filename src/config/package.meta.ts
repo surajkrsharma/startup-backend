@@ -21,7 +21,7 @@ const readPackageJson = (): PackageMeta => {
         return JSON.parse(fs.readFileSync(candidate, 'utf8')) as PackageMeta;
       }
     } catch {
-      /* try next candidate */
+      continue;
     }
   }
 

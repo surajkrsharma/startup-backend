@@ -56,17 +56,10 @@ export const encryptPayload = (data: any): EncryptedPayload => {
 const wantsEncryption = (req: any): boolean =>
   req.headers[ENCRYPTION.HEADER_NAME] === ENCRYPTION.HEADER_VALUE;
 
-/**
- * Optional AES-256-GCM transport encryption.
- *
- * Client sends `x-encrypted: 1` with `{ iv, tag, data }`; the response is returned
- * as `{ encrypted: true, iv, tag, data }` wrapping the normal envelope.
- * Disabled via `ENCRYPTION_ENABLED=false` — then everything is plain JSON.
- */
 export const encryptionMiddleware: RequestHandler = (req, res, next) => {
   if (!isEncryptionReady()) return next();
   if (isSkippedPath(req.path)) return next();
-  // Multipart uploads carry binary payloads — never touch them.
+
   if (req.headers['content-type']?.includes('multipart/form-data')) return next();
 
   const isEncrypted = wantsEncryption(req);

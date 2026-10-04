@@ -41,10 +41,6 @@ export const VALIDATION = {
   STRICT_OBJECT: 'Request body contains unknown fields.',
 };
 
-/**
- * Maps a Zod issue to a human message. Falls back to the generic
- * VALIDATION_FAILED text so no internal detail ever leaks.
- */
 export const zodIssueToMessage = (issue: {
   path?: (string | number)[];
   code: string;
@@ -71,7 +67,6 @@ export const zodIssueToMessage = (issue: {
     case 'invalid_enum_value':
       return VALIDATION.INVALID_ENUM(field || 'value');
     case 'custom':
-      // Zod already carries a purpose-written message for these cases.
       return issue.message || VALIDATION.REQUIRED(field || 'value');
     default:
       return VALIDATION.INVALID_ENUM(field || 'value');

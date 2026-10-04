@@ -24,7 +24,6 @@ export const SERVER = {
   NODE_ENV: ENV.NODE_ENV,
 };
 
-/** Header names used across the API. */
 export const HEADER = {
   REQUEST_ID: 'x-request-id',
   RESPONSE_REQUEST_ID: 'X-Request-Id',
@@ -38,7 +37,6 @@ export const HEADER = {
   REFRESH_TOKEN: 'refreshToken',
 } as const;
 
-/** Paths that bypass maintenance mode and encryption. */
 export const SKIP_ENCRYPTION_PATHS = ['/health', '/docs', '/docs.json', '/webhooks', '/track'];
-
-export const MAINTENANCE_ALLOW_PATHS = ['/health', '/docs', '/docs.json', '/admin', '/version'];
+export const MAINTENANCE_ALLOW_PATHS = ['/health', '/docs', '/docs.json', '/version'];
+export const MAINTENANCE_ADMIN_PATHS = ['/admin'];

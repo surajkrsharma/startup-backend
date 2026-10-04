@@ -1,22 +1,3 @@
-/**
- * Local development helper: starts a real PostgreSQL (PGlite) on 5432 so the
- * rest of the toolchain (Prisma migrate, seed, live HTTP tests) works locally
- * without Docker.
- *
- * Why PGlite instead of a Postgres install? On Windows hosts where antivirus
- * blocks child-process creation, a normal forked `postgres.exe` dies with
- * STATUS_DLL_INIT_FAILED (0xC0000142) on every backend spawn. PGlite is real
- * PostgreSQL 17 compiled to WASM and runs in-process, so it sidesteps that.
- *
- * Caveat: the TCP bridge serves one connection at a time. Prisma queries, the
- * seed and HTTP tests all work; `prisma migrate dev` does not (it needs a
- * concurrent shadow database). Use `npm run db:migrate` instead.
- *
- * Usage:
- *   npm run db:up      # start (foreground)
- *   npm run db:down    # stop
- *   npm run db:status  # inspect
- */
 import { spawn } from 'child_process';
 import fs from 'fs';
 import net from 'net';
@@ -63,10 +44,6 @@ const start = async (): Promise<void> => {
 
   const out = fs.openSync(LOG_FILE, 'a');
 
-  /**
-   * Resolve the real CLI entrypoints: `npx.cmd` cannot be spawned detached on Windows (EINVAL),
-   * so call node directly against the local binaries.
-   */
   const node = process.execPath;
   const tsxCli = path.join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
   const entry = path.join(ROOT, 'scripts', 'pglite-server.ts');
@@ -111,7 +88,7 @@ const stop = async (): Promise<void> => {
       console.log(`[db] pid ${pid} not running`);
     }
     fs.rmSync(PID_FILE, { force: true });
-    // Wait for the port to actually free up before returning.
+
     for (let attempt = 0; attempt < 20; attempt += 1) {
       if (!(await isPortOpen(PORT, HOST))) return;
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -122,7 +99,6 @@ const stop = async (): Promise<void> => {
   console.log('[db] no pid file — run `npx pkill -f pglite-server` if still running');
 };
 
-/** Stop then start — needed between test runs because the bridge serves one client. */
 const restart = async (): Promise<void> => {
   await stop();
   await start();

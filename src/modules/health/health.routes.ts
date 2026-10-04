@@ -15,7 +15,6 @@ import { z } from 'zod';
 import { validate } from '../../middlewares/validate.middleware';
 import { VALIDATION } from '../../messages/validation';
 
-/** GET /health/jobs/:jobId */
 const jobIdParamSchema = z
   .object({ jobId: z.string().trim().min(4, VALIDATION.REQUIRED('jobId')).max(64) })
   .strict();
@@ -29,10 +28,6 @@ const baseResult = () => ({
   uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
 });
 
-/**
- * GET /api/v1/health — Render uptime probe.
- * No auth, no DB, no Redis: always answers.
- */
 router.get('/', (_req, res) =>
   ApiResponse.success(res, {
     message: SUCCESS.SYSTEM.HEALTH_OK,

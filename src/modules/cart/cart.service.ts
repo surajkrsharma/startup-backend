@@ -20,14 +20,6 @@ import { cacheDel } from '../../services/redis.service';
 import { writeActivityLog } from '../../services/audit.service';
 import { isFuture, isPast } from '../../utils/dates';
 
-/**
- * Cart service.
- *
- * Totals are always recomputed from live product rows — the cart never stores an
- * authoritative price. A seller changing a price between "add to cart" and
- * checkout is reflected at checkout rather than silently charging the old rate.
- */
-
 const CART_INCLUDE = {
   items: {
     orderBy: { createdAt: 'asc' },
@@ -68,7 +60,6 @@ const CART_INCLUDE = {
 
 type CartRow = Prisma.CartGetPayload<{ include: typeof CART_INCLUDE }>;
 
-/** Returns the caller's cart, creating it on first use. */
 export const getOrCreateCart = async (userId: string): Promise<CartRow> => {
   const existing = await prisma.cart.findUnique({ where: { userId }, include: CART_INCLUDE });
   if (existing) return existing;
@@ -80,8 +71,6 @@ export const getCart = async (userId: string): Promise<CartRow> => getOrCreateCa
 const dropCartCache = async (userId: string): Promise<void> => {
   await cacheDel(`cart:${userId}`);
 };
-
-// ─── Totals ───────────────────────────────────────────────────────────────────
 
 export interface CartLine {
   item: any;
@@ -106,12 +95,12 @@ export interface CartTotalsResult {
   walletAmount: number;
   total: number;
   couponCode: string;
-  /** Shape of an applied coupon, or `null` when none is on the cart. */
+
   coupon: CouponSummary | null;
   couponTitle: string;
   couponType: string;
   couponFreeShipping: boolean;
-  /** A code is stored but no longer qualifies; the client should drop it. */
+
   couponInvalid: boolean;
   hasStockIssue: boolean;
 }
@@ -158,7 +147,6 @@ export const calculateTotals = async (
     getShippingConfig(),
   ]);
 
-  // ── Lines ─────────────────────────────────────────────────────────────────
   const lines: CartLine[] = items.map((item) => {
     const product = item.product;
     const variant = item.variant;
@@ -173,7 +161,6 @@ export const calculateTotals = async (
       (!variant || variant.isActive !== false) &&
       (availableStock >= qty || D.bool(product?.allowBackorder));
 
-    // Each line carries its own rate, falling back to the global GST setting.
     const taxPercent =
       product?.taxPercent === null || product?.taxPercent === undefined
         ? D.float(defaultGst)
@@ -181,10 +168,6 @@ export const calculateTotals = async (
 
     const lineSubtotal = money(unitPrice * qty);
 
-    /**
-     * For inclusive pricing the tax is already inside the line total, so it is extracted rather
-     * than added on top.
-     */
     const lineTax = taxInclusive
       ? money((lineSubtotal * taxPercent) / (100 + taxPercent))
       : money((lineSubtotal * taxPercent) / 100);
@@ -197,7 +180,6 @@ export const calculateTotals = async (
   const subtotal = money(lines.reduce((sum, l) => sum + l.lineSubtotal, 0));
   const taxAmount = money(lines.reduce((sum, l) => sum + l.lineTax, 0));
 
-  // ── Coupon ────────────────────────────────────────────────────────────────
   const requestedCode = D.str(options.couponCode ?? cart?.couponCode);
   let couponDiscount = 0;
   let couponFreeShipping = false;
@@ -208,12 +190,6 @@ export const calculateTotals = async (
   let couponInvalid = false;
 
   if (requestedCode) {
-    /**
-     * A cart read must never fail because the stored coupon stopped qualifying (the cart shrank,
-     * the coupon expired, ...). The discount is simply dropped and `couponInvalid` tells the
-     * client to clear it. Explicit application via applyCoupon still throws with the specific
-     * reason.
-     */
     try {
       const resolved = await resolveCoupon(requestedCode, subtotal, lines);
       coupon = resolved.coupon;
@@ -226,7 +202,6 @@ export const calculateTotals = async (
     }
   }
 
-  // ── Shipping ──────────────────────────────────────────────────────────────
   const weightKg = money(
     lines.reduce((sum, l) => sum + D.float(l.item.product?.weight), 0),
     3,
@@ -250,18 +225,12 @@ export const calculateTotals = async (
       shippingFree = charge.isFree;
     }
 
-    // COD carries a handling surcharge on top of freight.
     if (D.str(options.paymentMethod) === PAYMENT_METHOD.COD) {
       const methods = await getPaymentMethodsConfig();
       shippingAmount = money(shippingAmount + methods.cod.extraCharge);
     }
   }
 
-  // ── Wallet ────────────────────────────────────────────────────────────────
-  /**
-   * The wallet settles the whole payable amount, shipping included, so a fully redeemed order
-   * can actually reach zero.
-   */
   const payable = money(Math.max(0, subtotal - couponDiscount + taxAmount + shippingAmount));
 
   let walletAmount = 0;
@@ -313,10 +282,6 @@ interface ResolvedCoupon {
   freeShipping: boolean;
 }
 
-/**
- * Validates a coupon against the current cart.
- * Throws with the specific reason so the client can show something useful.
- */
 const resolveCoupon = async (
   code: string,
   subtotal: number,
@@ -353,10 +318,6 @@ const resolveCoupon = async (
     throw AppError.unprocessable(ERROR.COUPON.INVALID);
   }
 
-  /**
-   * A start date in the past means the coupon is already live, so only a future start date makes
-   * it invalid.
-   */
   if (isFuture(row.startsAt)) throw AppError.unprocessable(ERROR.COUPON.INVALID);
 
   if (row.expiresAt && isPast(row.expiresAt)) {
@@ -397,7 +358,6 @@ const resolveCoupon = async (
     } satisfies ResolvedCoupon;
   };
 
-  // A vendor coupon only counts toward that vendor's items.
   if (row.vendorId) {
     if (!lines.some((l) => D.str(l.item.product?.vendorId) === row.vendorId)) {
       throw AppError.unprocessable(ERROR.COUPON.NOT_APPLICABLE);
@@ -407,7 +367,6 @@ const resolveCoupon = async (
   const productIds = D.strArr(row.productIds);
   const categoryIds = D.strArr(row.categoryIds);
 
-  // Product- or category-scoped coupons discount only the eligible lines.
   if (productIds.length) {
     const eligible = lines.filter((l) => productIds.includes(D.str(l.item.productId)));
     if (!eligible.length) throw AppError.unprocessable(ERROR.COUPON.NOT_APPLICABLE);
@@ -423,14 +382,11 @@ const resolveCoupon = async (
   return applyDiscount(subtotal);
 };
 
-/** Validates a coupon without mutating the cart (used by the estimate endpoint). */
 export const validateCoupon = async (userId: string, code: string): Promise<ResolvedCoupon> => {
   const cart = await getOrCreateCart(userId);
   const totals = await calculateTotals(cart, { couponCode: '' });
   return resolveCoupon(code, totals.subtotal, totals.lines);
 };
-
-// ─── Mutations ────────────────────────────────────────────────────────────────
 
 interface SellableProduct {
   product: { id: string; name: string; price: number; stock: number; allowBackorder: boolean };
@@ -440,7 +396,6 @@ interface SellableProduct {
   allowBackorder: boolean;
 }
 
-/** Loads a product that may legally be added to a cart, or throws the reason. */
 const loadSellableProduct = async (
   productId: string,
   variantId: string,
@@ -465,7 +420,6 @@ const loadSellableProduct = async (
     throw AppError.forbidden(ERROR.PRODUCT.VENDOR_NOT_APPROVED, ERROR_CODE.VENDOR_NOT_APPROVED);
   }
 
-  // Draft and archived products must not be purchasable.
   if (product.status !== 'ACTIVE') {
     throw AppError.unprocessable(ERROR.PRODUCT.NOT_FOUND);
   }
@@ -510,7 +464,6 @@ const loadSellableProduct = async (
   };
 };
 
-/** Shared qty guard so add/update/merge all report stock the same way. */
 const assertStock = (stock: number, qty: number, allowBackorder: boolean): void => {
   if (allowBackorder) return;
   if (stock <= 0) throw AppError.unprocessable(ERROR.PRODUCT.OUT_OF_STOCK, ERROR_CODE.OUT_OF_STOCK);
@@ -540,9 +493,6 @@ export const addItem = async (
     select: { id: true, qty: true },
   });
 
-  /**
-   * Adding the same product twice increases the quantity rather than creating a second line.
-   */
   const newQty = D.num(existing?.qty) + qty;
   assertStock(sellable.stock, newQty, sellable.allowBackorder);
 
@@ -557,10 +507,6 @@ export const addItem = async (
 
   const lineData = { qty: newQty, price: sellable.unitPrice };
 
-  /**
-   * The compound unique key cannot address a NULL variantId, so a plain product line is written
-   * through its cart-item id.
-   */
   const item = existing
     ? await prisma.cartItem.update({ where: { id: existing.id }, data: lineData })
     : await prisma.cartItem.create({
@@ -603,7 +549,6 @@ export const updateItem = async (
 
   if (!existing) throw AppError.notFound(ERROR.CART.ITEM_NOT_FOUND, ERROR_CODE.CART_ITEM_NOT_FOUND);
 
-  // qty 0 is a removal, not an error.
   if (qty <= 0) {
     await prisma.cartItem.delete({ where: { id: existing.id } });
     await dropCartCache(userId);
@@ -672,7 +617,6 @@ export const clearCart = async (
 
   const { count } = await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-  // The coupon goes too — a code that no longer qualifies must not linger.
   await prisma.cart.update({ where: { id: cart.id }, data: { couponCode: '' } });
   await dropCartCache(userId);
 
@@ -695,7 +639,6 @@ export const applyCoupon = async (
 ): Promise<{ totals: CartTotalsResult }> => {
   const cart = await getOrCreateCart(userId);
 
-  // Validated before persisting, so a rejected code never sticks to the cart.
   await validateCoupon(userId, code);
 
   await prisma.cart.update({
@@ -716,10 +659,7 @@ export const applyCoupon = async (
   return { totals: await calculateTotals(await getOrCreateCart(userId)) };
 };
 
-export const removeCoupon = async (
-  userId: string,
-  req?: any,
-): Promise<{ totals: CartTotalsResult }> => {
+export const removeCoupon = async (userId: string): Promise<{ totals: CartTotalsResult }> => {
   const cart = await getOrCreateCart(userId);
   await prisma.cart.update({ where: { id: cart.id }, data: { couponCode: '' } });
   await dropCartCache(userId);
@@ -735,7 +675,6 @@ export const estimate = async (
     walletAmount?: number;
     couponCode?: string;
   },
-  req?: any,
 ): Promise<{
   totals: CartTotalsResult;
   address: Record<string, any> | null;
@@ -769,7 +708,6 @@ export const estimate = async (
     walletAmount: D.num(input.walletAmount),
   });
 
-  // COD above the configured ceiling needs a different method, so say so now.
   if (method === PAYMENT_METHOD.COD && totals.total > methods.cod.maxAmount) {
     throw AppError.unprocessable(
       `Cash on delivery is not available above ${methods.cod.maxAmount}.`,
@@ -831,11 +769,6 @@ export const estimate = async (
   };
 };
 
-/**
- * Folds an anonymous cart into the user's cart after login.
- * Quantities are summed and capped at available stock, so nothing the user
- * picked before signing in is silently dropped.
- */
 export const mergeGuestCart = async (
   userId: string,
   input: { sessionKey?: string; items: { productId: string; variantId?: string; qty: number }[] },
@@ -846,10 +779,6 @@ export const mergeGuestCart = async (
 
   const incoming: { productId: string; variantId: string; qty: number }[] = [];
 
-  /**
-   * Anything the server already recorded against the anonymous session, plus whatever the client
-   * kept locally. De-duplicated by product+variant below.
-   */
   if (sessionKey) {
     const sessionCarts = await prisma.cart.findMany({
       where: { sessionKey },
@@ -884,10 +813,6 @@ export const mergeGuestCart = async (
     return { mergedCount: 0, skippedCount: 0, totals: await calculateTotals(cart) };
   }
 
-  /**
-   * Merge same product+variant first, otherwise the second upsert would overwrite the first
-   * one's quantity instead of adding to it.
-   */
   const merged = new Map<string, { productId: string; variantId: string; qty: number }>();
   for (const entry of incoming) {
     const key = `${entry.productId}:${entry.variantId}`;
@@ -915,7 +840,6 @@ export const mergeGuestCart = async (
 
       const wanted = D.num(existing?.qty) + entry.qty;
 
-      // Clamp rather than reject: a guest cart can hold a stale quantity.
       const qty = sellable.allowBackorder ? wanted : Math.min(wanted, sellable.stock);
 
       if (qty <= 0) {
@@ -947,7 +871,6 @@ export const mergeGuestCart = async (
 
       mergedCount += 1;
     } catch {
-      // A guest line that is no longer purchasable is skipped, not fatal.
       skippedCount += 1;
     }
   }
@@ -970,7 +893,6 @@ export const mergeGuestCart = async (
   };
 };
 
-/** Balance is credits minus debits, derived from the transaction ledger. */
 export const getWalletBalance = async (userId: string): Promise<number> => {
   const [credits, debits] = await Promise.all([
     prisma.walletTransaction.aggregate({
@@ -989,8 +911,6 @@ export const getWalletBalance = async (userId: string): Promise<number> => {
 
   return money(D.float(credits._sum.amount) - D.float(debits._sum.amount));
 };
-
-// ─── Wishlist ─────────────────────────────────────────────────────────────────
 
 const WISHLIST_INCLUDE = {
   product: {
@@ -1065,7 +985,6 @@ export const addWishlistItem = async (
   return item;
 };
 
-/** Accepts either the wishlist-item id or the product id. */
 export const removeWishlistItem = async (
   userId: string,
   reference: string,
@@ -1111,7 +1030,6 @@ export const clearWishlist = async (
   return { removedCount: count };
 };
 
-/** Moves a wishlist item into the cart and drops it from the wishlist. */
 export const moveWishlistItemToCart = async (
   userId: string,
   input: { productId?: string; variantId?: string; qty?: number },

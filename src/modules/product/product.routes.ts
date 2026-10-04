@@ -9,8 +9,6 @@ import * as schema from './product.schema';
 
 const router = Router();
 
-// ── Public / mixed ───────────────────────────────────────────────────────────
-
 /**
  * @openapi
  * /products/getAll:
@@ -69,7 +67,6 @@ router.get(
   controller.getBySlug,
 );
 
-/** GET /products/getFilters — category/brand/vendor facets + price range + attribute values. */
 router.get(
   '/getFilters',
   optionalAuth,
@@ -77,7 +74,6 @@ router.get(
   controller.getFilters,
 );
 
-/** GET /products/getRelated/:id */
 router.get(
   '/getRelated/:id',
   optionalAuth,
@@ -85,7 +81,6 @@ router.get(
   controller.getRelated,
 );
 
-/** GET /products/getRecommended — personalised from the caller's view history. */
 router.get(
   '/getRecommended',
   authenticate,
@@ -93,7 +88,6 @@ router.get(
   controller.getRecommended,
 );
 
-/** GET /products/getFrequentlyBought/:id — co-purchase analysis over order history. */
 router.get(
   '/getFrequentlyBought/:id',
   optionalAuth,
@@ -101,7 +95,6 @@ router.get(
   controller.getFrequentlyBought,
 );
 
-/** GET /products/getRecentlyViewed — the caller's own history. */
 router.get(
   '/getRecentlyViewed',
   authenticate,
@@ -109,15 +102,12 @@ router.get(
   controller.getRecentlyViewed,
 );
 
-/** POST /products/trackView/:id */
 router.post(
   '/trackView/:id',
   optionalAuth,
   validate({ params: schema.relatedParamsSchema }),
   controller.trackView,
 );
-
-// ── Vendor: own catalog ──────────────────────────────────────────────────────
 
 /**
  * @openapi
@@ -139,7 +129,6 @@ router.post(
   controller.createProduct,
 );
 
-/** PATCH /products/updateProduct/:id — vendors may only edit their own products. */
 router.patch(
   '/updateProduct/:id',
   authenticate,
@@ -165,7 +154,6 @@ router.delete(
   controller.deleteProduct,
 );
 
-/** PATCH /products/updateStock/:id — pass `variantId` to target a variant instead. */
 router.patch(
   '/updateStock/:id',
   authenticate,
@@ -173,7 +161,6 @@ router.patch(
   controller.updateStock,
 );
 
-/** PATCH /products/toggleStatus/:id */
 router.patch(
   '/toggleStatus/:id',
   authenticate,
@@ -201,7 +188,6 @@ router.post(
   controller.uploadImages,
 );
 
-/** DELETE /products/deleteImage/:id/:imageId */
 router.delete(
   '/deleteImage/:id/:imageId',
   authenticate,
@@ -209,7 +195,6 @@ router.delete(
   controller.deleteImage,
 );
 
-/** POST /products/bulkCreate — per-row errors are reported, not thrown (unless continueOnError=false). */
 router.post(
   '/bulkCreate',
   authenticate,
@@ -218,7 +203,6 @@ router.post(
   controller.bulkCreate,
 );
 
-/** PATCH /products/bulkUpdate */
 router.patch(
   '/bulkUpdate',
   authenticate,
@@ -226,7 +210,6 @@ router.patch(
   controller.bulkUpdate,
 );
 
-/** PATCH /products/bulkDelete — soft delete. */
 router.patch(
   '/bulkDelete',
   authenticate,
@@ -252,7 +235,6 @@ router.post(
   controller.bulkPriceUpdate,
 );
 
-/** POST /products/bulkImportCsv — multipart upload; per-row errors are reported, not thrown. */
 router.post(
   '/bulkImportCsv',
   authenticate,
@@ -262,7 +244,6 @@ router.post(
   controller.bulkImportCsv,
 );
 
-/** GET /products/exportCsv */
 router.get(
   '/exportCsv',
   authenticate,

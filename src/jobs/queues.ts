@@ -4,10 +4,6 @@ import { ENV, isRedisConfigured } from '../config/env.config';
 import { QUEUE, QueueName, JOB, JobName } from '../config/socket.config';
 import { logger } from '../services/logger.service';
 
-/**
- * BullMQ queues. Redis is required; when it is not configured every enqueue is a
- * no-op so the HTTP API still works (jobs simply run inline or get skipped).
- */
 let connection: IORedis | null = null;
 
 export const getQueueConnection = (): IORedis | null => {
@@ -75,8 +71,6 @@ export const enqueue = async (
     return { queued: false, jobId: '' };
   }
 };
-
-// ─── Typed enqueue helpers ────────────────────────────────────────────────────
 
 export const enqueueEmail = (data: {
   to: string;

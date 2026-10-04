@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for the content module: CMS pages, blog, FAQ, banners,
- * contact and newsletter, geo, currency, tax, translations, dropdowns,
- * webhooks, bulk import and reports.
- *
- * Every response is checked against the strict envelope (status/message/result,
- * never a null anywhere) and against role boundaries.
- *
- * Usage: npx tsx scripts/e2e-content.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -41,7 +27,6 @@ const phoneFor = (tag: string): string => {
   return `+7${run}${String(hash).padStart(2, '0')}`;
 };
 
-/** The envelope must never carry a null, anywhere, at any depth. */
 const findNull = (value: any, depth = 0): string | null => {
   if (depth > 9) return null;
   if (value === null) return 'null';
@@ -61,7 +46,6 @@ const findNull = (value: any, depth = 0): string | null => {
   return null;
 };
 
-/** Asserts the three-key envelope, ordering, and the absence of nulls. */
 const envelope = (res: any, label: string): boolean => {
   const keys = Object.keys(res.body ?? {});
   const ordered =
@@ -82,7 +66,6 @@ const envelope = (res: any, label: string): boolean => {
   return ordered && shaped && resultOk && nullHit === null;
 };
 
-/** Errors carry the code in the message. */
 const hasCode = (res: any, label: string): boolean => {
   const passed = typeof res.body?.message === 'string' && /\([A-Z_]+\)$/.test(res.body.message);
   record(label, passed, res.body?.message);
@@ -153,11 +136,6 @@ const main = async (): Promise<void> => {
 
   record('bootstrap tokens', Boolean(adminToken && customer.token && vendor.token && rival.token));
 
-  /**
-   * Without the admin token every staff route below returns 401, which would bury the real cause
-   * under a hundred failures. The shared test database can be reset out from under us, in which
-   * case `npm run seed` restores the SUPER_ADMIN account.
-   */
   if (!adminToken) {
     throw new Error(
       'SUPER_ADMIN login failed. If the shared database was reset, run `npm run seed` before this suite.',
@@ -171,8 +149,6 @@ const main = async (): Promise<void> => {
     await admin.patch(`/api/v1/vendors/approveVendor/${v.vendorId}`, {});
   }
   record('vendors approved', true);
-
-  // ── Pages ──────────────────────────────────────────────────────────────────
 
   const anonPage = await publicGet('/api/v1/pages/getAll');
   record('GET /content/pages needs no auth', anonPage.status === 200, `status=${anonPage.status}`);
@@ -230,7 +206,6 @@ const main = async (): Promise<void> => {
     D_str(updPage.body?.result?.title),
   );
 
-  // Re-saving with the same slug must not collide with its own row.
   const sameSlug = await admin.patch(`/api/v1/pages/update/${pageId}`, {
     slug: pageSlug,
   });
@@ -287,8 +262,6 @@ const main = async (): Promise<void> => {
     unknownField.status === 400,
     `status=${unknownField.status}`,
   );
-
-  // ── Blog ───────────────────────────────────────────────────────────────────
 
   const blogs = await publicGet('/api/v1/blogs/getAll');
   record('GET /content/blogs -> 200', blogs.status === 200, `status=${blogs.status}`);
@@ -377,8 +350,6 @@ const main = async (): Promise<void> => {
     `status=${missingBlog.status}`,
   );
 
-  // ── FAQ ────────────────────────────────────────────────────────────────────
-
   const faqs = await publicGet('/api/v1/faqs/getAll');
   record('GET /content/faqs -> 200', faqs.status === 200, `status=${faqs.status}`);
   envelope(faqs, 'GET /content/faqs');
@@ -410,8 +381,6 @@ const main = async (): Promise<void> => {
     delFaq.status === 200,
     `status=${delFaq.status}`,
   );
-
-  // ── Banners ────────────────────────────────────────────────────────────────
 
   const banners = await publicGet('/api/v1/banners/getAll');
   record('GET /content/banners -> 200', banners.status === 200, `status=${banners.status}`);
@@ -464,8 +433,6 @@ const main = async (): Promise<void> => {
     delBanner.status === 200,
     `status=${delBanner.status}`,
   );
-
-  // ── Contact ────────────────────────────────────────────────────────────────
 
   const contact = await request(app)
     .post('/api/v1/contact/submit')
@@ -527,8 +494,6 @@ const main = async (): Promise<void> => {
     `count=${D_arr(unread.body?.result?.itemList).length}`,
   );
 
-  // ── Newsletter ─────────────────────────────────────────────────────────────
-
   const subEmail = email('sub');
   const sub = await request(app).post('/api/v1/newsletter/subscribe').send({ email: subEmail });
   record(
@@ -571,7 +536,6 @@ const main = async (): Promise<void> => {
     !D_arr(subs.body?.result?.itemList).some((s: any) => 'token' in s),
   );
 
-  // The token is only readable straight from the table, so pull it for the test.
   const subRow = await prisma.newsletterSubscriber.findUnique({
     where: { email: subEmail },
     select: { token: true },
@@ -615,8 +579,6 @@ const main = async (): Promise<void> => {
     resub2.status === 409,
     `status=${resub2.status}`,
   );
-
-  // ── Geo ────────────────────────────────────────────────────────────────────
 
   const countries = await publicGet('/api/v1/countries/getAll');
   record(
@@ -676,7 +638,6 @@ const main = async (): Promise<void> => {
   );
   envelope(statesWithCities, 'GET /countries/getStates/IN?includeCities=true');
 
-  // getCities is scoped to one state, so it needs a real state code.
   const someStateCode = D_str(richRows.find((s: any) => D_arr(s?.cityList).length > 0)?.code);
   record('a state with cities was found', someStateCode.length > 0, someStateCode);
 
@@ -754,10 +715,6 @@ const main = async (): Promise<void> => {
     `status=${noPin.status} msg=${noPin.body?.message}`,
   );
 
-  /**
-   * An unshipped pincode is a valid answer, not an error: the checkout flow needs "not
-   * serviceable", so the lookup reports isKnown/isServiceable.
-   */
   const unknownPin = await publicPost('/api/v1/countries/checkPincode', { pincode: '9999999' });
   record(
     'an unknown pincode still returns 200',
@@ -770,8 +727,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(unknownPin.body?.result),
   );
   envelope(unknownPin, 'checkPincode unknown');
-
-  // ── Currency ───────────────────────────────────────────────────────────────
 
   const defaultRow = await prisma.currency.findFirst({
     where: { isDefault: true },
@@ -880,8 +835,6 @@ const main = async (): Promise<void> => {
     `status=${delCurAgain.status}`,
   );
 
-  // ── Tax ────────────────────────────────────────────────────────────────────
-
   const taxes = await publicGet('/api/v1/tax/getConfigs');
   record('GET /content/taxConfigs -> 200', taxes.status === 200, `status=${taxes.status}`);
 
@@ -951,8 +904,6 @@ const main = async (): Promise<void> => {
     `status=${delTaxAgain.status}`,
   );
 
-  // ── Translations ───────────────────────────────────────────────────────────
-
   const upsert = await admin.post('/api/v1/i18n/bulkUpsert', {
     locale: 'fr',
     namespace: 'common',
@@ -983,7 +934,6 @@ const main = async (): Promise<void> => {
     `status=${again.status}`,
   );
 
-  // The locale is the path param, and the payload is grouped by namespace.
   const frList = await publicGet('/api/v1/i18n/getTranslations/fr');
   record(
     'GET /i18n/getTranslations/:locale -> 200',
@@ -1018,7 +968,6 @@ const main = async (): Promise<void> => {
     `keyCount=${frEntries?.keyCount} entries=${D_arr(frEntries?.entryList).length}`,
   );
 
-  // An unknown locale is an empty grouping, not an error.
   const emptyLocale = await publicGet('/api/v1/i18n/getTranslations/zz');
   record(
     'an unknown locale -> 200 with no namespaces',
@@ -1045,8 +994,6 @@ const main = async (): Promise<void> => {
     custUpsert.status === 403,
     `status=${custUpsert.status}`,
   );
-
-  // ── Dropdowns ──────────────────────────────────────────────────────────────
 
   const dd = await admin.post('/api/v1/content/dropdowns/create', {
     type: 'order_status_reason',
@@ -1095,8 +1042,6 @@ const main = async (): Promise<void> => {
     delDd.status === 200,
     `status=${delDd.status}`,
   );
-
-  // ── Webhooks ───────────────────────────────────────────────────────────────
 
   const wh = await admin.post('/api/v1/webhooks/register', {
     url: 'https://example.com/hooks/marketplace',
@@ -1169,7 +1114,6 @@ const main = async (): Promise<void> => {
     D_str(rot.body?.result?.webhookId) === whId,
   );
 
-  // An inactive endpoint must not accept a delivery even with a valid signature.
   const crypto = await import('crypto');
 
   const offPayload = {
@@ -1200,14 +1144,6 @@ const main = async (): Promise<void> => {
     `status=${onWh.status}`,
   );
 
-  /**
-   * The provider receivers verify against that provider's own environment secret
-   * (RAZORPAY_WEBHOOK_SECRET and friends), NOT against an endpoint's rotated secret.
-   * Keeping the two apart is the point: a leaked endpoint key must not be replayable
-   * against a provider route, and a leaked provider secret must not authenticate an
-   * endpoint. With no provider secret configured, a delivery is recorded but can
-   * never be trusted - which is exactly what these cases pin down.
-   */
   const activePayload = {
     endpointId: whId,
     event: 'payment.settled',
@@ -1235,10 +1171,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(good.body?.result),
   );
 
-  /**
-   * The pre-rotation secret must stop working the moment the secret rotates, so this signs a
-   * *different* payload with the old secret.
-   */
   const stalePayload = {
     endpointId: whId,
     event: 'order.created',
@@ -1279,8 +1211,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(unsigned.body?.result),
   );
 
-  // Each provider route keeps its own secret, so a delivery to one cannot be
-  // replayed against another.
   const crossedPayload = {
     endpointId: whId,
     event: 'shipping.updated',
@@ -1346,8 +1276,6 @@ const main = async (): Promise<void> => {
     `status=${delWhAgain.status}`,
   );
 
-  // ── Bulk import ────────────────────────────────────────────────────────────
-
   const imp = await api(vendor.token).post('/api/v1/bulk/importProducts', {
     rows: [
       { name: `Imported A ${run}`, price: 120, stock: 5, sku: `IMPA${run}` },
@@ -1403,10 +1331,6 @@ const main = async (): Promise<void> => {
   const missingJob = await api(vendor.token).get('/api/v1/bulk/getJobStatus/bulk_does_not_exist');
   record('an unknown job id -> 404', missingJob.status === 404, `status=${missingJob.status}`);
 
-  /**
-   * A row pointing at a category that does not exist fails inside the service, after the zod
-   * layer has already accepted the shape.
-   */
   const badRow = await api(vendor.token).post('/api/v1/bulk/importProducts', {
     rows: [
       { name: `Partial A ${run}`, price: 10, stock: 1, sku: `PRTA${run}` },
@@ -1457,8 +1381,6 @@ const main = async (): Promise<void> => {
         .then((r) => D_arr(r.body?.result?.itemList).length),
     ) === 0,
   );
-
-  // ── Reports ────────────────────────────────────────────────────────────────
 
   const sales = await admin.get('/api/v1/reports/sales');
   record(
@@ -1522,8 +1444,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(taxR.body?.result?.summary),
   );
 
-  // Each report type is its own named route, so the type is only validated where a
-  // route takes one as a parameter: /reports/export/:type.
   const badReport = await admin.get('/api/v1/reports/export/not_a_report');
   record(
     'an unknown export type -> 400',
@@ -1554,8 +1474,6 @@ const main = async (): Promise<void> => {
     ranged.status === 200 && D_num(ranged.body?.result?.totalRecord) === 0,
     `status=${ranged.status} total=${D_num(ranged.body?.result?.totalRecord)}`,
   );
-
-  // ── Report schedules ───────────────────────────────────────────────────────
 
   const sched = await admin.post('/api/v1/reports/schedule', {
     name: `Weekly sales ${run}`,
@@ -1639,8 +1557,6 @@ const main = async (): Promise<void> => {
     `status=${delSchedAgain.status}`,
   );
 
-  // ── Cleanup ────────────────────────────────────────────────────────────────
-
   await prisma.product.deleteMany({
     where: {
       sku: {
@@ -1671,12 +1587,6 @@ const main = async (): Promise<void> => {
   await prisma.page.deleteMany({ where: { title: { contains: run } } });
   await prisma.reportSchedule.deleteMany({ where: { name: { contains: run } } });
 
-  /**
-   * Scoped by the run id, not by a name prefix. Prisma compiles `contains` to a LIKE
-   * without escaping `_`, so a prefix like `ct_` is the pattern `%ct_%` — and
-   * "superadmin@projeCTName.com" matches it, which is how this suite used to delete
-   * SUPER_ADMIN out from under every later one. Digits are not LIKE metacharacters.
-   */
   await prisma.user.deleteMany({ where: { email: { contains: run } } });
 
   const passed = checks.filter((c) => c.passed).length;

@@ -22,16 +22,7 @@ export const guards = {
   superAdmin: [requireRole(ROLES.SUPER_ADMIN)],
 };
 
-/** Staff are the only side that may see internal notes. */
-/**
- * Whether the caller is staff.
- *
- * `req.auth` is optional: /tickets/getCategories is public so a signed-out visitor
- * can open a ticket, and reading `req.auth!.role` there threw a 500.
- */
 const isStaff = (req: Request): boolean => isAdminRole(D.str(req.auth?.role));
-
-// ═══ Notifications ═══════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -83,7 +74,7 @@ export const getUnreadCount = asyncHandler(async (req, res) => {
  *     responses:
  *       200: { description: How many were marked }
  */
-/** PATCH /notifications/markRead/:id — marks one notification */
+
 export const markNotificationRead = asyncHandler(async (req, res) => {
   const count = await service.markRead(userId(req), [D.str(req.params.id)], false);
 
@@ -93,7 +84,6 @@ export const markNotificationRead = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /notifications/markAllRead */
 export const markAllNotificationsRead = asyncHandler(async (req, res) => {
   const count = await service.markRead(userId(req), [], true);
 
@@ -161,8 +151,6 @@ export const setPreferences = asyncHandler(async (req, res) => {
     result: { updatedCount: D.num(count) },
   });
 });
-
-// ═══ Chat ════════════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -385,8 +373,6 @@ export const getBlocked = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Tickets ═════════════════════════════════════════════════════════════════
-
 /**
  * @openapi
  * /tickets/getAll:
@@ -514,7 +500,6 @@ export const assign = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /tickets/getCategories */
 export const getCategories = asyncHandler(async (req, res) => {
   const rows = await service.listTicketCategories(!isStaff(req));
 
@@ -524,13 +509,11 @@ export const getCategories = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /tickets/categories — admin */
 export const createCategory = asyncHandler(async (req, res) => {
   const row = await service.createTicketCategory(req.body);
   return ApiResponse.created(res, SUCCESS.COMMON.CREATED, serializeTicketCategory(row));
 });
 
-/** GET /tickets/getStats — admin */
 export const getStats = asyncHandler(async (_req, res) => {
   const result = await service.getTicketStats();
   return ApiResponse.success(res, { message: SUCCESS.TICKET.FETCHED, result });
@@ -550,9 +533,6 @@ export const broadcast = asyncHandler(async (req, res) => {
   return ApiResponse.accepted(res, SUCCESS.NOTIFICATION.BULK_SENT, { sentCount: D.num(count) });
 });
 
-// ═══ Push device tokens ═══════════════════════════════════════════════════════
-
-/** POST /notifications/registerDevice */
 export const registerDevice = asyncHandler(async (req, res) => {
   const row = await service.registerDeviceToken(userId(req), req.body);
 
@@ -567,7 +547,6 @@ export const registerDevice = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /notifications/unregisterDevice */
 export const unregisterDevice = asyncHandler(async (req, res) => {
   const result = await service.unregisterDeviceToken(userId(req), D.str(req.body.deviceId));
   return ApiResponse.success(res, {
@@ -576,9 +555,6 @@ export const unregisterDevice = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Notification templates ═══════════════════════════════════════════════════
-
-/** GET /notifications/getTemplates — admin */
 export const getTemplates = asyncHandler(async (_req, res) => {
   const rows = await service.listNotificationTemplates();
 
@@ -601,7 +577,6 @@ export const getTemplates = asyncHandler(async (_req, res) => {
   });
 });
 
-/** POST /notifications/createTemplate — admin */
 export const createTemplate = asyncHandler(async (req, res) => {
   const row = await service.createNotificationTemplate(req.body, req);
   return ApiResponse.created(res, SUCCESS.NOTIFICATION.TEMPLATE_CREATED, {
@@ -611,7 +586,6 @@ export const createTemplate = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /notifications/updateTemplate/:id — admin */
 export const updateTemplate = asyncHandler(async (req, res) => {
   const row = await service.updateNotificationTemplate(D.str(req.params.id), req.body, req);
 
@@ -621,7 +595,6 @@ export const updateTemplate = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /notifications/deleteTemplate/:id — admin */
 export const deleteTemplate = asyncHandler(async (req, res) => {
   await service.deleteNotificationTemplate(D.str(req.params.id), req);
 
@@ -631,9 +604,6 @@ export const deleteTemplate = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Ticket shortcuts ════════════════════════════════════════════════════════
-
-/** PATCH /tickets/close/:id — either side may close a thread. */
 export const closeTicket = asyncHandler(async (req, res) => {
   const row = await service.updateTicketStatus(
     D.str(req.params.id),
@@ -649,7 +619,6 @@ export const closeTicket = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /tickets/delete/:id — admin */
 export const deleteTicket = asyncHandler(async (req, res) => {
   await service.deleteTicket(D.str(req.params.id), req);
 

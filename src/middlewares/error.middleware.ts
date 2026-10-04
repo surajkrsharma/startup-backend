@@ -9,15 +9,12 @@ import { ERROR_CODE, HTTP_STATUS } from '../constants/http';
 import { mapPrismaError } from '../services/prisma.service';
 import { logger } from '../services/logger.service';
 
-/** Normalises anything thrown anywhere into the strict 3-key error envelope. */
 export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: any, next) => {
   if (res.headersSent) {
     return next(err);
   }
 
-  // ── Zod validation ───────────────────────────────────────────────────────
   if (err instanceof ZodError) {
-    // Prefer a field-specific message over a generic union/discriminator complaint.
     const issues = err.errors ?? [];
     const first =
       issues.find((issue) => issue.code === 'custom') ??
@@ -31,7 +28,6 @@ export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: a
     });
   }
 
-  // ── Explicit application errors ──────────────────────────────────────────
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
       logger.error(
@@ -46,7 +42,6 @@ export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: a
     });
   }
 
-  // ── Multer (file upload) ─────────────────────────────────────────────────
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return ApiResponse.error(res, {
@@ -69,7 +64,6 @@ export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: a
     });
   }
 
-  // ── Body parser ──────────────────────────────────────────────────────────
   if (err?.type === 'entity.too.large') {
     return ApiResponse.error(res, {
       statusCode: HTTP_STATUS.PAYLOAD_TOO_LARGE,
@@ -85,7 +79,6 @@ export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: a
     });
   }
 
-  // ── Prisma ───────────────────────────────────────────────────────────────
   const prismaMapped = mapPrismaError(err);
   if (prismaMapped) {
     const message =
@@ -101,7 +94,6 @@ export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: a
     });
   }
 
-  // ── Rate limiter ─────────────────────────────────────────────────────────
   if (err?.statusCode === HTTP_STATUS.TOO_MANY_REQUESTS) {
     return ApiResponse.error(res, {
       statusCode: HTTP_STATUS.TOO_MANY_REQUESTS,
@@ -110,7 +102,6 @@ export const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: a
     });
   }
 
-  // ── Anything else: log internally, never leak details ────────────────────
   logger.error(
     {
       err: err?.message,

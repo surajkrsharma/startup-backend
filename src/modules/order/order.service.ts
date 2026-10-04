@@ -30,15 +30,6 @@ import { getOrCreateCart, calculateTotals, getWalletBalance } from '../cart/cart
 import { recordEarning, requestReturn, updateReturnStatus } from '../payment/payment.service';
 import { addMinutes, daysBetween } from '../../utils/dates';
 
-/**
- * Order service.
- *
- * An order is one customer checkout that fans out into one SubOrder per vendor,
- * because commission, fulfilment and payouts are all tracked per shop. Stock is
- * decremented inside a transaction so two concurrent checkouts cannot oversell
- * the same variant.
- */
-
 export const ORDER_INCLUDE = {
   user: { select: { id: true, name: true, email: true, phone: true } },
   address: true,
@@ -61,7 +52,6 @@ type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 const withRelations = (id: string): Promise<OrderRow> =>
   prisma.order.findUnique({ where: { id }, include: ORDER_INCLUDE }) as Promise<OrderRow>;
 
-/** Records a state change on the order timeline. */
 const pushTimeline = async (
   tx: Prisma.TransactionClient | typeof prisma,
   input: {
@@ -87,22 +77,12 @@ const pushTimeline = async (
   });
 };
 
-// ─── Place order ──────────────────────────────────────────────────────────────
-
 export interface PlaceOrderResult {
   order: OrderRow;
-  /** Lines that could not be ordered, when skipUnavailable was requested. */
+
   skipped: { productId: string; name: string; reason: string }[];
 }
 
-/**
- * Converts the cart into an order.
- *
- * The whole thing runs in one serialisable transaction: re-reading the cart,
- * re-checking stock, writing the order, its sub-orders, items, stock movements
- * and the coupon usage. A failure anywhere rolls the lot back, so stock is
- * never left short after a rejected checkout.
- */
 export const placeOrder = async (
   userId: string,
   input: {
@@ -114,7 +94,7 @@ export const placeOrder = async (
     walletAmount?: number;
     notes?: string;
     skipStatus?: boolean;
-    /** Drop unavailable lines instead of failing the whole checkout. */
+
     skipUnavailable?: boolean;
   },
   req?: any,
@@ -134,7 +114,6 @@ export const placeOrder = async (
     throw AppError.unprocessable(ERROR.PAYMENT.METHOD_DISABLED);
   }
 
-  // ── Address ───────────────────────────────────────────────────────────────
   let addressId = D.str(input.addressId);
 
   if (!addressId && input.address) {
@@ -153,7 +132,6 @@ export const placeOrder = async (
 
   if (!address) throw AppError.notFound(ERROR.ADDRESS.NOT_FOUND);
 
-  // ── Totals ────────────────────────────────────────────────────────────────
   const totals = await calculateTotals(cart, {
     couponCode: D.str(input.couponCode) || undefined,
     paymentMethod: method,
@@ -165,7 +143,6 @@ export const placeOrder = async (
     throw AppError.unprocessable(`An order may contain at most ${maxItems} items.`);
   }
 
-  // The coupon is only counted once the minimum is actually met.
   const goodsValue = money(totals.subtotal - totals.couponDiscount + totals.taxAmount);
   if (goodsValue < minAmount) {
     throw AppError.unprocessable(
@@ -174,7 +151,6 @@ export const placeOrder = async (
     );
   }
 
-  // ── Stock ─────────────────────────────────────────────────────────────────
   const skipped: PlaceOrderResult['skipped'] = [];
 
   for (const line of totals.lines) {
@@ -187,10 +163,6 @@ export const placeOrder = async (
     }
   }
 
-  /**
-   * Skipping is only allowed when the caller opted in; otherwise the shortfall must be resolved
-   * before checkout.
-   */
   if (skipped.length && !D.bool(input.skipUnavailable)) {
     throw AppError.unprocessable(ERROR.ORDER.STOCK_CHANGED, ERROR_CODE.STOCK_CHANGED);
   }
@@ -201,15 +173,11 @@ export const placeOrder = async (
     throw AppError.unprocessable(ERROR.ORDER.STOCK_CHANGED, ERROR_CODE.STOCK_CHANGED);
   }
 
-  /**
-   * Recompute the money from the usable lines only, since a skipped line must not be paid for.
-   */
   const usableSubtotal = money(usable.reduce((sum, l) => sum + l.lineSubtotal, 0));
   const usableTax = money(usable.reduce((sum, l) => sum + l.lineTax, 0));
 
   let couponDiscount = 0;
   if (totals.couponDiscount > 0) {
-    // Only keep the discount if it still applies to what is actually shipping.
     couponDiscount = Math.min(totals.couponDiscount, usableSubtotal);
   }
 
@@ -218,7 +186,6 @@ export const placeOrder = async (
 
   const payable = money(Math.max(0, usableSubtotal - couponDiscount + usableTax + shipping));
 
-  // ── Wallet ────────────────────────────────────────────────────────────────
   let walletAmount = 0;
   if (D.bool(input.useWalletBalance)) {
     const walletCfg = await getWalletConfig();
@@ -231,12 +198,10 @@ export const placeOrder = async (
 
   const total = money(Math.max(0, payable - walletAmount));
 
-  // ── Token / advance ───────────────────────────────────────────────────────
   const tokenCfg = await getTokenPaymentConfig();
   const tokenAmount = calcTokenAmount(total, tokenCfg);
   const tokenRequired = tokenAmount > 0 && tokenAmount < total;
 
-  // ── Per-vendor split ──────────────────────────────────────────────────────
   const byVendor = new Map<string, typeof usable>();
   for (const line of usable) {
     const vendorId = D.str(line.item.product?.vendorId);
@@ -257,10 +222,6 @@ export const placeOrder = async (
     }
   }
 
-  /**
-   * Tax and shipping are apportioned across vendors proportionally to their goods value, so each
-   * sub-order adds up to the parent.
-   */
   const orderNumber = generateOrderNumber();
 
   const result = await prisma.$transaction(
@@ -299,9 +260,6 @@ export const placeOrder = async (
         const vendorId = vendorIds[i];
         const lines = byVendor.get(vendorId)!;
 
-        /**
-         * The last vendor absorbs the rounding remainder so the parts always sum to the whole.
-         */
         const isLast = i === vendorIds.length - 1;
         const share =
           usableSubtotal > 0
@@ -363,9 +321,6 @@ export const placeOrder = async (
             },
           });
 
-          /**
-           * Stock comes off the variant when one is chosen, otherwise the product's own stock.
-           */
           if (item.variantId) {
             await tx.productVariant.update({
               where: { id: D.str(item.variantId) },
@@ -381,10 +336,6 @@ export const placeOrder = async (
             });
           }
 
-          /**
-           * A product that drops to zero is no longer buyable, so it goes to DRAFT rather than staying
-           * ACTIVE with no stock.
-           */
           const remaining = line.availableStock - D.num(item.qty);
           if (remaining <= 0 && !D.bool(item.product?.allowBackorder)) {
             if (item.variantId) {
@@ -402,7 +353,6 @@ export const placeOrder = async (
         }
       }
 
-      // ── Payment record ─────────────────────────────────────────────────────
       await tx.payment.create({
         data: {
           orderId: created.id,
@@ -421,7 +371,6 @@ export const placeOrder = async (
         },
       });
 
-      // ── Coupon usage ───────────────────────────────────────────────────────
       if (totals.couponCode && totals.coupon) {
         await tx.couponUsage.create({
           data: {
@@ -438,7 +387,6 @@ export const placeOrder = async (
         });
       }
 
-      // ── Wallet debit ───────────────────────────────────────────────────────
       if (walletAmount > 0) {
         await tx.walletTransaction.create({
           data: {
@@ -459,7 +407,6 @@ export const placeOrder = async (
         remark: 'Order placed',
       });
 
-      // ── The cart is emptied only as part of the same transaction ───────────
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       await tx.cart.update({ where: { id: cart.id }, data: { couponCode: '' } });
 
@@ -505,11 +452,9 @@ const isMethodEnabled = (method: string, methods: any): boolean => {
   if (method === PaymentMethod.COD) return methods.cod.enabled;
   if (method === PaymentMethod.UPI) return methods.upi.enabled;
   if (method === PaymentMethod.BANK) return methods.bank.enabled;
-  // Card / netbanking / gateways are not wired to a provider yet.
+
   return method === PaymentMethod.CARD || method === PaymentMethod.NETBANKING;
 };
-
-// ─── Reads ────────────────────────────────────────────────────────────────────
 
 export const listOrders = async (
   userId: string,
@@ -614,12 +559,6 @@ export const listVendorOrders = async (
   return { rows, total };
 };
 
-/**
- * One order by id or by its human-facing order number.
- *
- * The number is what a customer reads off a confirmation message, so both are accepted here
- * rather than making the client decide which column it happens to hold.
- */
 export const getOrderById = async (orderRef: string, userId?: string): Promise<OrderRow> => {
   const byId = await withRelations(orderRef);
 
@@ -633,7 +572,6 @@ export const getOrderById = async (orderRef: string, userId?: string): Promise<O
 
   if (!order || order.deletedAt) throw AppError.notFound(ERROR.ORDER.NOT_FOUND);
 
-  // A customer may only read their own order.
   if (userId && order.userId !== userId) {
     throw AppError.notFound(ERROR.ORDER.NOT_FOUND);
   }
@@ -656,8 +594,6 @@ export const getOrderByNumber = async (orderNumber: string, userId?: string): Pr
 export const getTimeline = async (orderId: string): Promise<any[]> =>
   prisma.orderTimeline.findMany({ where: { orderId }, orderBy: { createdAt: 'asc' } });
 
-/** Public tracking view — no customer data beyond the delivery address. */
-/** Looks up an order by its human-facing order number for public tracking. */
 export const trackOrder = async (orderNumber: string): Promise<any> => {
   const order = await prisma.order.findFirst({
     where: { orderNumber, deletedAt: null },
@@ -694,9 +630,6 @@ export const trackOrder = async (orderNumber: string): Promise<any> => {
   return order;
 };
 
-// ─── Status changes ───────────────────────────────────────────────────────────
-
-/** Moves the order (and every sub-order) forward, respecting the state machine. */
 export const updateOrderStatus = async (
   orderId: string,
   input: { status: string; remark?: string; location?: string },
@@ -724,13 +657,11 @@ export const updateOrderStatus = async (
       },
     });
 
-    // Sub-orders follow the parent, except that already-cancelled shops stay put.
     await tx.subOrder.updateMany({
       where: { orderId, status: { notIn: [ORDER_STATUS.CANCELLED, ORDER_STATUS.RETURNED] } },
       data: { status: input.status as OrderStatusType },
     });
 
-    // COD orders settle when the customer receives them.
     if (input.status === ORDER_STATUS.DELIVERED && order.paymentMethod === PaymentMethod.COD) {
       await tx.payment.updateMany({
         where: { orderId, status: PaymentStatus.COD_PENDING },
@@ -754,7 +685,6 @@ export const updateOrderStatus = async (
       createdById: actorId,
     });
 
-    // Cancelling puts the stock back.
     if (input.status === ORDER_STATUS.CANCELLED) {
       await restoreStock(tx, orderId);
     }
@@ -779,10 +709,6 @@ export const updateOrderStatus = async (
     });
   }
 
-  /**
-   * Delivery is what makes a vendor's slice payable, so the earning is booked here rather than
-   * at checkout.
-   */
   if (D.str(input.status) === ORDER_STATUS.DELIVERED) {
     await bookVendorEarnings(orderId);
   }
@@ -790,11 +716,6 @@ export const updateOrderStatus = async (
   return withRelations(orderId);
 };
 
-/**
- * Books a VendorEarning per delivered sub-order.
- * Idempotent: a sub-order that already has an earning is skipped, so a repeated
- * DELIVERED call cannot pay the vendor twice.
- */
 const bookVendorEarnings = async (orderId: string): Promise<void> => {
   const subs = await prisma.subOrder.findMany({
     where: { orderId, status: ORDER_STATUS.DELIVERED },
@@ -825,7 +746,6 @@ const bookVendorEarnings = async (orderId: string): Promise<void> => {
   }
 };
 
-/** A vendor moving only their own portion of the order. */
 export const updateSubOrderStatus = async (
   subOrderId: string,
   vendorId: string,
@@ -882,7 +802,6 @@ export const updateSubOrderStatus = async (
   });
 };
 
-/** Puts sold stock back, optionally limited to one vendor's sub-order. */
 const restoreStock = async (
   tx: Prisma.TransactionClient,
   orderId: string,
@@ -911,9 +830,6 @@ const restoreStock = async (
   }
 };
 
-// ─── Cancellation ─────────────────────────────────────────────────────────────
-
-/** The customer may cancel within the configured window. */
 export const cancelOrder = async (
   orderId: string,
   userId: string,
@@ -991,7 +907,6 @@ export const cancelOrder = async (
 
     await restoreStock(tx, orderId);
 
-    // A wallet payment is refunded; COD and token payments are settled offline.
     if (order.walletAmount > 0) {
       await tx.walletTransaction.create({
         data: {
@@ -1033,10 +948,6 @@ export const cancelOrder = async (
   return withRelations(orderId);
 };
 
-/**
- * The parent order only reaches CANCELLED when every sub-order is cancelled;
- * otherwise it reflects the most advanced live sub-order.
- */
 const refreshParentStatus = async (
   tx: Prisma.TransactionClient,
   orderId: string,
@@ -1060,7 +971,6 @@ const refreshParentStatus = async (
     return;
   }
 
-  // Otherwise show the furthest along status that is still live.
   const rank: string[] = [
     ORDER_STATUS.PENDING,
     ORDER_STATUS.PENDING_TOKEN,
@@ -1080,8 +990,6 @@ const refreshParentStatus = async (
     });
   }
 };
-
-// ─── Delivery ─────────────────────────────────────────────────────────────────
 
 export const assignDeliveryBoy = async (
   subOrderId: string,
@@ -1134,7 +1042,6 @@ export const assignDeliveryBoy = async (
   return sub2;
 };
 
-/** Delivery confirmation, optionally settled in cash at the door. */
 export const confirmDelivery = async (
   subOrderId: string,
   input: { otp?: string; remarks?: string; collectedAmount?: number },
@@ -1169,10 +1076,6 @@ export const confirmDelivery = async (
 
     const shipment = D.arr(sub.shipments)[0];
 
-    /**
-     * A delivery row needs a shipment to hang off, so one is created on the fly when the vendor
-     * never raised a label.
-     */
     let shipmentId = D.str(shipment?.id);
 
     if (!shipmentId) {
@@ -1211,7 +1114,6 @@ export const confirmDelivery = async (
       });
     }
 
-    // COD is collected at the door, so the payment settles here.
     if (sub.order.paymentMethod === PaymentMethod.COD) {
       const collected =
         D.num(input.collectedAmount) || money(sub.order.total - sub.order.walletAmount);
@@ -1267,9 +1169,6 @@ export const confirmDelivery = async (
   return updated;
 };
 
-// ─── Reorder ──────────────────────────────────────────────────────────────────
-
-/** Refills the cart from a past order. */
 export const reorder = async (
   userId: string,
   input: { orderId: string; skipUnavailable?: boolean },
@@ -1314,18 +1213,11 @@ export const reorder = async (
   return { added, skipped };
 };
 
-/** Cached order summary, used by the order list screen. */
 export const getOrderSummary = async (orderId: string): Promise<string | null> => {
   const cached = await cacheGet(`order:${orderId}`);
   return cached ? '1' : null;
 };
 
-/**
- * One sub-order with everything a vendor needs to pack and label it.
- *
- * The vendor id is mandatory here: a packing slip reveals quantities and addresses, so it is
- * never reachable by guessing a sub-order id.
- */
 export const getSubOrderForVendor = async (subOrderId: string, vendorId: string): Promise<any> => {
   const sub = await prisma.subOrder.findFirst({
     where: { id: subOrderId, vendorId },
@@ -1349,12 +1241,6 @@ export const getSubOrderForVendor = async (subOrderId: string, vendorId: string)
   return sub;
 };
 
-/**
- * Order-level shortcut onto the returns module.
- *
- * The return lifecycle itself lives with returns; this exists so the order screen can raise a
- * return without a second round trip to learn which rules apply.
- */
 export const requestReturnForOrder = async (
   userId: string,
   input: {

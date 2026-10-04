@@ -4,14 +4,10 @@ import { authenticate } from '../../middlewares/auth.middleware';
 import * as controller from './payment.controller';
 import * as schema from './payment.schema';
 
-// ── Payments ─────────────────────────────────────────────────────────────────
-
 const payment = Router();
 
-/** GET /payments/methods — public so a signed-out cart can still price itself */
 payment.get('/methods', controller.getMethods);
 
-/** GET /payments/getAll — admin */
 payment.get(
   '/getAll',
   authenticate,
@@ -20,7 +16,6 @@ payment.get(
   controller.getAll,
 );
 
-/** GET /payments/getByOrder/:orderId */
 payment.get(
   '/getByOrder/:orderId',
   authenticate,
@@ -28,7 +23,6 @@ payment.get(
   controller.getByOrder,
 );
 
-/** POST /payments/payToken/:orderId */
 payment.post(
   '/payToken/:orderId',
   authenticate,
@@ -39,7 +33,6 @@ payment.post(
   controller.verifyTokenPayment,
 );
 
-/** POST /payments/payBalance/:orderId */
 payment.post(
   '/payBalance/:orderId',
   authenticate,
@@ -50,7 +43,6 @@ payment.post(
   controller.payBalance,
 );
 
-/** POST /payments/verifyUpi/:orderId */
 payment.post(
   '/verifyUpi/:orderId',
   authenticate,
@@ -58,7 +50,6 @@ payment.post(
   controller.verifyUpi,
 );
 
-/** POST /payments/verifyBank/:orderId */
 payment.post(
   '/verifyBank/:orderId',
   authenticate,
@@ -66,7 +57,6 @@ payment.post(
   controller.verifyBank,
 );
 
-/** PATCH /payments/markCodCollected/:orderId — vendor or admin */
 payment.patch(
   '/markCodCollected/:orderId',
   authenticate,
@@ -77,7 +67,6 @@ payment.patch(
   controller.codCollect,
 );
 
-/** PATCH /payments/confirmPayment/:id — admin */
 payment.patch(
   '/confirmPayment/:id',
   authenticate,
@@ -86,7 +75,6 @@ payment.patch(
   controller.confirmPayment,
 );
 
-/** POST /payments/refund/:id — admin */
 payment.post(
   '/refund/:id',
   authenticate,
@@ -95,7 +83,6 @@ payment.post(
   controller.createRefund,
 );
 
-/** GET /payments/getRefundHistory/:orderId */
 payment.get(
   '/getRefundHistory/:orderId',
   authenticate,
@@ -103,7 +90,6 @@ payment.get(
   controller.getRefundHistory,
 );
 
-/** POST /payments/razorpay/createOrder */
 payment.post(
   '/razorpay/createOrder',
   authenticate,
@@ -111,7 +97,6 @@ payment.post(
   controller.createRazorpayOrder,
 );
 
-/** POST /payments/razorpay/verify */
 payment.post(
   '/razorpay/verify',
   authenticate,
@@ -119,7 +104,6 @@ payment.post(
   controller.verifyRazorpayPayment,
 );
 
-/** POST /payments/stripe/createIntent */
 payment.post(
   '/stripe/createIntent',
   authenticate,
@@ -127,16 +111,12 @@ payment.post(
   controller.createStripeIntent,
 );
 
-/** GET /payments/walletBalance — the wallet balance, under its original path */
 payment.get('/walletBalance', authenticate, controller.walletBalance);
 
 export const paymentRoutes = payment;
 
-// ── Payouts ──────────────────────────────────────────────────────────────────
-
 const payout = Router();
 
-/** GET /payouts/getVendorEarnings */
 payout.get(
   '/getVendorEarnings',
   authenticate,
@@ -145,7 +125,6 @@ payout.get(
   controller.earnings,
 );
 
-/** GET /payouts/getAll — admin */
 payout.get(
   '/getAll',
   authenticate,
@@ -154,7 +133,6 @@ payout.get(
   controller.payoutList,
 );
 
-/** PATCH /payouts/approvePayout/:id — admin */
 payout.patch(
   '/approvePayout/:id',
   authenticate,
@@ -166,7 +144,6 @@ payout.patch(
   controller.approvePayout,
 );
 
-/** PATCH /payouts/rejectPayout/:id — admin */
 payout.patch(
   '/rejectPayout/:id',
   authenticate,
@@ -175,10 +152,8 @@ payout.patch(
   controller.rejectPayout,
 );
 
-/** POST /payouts/generateCycles — admin */
 payout.post('/generateCycles', authenticate, ...controller.guards.admin, controller.generateCycles);
 
-/** GET /payouts/getSummary — admin */
 payout.get(
   '/getSummary',
   authenticate,
@@ -187,7 +162,6 @@ payout.get(
   controller.getSummary,
 );
 
-/** GET /payouts/getStatement/:vendorId — admin */
 payout.get(
   '/getStatement/:vendorId',
   authenticate,
@@ -196,7 +170,6 @@ payout.get(
   controller.getStatement,
 );
 
-/** POST /payouts/bulkApprove — admin */
 payout.post(
   '/bulkApprove',
   authenticate,
@@ -205,7 +178,6 @@ payout.post(
   controller.bulkApprove,
 );
 
-/** GET /payouts/getPendingAmount/:vendorId — vendor */
 payout.get(
   '/getPendingAmount/:vendorId',
   authenticate,
@@ -214,7 +186,6 @@ payout.get(
   controller.getPendingAmount,
 );
 
-/** PATCH /payouts/updateStatus/:id — admin */
 payout.patch(
   '/updateStatus/:id',
   authenticate,
@@ -225,14 +196,10 @@ payout.patch(
 
 export const payoutRoutes = payout;
 
-// ── Returns ──────────────────────────────────────────────────────────────────
-
 const returns = Router();
 
-/** GET /returns/getReasons — declared before /:id so it is not shadowed */
 returns.get('/getReasons', authenticate, controller.returnReasons);
 
-/** POST /returns/addReason — admin */
 returns.post(
   '/addReason',
   authenticate,
@@ -241,7 +208,6 @@ returns.post(
   controller.addReturnReason,
 );
 
-/** POST /returns/createRequest */
 returns.post(
   '/createRequest',
   authenticate,
@@ -249,7 +215,6 @@ returns.post(
   controller.requestReturn,
 );
 
-/** GET /returns/getAll */
 returns.get(
   '/getAll',
   authenticate,
@@ -257,7 +222,6 @@ returns.get(
   controller.returnList,
 );
 
-/** GET /returns/getById/:id */
 returns.get(
   '/getById/:id',
   authenticate,
@@ -265,7 +229,6 @@ returns.get(
   controller.returnById,
 );
 
-/** PATCH /returns/approve/:id */
 returns.patch(
   '/approve/:id',
   authenticate,
@@ -273,7 +236,6 @@ returns.patch(
   controller.approveReturn,
 );
 
-/** PATCH /returns/reject/:id */
 returns.patch(
   '/reject/:id',
   authenticate,
@@ -281,7 +243,6 @@ returns.patch(
   controller.rejectReturn,
 );
 
-/** PATCH /returns/markPickedUp/:id */
 returns.patch(
   '/markPickedUp/:id',
   authenticate,
@@ -289,7 +250,6 @@ returns.patch(
   controller.markPickedUp,
 );
 
-/** PATCH /returns/markReceived/:id */
 returns.patch(
   '/markReceived/:id',
   authenticate,
@@ -297,7 +257,6 @@ returns.patch(
   controller.markReceived,
 );
 
-/** PATCH /returns/processRefund/:id — admin */
 returns.patch(
   '/processRefund/:id',
   authenticate,
@@ -308,14 +267,10 @@ returns.patch(
 
 export const returnRoutes = returns;
 
-// ── Wallet ───────────────────────────────────────────────────────────────────
-
 const wallet = Router();
 
-/** GET /wallet/getBalance */
 wallet.get('/getBalance', authenticate, controller.walletBalance);
 
-/** GET /wallet/getTransactions */
 wallet.get(
   '/getTransactions',
   authenticate,
@@ -323,7 +278,6 @@ wallet.get(
   controller.walletTransactions,
 );
 
-/** POST /wallet/addMoney */
 wallet.post(
   '/addMoney',
   authenticate,
@@ -331,7 +285,6 @@ wallet.post(
   controller.addMoney,
 );
 
-/** POST /wallet/useForOrder */
 wallet.post(
   '/useForOrder',
   authenticate,
@@ -339,7 +292,6 @@ wallet.post(
   controller.useForOrder,
 );
 
-/** POST /wallet/adminCredit — admin */
 wallet.post(
   '/adminCredit',
   authenticate,
@@ -348,7 +300,6 @@ wallet.post(
   controller.adminCredit,
 );
 
-/** POST /wallet/adminDebit — admin */
 wallet.post(
   '/adminDebit',
   authenticate,

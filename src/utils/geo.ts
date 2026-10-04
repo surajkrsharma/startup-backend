@@ -20,7 +20,6 @@ const EMPTY_GEO: GeoInfo = {
   timezone: APP.DEFAULT_TIMEZONE,
 };
 
-/** Resolves the caller IP honouring `X-Forwarded-For` / Render proxy headers. */
 export const resolveIp = (req: any): string => {
   const forwarded = req.headers?.['x-forwarded-for'];
   const candidate = Array.isArray(forwarded)
@@ -33,7 +32,6 @@ export const resolveIp = (req: any): string => {
   return String(candidate || '').replace('::ffff:', '');
 };
 
-/** geoip-lite lookup. Returns the empty shape (never nulls) when it fails. */
 export const lookupGeo = (ip: string): GeoInfo => {
   if (!ip || ip === 'unknown') return { ...EMPTY_GEO };
 

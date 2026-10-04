@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for shipping, delivery boys, settings, admin and API keys.
- *
- * Covers: zone CRUD, method CRUD with day-range rules, partners, pincode
- * serviceability with zone fallbacks, rate quoting with weight and free
- * shipping, rider management with the active-delivery guard, settings upsert
- * and bulk update, admin dashboard, audit logs, and API key secret hygiene.
- *
- * Usage: npx tsx scripts/e2e-shipping.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -41,14 +27,6 @@ const phoneFor = (tag: string): string => {
   return `+7${run}${String(hash).padStart(2, '0')}`;
 };
 
-/**
- * A pincode owned by this run.
- *
- * Zone resolution takes the OLDEST active zone that lists the pincode, so a fixed
- * pincode makes the suite depend on whatever earlier runs left behind — the second
- * run on a shared database resolved to the first run's zone. Deriving it from the
- * run id keeps every run self-contained. The format check only wants six digits.
- */
 const PIN = String(700000 + (Number(run) % 90000));
 
 const findNull = (value: any, depth = 0): string | null => {
@@ -134,7 +112,6 @@ const main = async (): Promise<void> => {
   const cu = api(customer.token);
   const admin = api(adminToken);
 
-  // ══ Guards ═════════════════════════════════════════════════════════════════
   const anon = await request(app).get('/api/v1/shipping/getZones');
   record(
     'GET /shipping/zones/getAll without token -> 401',
@@ -149,7 +126,6 @@ const main = async (): Promise<void> => {
     `status=${asCustomer.status}`,
   );
 
-  // ══ Zones ══════════════════════════════════════════════════════════════════
   const badZone = await admin.post('/api/v1/shipping/createZone', { name: 'X' });
   record('a one-character zone name -> 400', badZone.status === 400, `status=${badZone.status}`);
 
@@ -214,7 +190,6 @@ const main = async (): Promise<void> => {
     `status=${zoneMissing.status}`,
   );
 
-  // ══ Methods ════════════════════════════════════════════════════════════════
   const badDays = await admin.post('/api/v1/shipping/createMethod', {
     name: 'Bad window',
     code: `BAD${run}`,
@@ -306,7 +281,6 @@ const main = async (): Promise<void> => {
     `status=${badUpdate.status}`,
   );
 
-  // ══ Partners ═══════════════════════════════════════════════════════════════
   const partner = await admin.post('/api/v1/shipping/createPartner', {
     name: `SH Courier ${run}`,
     code: `CR${run}`,
@@ -346,7 +320,6 @@ const main = async (): Promise<void> => {
     D_str(storedKey?.apiKey),
   );
 
-  // ══ Serviceability ═════════════════════════════════════════════════════════
   const inZone = await cu.post('/api/v1/shipping/checkServiceability', {
     pincode: PIN,
     state: 'Maharashtra',
@@ -431,8 +404,6 @@ const main = async (): Promise<void> => {
   const badPin = await cu.post('/api/v1/shipping/checkServiceability', { pincode: 'abc' });
   record('a malformed pincode -> 400', badPin.status === 400, `status=${badPin.status}`);
 
-  // ══ Rate quoting ════════════════════════════════════════════════════════════
-  // Cheapest method in the zone is SLW at 30; EXPLICIT uses EXP at 60.
   const autoRate = await cu.post('/api/v1/shipping/calculateRate', {
     pincode: PIN,
     weightKg: 2,
@@ -508,7 +479,6 @@ const main = async (): Promise<void> => {
     `status=${badMethodRate.status}`,
   );
 
-  // ══ Delivery boys ══════════════════════════════════════════════════════════
   const badBoyUser = await admin.post('/api/v1/deliveryBoys/create', {
     userId: 'nope123',
     name: 'Ghost',
@@ -582,7 +552,6 @@ const main = async (): Promise<void> => {
   );
   await admin.patch(`/api/v1/deliveryBoys/toggleStatus/${boyId}`, { isActive: true });
 
-  // An active delivery blocks deactivation.
   await prisma.shipment
     .create({
       data: { subOrderId: 'guard-sub', orderId: 'guard-order', status: 'IN_TRANSIT' },
@@ -609,7 +578,6 @@ const main = async (): Promise<void> => {
     'verified',
   );
 
-  // ══ Settings ═══════════════════════════════════════════════════════════════
   const settingsAsCustomer = await cu.patch('/api/v1/settings/updateSetting', {
     key: 'x.y',
     value: 1,
@@ -681,7 +649,6 @@ const main = async (): Promise<void> => {
     `total=${listSettings.body?.result?.totalRecord}`,
   );
 
-  // A non-public setting must not surface on the public endpoint.
   await admin.patch('/api/v1/settings/updateSetting', {
     key: `__sh_public_${run}`,
     value: true,
@@ -701,7 +668,6 @@ const main = async (): Promise<void> => {
     'absent',
   );
 
-  // ══ Admin ══════════════════════════════════════════════════════════════════
   const dash = await admin.get('/api/v1/admin/getDashboardStats');
   record('GET /admin/dashboard -> 200', dash.status === 200, `status=${dash.status}`);
   record(
@@ -748,7 +714,6 @@ const main = async (): Promise<void> => {
   const activity = await admin.get('/api/v1/admin/getActivityLogs');
   record('GET /admin/activity-logs -> 200', activity.status === 200, `status=${activity.status}`);
 
-  // ── Sub-admin ──────────────────────────────────────────────────────────────
   const badSub = await admin.post('/api/v1/admin/createSubAdmin', {
     name: 'X',
     email: 'not-an-email',
@@ -791,11 +756,9 @@ const main = async (): Promise<void> => {
     `total=${subAdmins.body?.result?.totalRecord}`,
   );
 
-  // getPermissions returns the whole matrix as { role: [permissions] }.
   const perms = await admin.get('/api/v1/admin/getPermissions');
   record('GET /admin/getPermissions -> 200', perms.status === 200, `status=${perms.status}`);
-  // The seed writes a matrix for staff roles only; a role with no rows is absent
-  // from the map entirely rather than present-and-empty.
+
   const matrixRoles = Object.keys(perms.body?.result?.roleList ?? {});
   record(
     'the matrix covers every seeded role',
@@ -815,7 +778,6 @@ const main = async (): Promise<void> => {
     `count=${seededSubPerms.length}`,
   );
 
-  // The path param is a ROLE, not a user id — setting a user's id here was a 500.
   const permsSet = await admin.patch(`/api/v1/admin/updatePermissions/SUB_ADMIN`, {
     permissions: ['order:list', 'order:view', 'vendor:approve'],
   });
@@ -866,7 +828,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(clearedMatrix.body?.result?.roleList?.SUB_ADMIN),
   );
 
-  // Put the seeded set back so later suites still have a working SUB_ADMIN.
   await admin.patch(`/api/v1/admin/updatePermissions/SUB_ADMIN`, {
     permissions: seededSubPerms,
   });
@@ -892,7 +853,6 @@ const main = async (): Promise<void> => {
     `status=${subCreatingSub.status}`,
   );
 
-  // ══ API keys ══════════════════════════════════════════════════════════════
   const keyAsCustomer = await cu.get('/api/v1/apiKeys/getAll');
   record(
     'a customer cannot list API keys -> 403',
@@ -969,7 +929,6 @@ const main = async (): Promise<void> => {
     `status=${revokeMissing.status}`,
   );
 
-  // ══ Cleanup ═══════════════════════════════════════════════════════════════
   await prisma.apiKey.deleteMany({ where: { name: { contains: run } } });
   await prisma.systemSetting.deleteMany({ where: { key: { contains: `__sh_` } } });
   await prisma.rolePermission.deleteMany({ where: { role: 'SUB_ADMIN' } });
@@ -978,9 +937,7 @@ const main = async (): Promise<void> => {
   await prisma.shippingPartner.deleteMany({ where: { id: partnerId } });
   await prisma.deliveryBoy.deleteMany({ where: { id: boyId } });
   await prisma.shipment.deleteMany({ where: { orderId: 'guard-order' } });
-  // Scoped by the run id: Prisma compiles `contains` to a LIKE without escaping `_`,
-  // so a prefix pattern like `sh_` is really `%sh_%` and would match
-  // "superadmin@projectname.com" too. Digits are not LIKE metacharacters.
+
   await prisma.user.deleteMany({ where: { email: { contains: run } } });
 
   const passed = checks.filter((c) => c.passed).length;

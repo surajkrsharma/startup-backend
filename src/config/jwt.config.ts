@@ -17,7 +17,6 @@ export const JWT = {
   },
 } as const;
 
-/** Access token lifetime in seconds — surfaced as `expiresIn` in responses. */
 export const ACCESS_TOKEN_TTL_SEC = (() => {
   const raw = ENV.JWT_ACCESS_EXPIRY;
   const match = /^(\d+)([smhd])$/.exec(raw);

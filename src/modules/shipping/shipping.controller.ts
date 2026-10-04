@@ -28,8 +28,6 @@ export const guards = {
   vendor: [requireRole(ROLES.VENDOR)],
 };
 
-// ═══ Zones ═══════════════════════════════════════════════════════════════════
-
 /**
  * @openapi
  * /shipping/zones/getAll:
@@ -100,9 +98,6 @@ export const zoneDelete = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Methods ═════════════════════════════════════════════════════════════════
-
-/** GET /shipping/methods/getAll */
 export const methodList = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listMethods({ ...(req.query as any), skip, take });
@@ -116,13 +111,11 @@ export const methodList = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /shipping/methods/createMethod — admin */
 export const methodCreate = asyncHandler(async (req, res) => {
   const row = await service.createMethod(req.body, req);
   return ApiResponse.created(res, SUCCESS.SHIPPING.METHOD_CREATED, serializeShippingMethod(row));
 });
 
-/** PATCH /shipping/methods/updateMethod/:id — admin */
 export const methodUpdate = asyncHandler(async (req, res) => {
   const row = await service.updateMethod(D.str(req.params.id), req.body, req);
   return ApiResponse.success(res, {
@@ -131,10 +124,6 @@ export const methodUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * DELETE /shipping/methods/deleteMethod/:id — admin
- * A method that has shipped orders is deactivated rather than deleted.
- */
 export const methodDelete = asyncHandler(async (req, res) => {
   await service.deleteMethod(D.str(req.params.id), req);
   return ApiResponse.success(res, {
@@ -143,9 +132,6 @@ export const methodDelete = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Partners ════════════════════════════════════════════════════════════════
-
-/** GET /shipping/partners/getAll — the API key is never returned */
 export const partnerList = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listPartners({ ...(req.query as any), skip, take });
@@ -159,13 +145,11 @@ export const partnerList = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /shipping/partners/createPartner — admin */
 export const partnerCreate = asyncHandler(async (req, res) => {
   const row = await service.createPartner(req.body, req);
   return ApiResponse.created(res, SUCCESS.SHIPPING.PARTNER_CREATED, serializeShippingPartner(row));
 });
 
-/** PATCH /shipping/partners/updatePartner/:id — admin */
 export const partnerUpdate = asyncHandler(async (req, res) => {
   const row = await service.updatePartner(D.str(req.params.id), req.body, req);
   return ApiResponse.success(res, {
@@ -173,8 +157,6 @@ export const partnerUpdate = asyncHandler(async (req, res) => {
     result: serializeShippingPartner(row),
   });
 });
-
-// ═══ Serviceability ═══════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -207,8 +189,6 @@ export const calculateRate = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, { message: SUCCESS.SHIPPING.RATE_CALCULATED, result });
 });
 
-// ═══ Shipments ═══════════════════════════════════════════════════════════════
-
 /**
  * @openapi
  * /shipping/shipments/updateStatus/:id:
@@ -231,8 +211,6 @@ export const shipmentStatus = asyncHandler(async (req, res) => {
     result: serializeShipment(row),
   });
 });
-
-// ═══ Delivery boys ════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -257,13 +235,11 @@ export const deliveryBoyList = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /shipping/delivery-boys/createDeliveryBoy — admin */
 export const deliveryBoyCreate = asyncHandler(async (req, res) => {
   const row = await service.createDeliveryBoy(req.body, req);
   return ApiResponse.created(res, SUCCESS.DELIVERY_BOY.CREATED, serializeDeliveryBoy(row));
 });
 
-/** PATCH /shipping/delivery-boys/updateDeliveryBoy/:id — admin */
 export const deliveryBoyUpdate = asyncHandler(async (req, res) => {
   const row = await service.updateDeliveryBoy(D.str(req.params.id), req.body, req);
   return ApiResponse.success(res, {
@@ -272,10 +248,6 @@ export const deliveryBoyUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * PATCH /shipping/delivery-boys/toggleStatus/:id — admin
- * A rider with active deliveries cannot be deactivated.
- */
 export const deliveryBoyToggle = asyncHandler(async (req, res) => {
   const row = await service.toggleDeliveryBoy(
     D.str(req.params.id),
@@ -288,7 +260,6 @@ export const deliveryBoyToggle = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /shipping/delivery-boys/deleteDeliveryBoy/:id — admin */
 export const deliveryBoyDelete = asyncHandler(async (req, res) => {
   await service.deleteDeliveryBoy(D.str(req.params.id), req);
   return ApiResponse.success(res, {
@@ -324,9 +295,6 @@ export const deliveryList = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Settings ════════════════════════════════════════════════════════════════
-
-/** GET /settings/getAll — admin */
 export const settingsList = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listSettings({ ...(req.query as any), skip, take });
@@ -340,13 +308,11 @@ export const settingsList = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /settings/getPublic — safe for any authenticated caller */
 export const settingsPublic = asyncHandler(async (_req, res) => {
   const result = await service.getPublicSettings();
   return ApiResponse.success(res, { message: SUCCESS.SETTING.PUBLIC_FETCHED, result });
 });
 
-/** PATCH /settings/update — admin, one key */
 export const settingsUpdate = asyncHandler(async (req, res) => {
   const row = await service.updateSetting(req.body, actorId(req), req);
   return ApiResponse.success(res, {
@@ -355,7 +321,6 @@ export const settingsUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /settings/bulkUpdate — admin, atomic batch */
 export const settingsBulkUpdate = asyncHandler(async (req, res) => {
   const count = await service.bulkUpdateSettings(req.body.settings, actorId(req), req);
   return ApiResponse.success(res, {
@@ -363,8 +328,6 @@ export const settingsBulkUpdate = asyncHandler(async (req, res) => {
     result: { updatedCount: D.num(count) },
   });
 });
-
-// ═══ Admin ═══════════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -380,13 +343,11 @@ export const dashboard = asyncHandler(async (_req, res) => {
   return ApiResponse.success(res, { message: SUCCESS.ADMIN.DASHBOARD_FETCHED, result });
 });
 
-/** POST /admin/sub-admins — super admin only */
 export const subAdminCreate = asyncHandler(async (req, res) => {
   const row = await service.createSubAdmin(req.body, actorId(req), req);
   return ApiResponse.created(res, SUCCESS.ADMIN.SUB_ADMIN_CREATED, row);
 });
 
-/** GET /admin/sub-admins — admin */
 export const subAdminList = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listSubAdmins({ ...(req.query as any), skip, take });
@@ -400,7 +361,6 @@ export const subAdminList = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /admin/permissions/:role — admin */
 export const permissionsGet = asyncHandler(async (req, res) => {
   const list = await service.listRolePermissions(D.str(req.params.role));
 
@@ -410,7 +370,6 @@ export const permissionsGet = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /admin/permissions/:role — admin, replaces the set */
 export const permissionsSet = asyncHandler(async (req, res) => {
   const count = await service.setRolePermissions(
     D.str(req.params.role),
@@ -425,7 +384,6 @@ export const permissionsSet = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /admin/audit-logs — admin */
 export const auditLogs = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listAuditLogs({ ...(req.query as any), skip, take });
@@ -439,7 +397,6 @@ export const auditLogs = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /admin/activity-logs — admin */
 export const activityLogs = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listActivityLogs({ ...(req.query as any), skip, take });
@@ -467,9 +424,6 @@ export const health = asyncHandler(async (_req, res) => {
   return ApiResponse.success(res, { message: SUCCESS.ADMIN.HEALTH_FETCHED, result });
 });
 
-// ═══ Audit logs ═══════════════════════════════════════════════════════════════
-
-/** GET /auditLogs/getById/:id */
 export const auditLogById = asyncHandler(async (req, res) => {
   const row = await service.getAuditLogById(D.str(req.params.id));
 
@@ -479,7 +433,6 @@ export const auditLogById = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /auditLogs/getByActor/:userId */
 export const auditLogsByActor = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const actorId = D.str(req.params.userId);
@@ -500,7 +453,6 @@ export const auditLogsByActor = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /auditLogs/export — streams CSV rather than a JSON envelope */
 export const exportAuditLogs = asyncHandler(async (req, res) => {
   const { rows } = await service.listAuditLogs({ ...(req.query as any), take: 10_000 });
 
@@ -528,7 +480,6 @@ export const exportAuditLogs = asyncHandler(async (req, res) => {
   return res.status(200).send(`${header}\n${body}`);
 });
 
-/** DELETE /auditLogs/purge — super admin */
 export const purgeAuditLogs = asyncHandler(async (req, res) => {
   const result = await service.purgeAuditLogs(D.num(req.body.beforeDays), actorId(req), req);
 
@@ -538,9 +489,6 @@ export const purgeAuditLogs = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Shipments ════════════════════════════════════════════════════════════════════
-
-/** POST /shipping/createShipment/:subOrderId — vendor */
 export const shipmentCreate = asyncHandler(async (req, res) => {
   const row = await service.createShipment(
     D.str(req.params.subOrderId),
@@ -553,13 +501,11 @@ export const shipmentCreate = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.SHIPPING.SHIPMENT_CREATED, serializeShipment(row));
 });
 
-/** GET /shipping/track/:awb — public */
 export const shipmentTrack = asyncHandler(async (req, res) => {
   const result = await service.trackShipment(D.str(req.params.awb));
   return ApiResponse.success(res, { message: SUCCESS.SHIPPING.TRACKED, result });
 });
 
-/** PATCH /deliveryBoys/updateDeliveryStatus/:id */
 export const deliveryStatusUpdate = asyncHandler(async (req, res) => {
   const isAdmin = req.auth!.role === ROLES.SUPER_ADMIN || req.auth!.role === ROLES.SUB_ADMIN;
 
@@ -576,9 +522,6 @@ export const deliveryStatusUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Settings extras ══════════════════════════════════════════════════════════
-
-/** GET /settings/getByCategory/:category */
 export const settingsByCategory = asyncHandler(async (req, res) => {
   const category = D.str(req.params.category);
   const result = await service.getSettingsByCategory(category);
@@ -589,19 +532,16 @@ export const settingsByCategory = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /settings/resetToDefault — super admin */
 export const settingsReset = asyncHandler(async (req, res) => {
   const result = await service.resetSettings(actorId(req), req);
   return ApiResponse.success(res, { message: SUCCESS.SETTING.RESET, result });
 });
 
-/** GET /settings/getFeatureFlags */
 export const featureFlags = asyncHandler(async (_req, res) => {
   const result = await service.getFeatureFlagMap();
   return ApiResponse.success(res, { message: SUCCESS.SETTING.FEATURE_FLAGS_FETCHED, result });
 });
 
-/** PATCH /settings/toggleFeature — admin */
 export const featureToggle = asyncHandler(async (req, res) => {
   const enabled = await service.toggleFeatureFlag(
     D.str(req.body.key),
@@ -615,21 +555,16 @@ export const featureToggle = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /settings/getMaintenance */
 export const maintenanceStatus = asyncHandler(async (_req, res) => {
   const result = await service.getMaintenanceMode();
   return ApiResponse.success(res, { message: SUCCESS.SETTING.MAINTENANCE_FETCHED, result });
 });
 
-/** PATCH /settings/updateMaintenance — super admin */
 export const maintenanceUpdate = asyncHandler(async (req, res) => {
   const result = await service.setMaintenanceMode(req.body, actorId(req), req);
   return ApiResponse.success(res, { message: SUCCESS.SETTING.MAINTENANCE_UPDATED, result });
 });
 
-// ═══ Sub-admin lifecycle ═══════════════════════════════════════════════════════
-
-/** PATCH /admin/updateSubAdmin/:id — super admin */
 export const subAdminUpdate = asyncHandler(async (req, res) => {
   const row = await service.updateSubAdmin(D.str(req.params.id), req.body, actorId(req), req);
 
@@ -639,7 +574,6 @@ export const subAdminUpdate = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /admin/deleteSubAdmin/:id — super admin */
 export const subAdminDelete = asyncHandler(async (req, res) => {
   await service.deleteSubAdmin(D.str(req.params.id), actorId(req), req);
 
@@ -649,7 +583,6 @@ export const subAdminDelete = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /admin/toggleSubAdminStatus/:id — super admin */
 export const subAdminToggle = asyncHandler(async (req, res) => {
   const row = await service.toggleSubAdmin(
     D.str(req.params.id),
@@ -664,9 +597,6 @@ export const subAdminToggle = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Permissions, cache and jobs ═════════════════════════════════════════════
-
-/** GET /admin/getPermissions */
 export const allPermissions = asyncHandler(async (_req, res) => {
   const result = await service.listAllRolePermissions();
 
@@ -676,7 +606,6 @@ export const allPermissions = asyncHandler(async (_req, res) => {
   });
 });
 
-/** PATCH /admin/updatePermissions/:id — super admin */
 export const permissionsSetByRole = asyncHandler(async (req, res) => {
   const count = await service.setRolePermissions(
     D.str(req.params.id),
@@ -691,7 +620,6 @@ export const permissionsSetByRole = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /admin/clearCache — super admin */
 export const clearCache = asyncHandler(async (req, res) => {
   const flushed = await service.clearAllCaches(actorId(req), req);
 
@@ -701,7 +629,6 @@ export const clearCache = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /admin/getCronJobs — super admin */
 export const cronJobs = asyncHandler(async (_req, res) => {
   const result = await service.listCronJobDefinitions();
 
@@ -711,7 +638,6 @@ export const cronJobs = asyncHandler(async (_req, res) => {
   });
 });
 
-/** POST /admin/triggerJob — super admin */
 export const triggerJob = asyncHandler(async (req, res) => {
   const result = await service.triggerCronJobNow(D.str(req.body.name), actorId(req), req);
 

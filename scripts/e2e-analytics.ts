@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for tracking, analytics, funnels, search and uploads.
- *
- * Covers: event and page-view ingestion, device registration and identity
- * protection, the analytics aggregates, funnel step dropoff, product/vendor
- * search with search logging, and the upload endpoints' failure mode when no
- * storage backend is configured.
- *
- * Usage: npx tsx scripts/e2e-analytics.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -103,7 +89,6 @@ const api = (token: string) => ({
       .send(b ?? {}),
 });
 
-/** Emits a known tracking event; returns the response. */
 const fire = (name: string, sessionKey: string, extra: Record<string, any> = {}) =>
   request(app)
     .post('/api/v1/track/event')
@@ -156,8 +141,6 @@ const main = async (): Promise<void> => {
     Boolean(tee.body?.result?.productId && hat.body?.result?.productId),
   );
 
-  // Revenue reports read OrderItem, so the suite needs a real sale of its own —
-  // otherwise every qty/revenue assertion is asserting on an empty list.
   const analyticsAddress = await cu.post('/api/v1/users/addAddress', {
     type: 'HOME',
     fullName: 'Analytics Tester',
@@ -206,7 +189,6 @@ const main = async (): Promise<void> => {
     `status=${deliveredOrder.status}`,
   );
 
-  // ══ Tracking ingestion ═════════════════════════════════════════════════════
   const unknown = await fire('not_a_real_event', 'an-unknown-1');
   record(
     'an unknown event name -> 400',
@@ -228,10 +210,7 @@ const main = async (): Promise<void> => {
     ev1.body?.result?.name === 'product_view',
     ev1.body?.result?.name,
   );
-  /**
-   * The tracking middleware resolves a canonical Session row, so the echoed key is the server's
-   * identity for this visitor, not the client's raw header.
-   */
+
   record(
     'a canonical session key is resolved and echoed',
     typeof ev1.body?.result?.sessionKey === 'string' && ev1.body?.result?.sessionKey.length > 0,
@@ -258,7 +237,6 @@ const main = async (): Promise<void> => {
     .send({});
   record('a page view without a URL -> 400', noUrl.status === 400, `status=${noUrl.status}`);
 
-  // A second, separate session so unique-visitor maths has something to count.
   await fire('app_open', `an-session2-${run}`);
   await request(app)
     .post('/api/v1/track/pageView')
@@ -278,7 +256,6 @@ const main = async (): Promise<void> => {
     crash.body?.result?.crashId,
   );
 
-  // ══ Devices ═══════════════════════════════════════════════════════════════
   const devId = `an-device-${run}`;
   const registered = await request(app)
     .post('/api/v1/track/device')
@@ -336,8 +313,6 @@ const main = async (): Promise<void> => {
   const badDevice = await request(app).post('/api/v1/track/device').send({ deviceId: 'ab' });
   record('a too-short device id -> 400', badDevice.status === 400, `status=${badDevice.status}`);
 
-  // /devices/getAll is the admin device inventory per the contract; a customer's own
-  // device is reachable through /devices/getTrusted and /track/device.
   const devices = await admin.get('/api/v1/devices/getAll');
   record('GET /devices/getAll -> 200 (admin)', devices.status === 200, `status=${devices.status}`);
   record(
@@ -367,7 +342,6 @@ const main = async (): Promise<void> => {
     `status=${trusted.status}`,
   );
 
-  // ══ Analytics ══════════════════════════════════════════════════════════════
   const anonOverview = await request(app).get('/api/v1/analytics/getOverview');
   record(
     'GET /analytics/overview without auth -> 401',
@@ -523,7 +497,6 @@ const main = async (): Promise<void> => {
   const terms = await admin.get('/api/v1/analytics/getSearchTerms');
   record('GET /analytics/searchTerms -> 200', terms.status === 200, `status=${terms.status}`);
 
-  // ══ Funnels ════════════════════════════════════════════════════════════════
   const badFunnel = await admin.post('/api/v1/analytics/funnels', {
     name: 'Too short',
     steps: [{ name: 'Only', eventName: 'login' }],
@@ -547,7 +520,6 @@ const main = async (): Promise<void> => {
   const funnelSlug = funnel.body?.result?.slug ?? '';
   record('the funnel slug is generated', funnelSlug.length > 0, funnelSlug);
 
-  // One session walks the whole funnel; a second stops after step one.
   await fire('product_view', 'an-funnel-a');
   await fire('add_to_cart', 'an-funnel-a');
   await fire('purchase', 'an-funnel-a');
@@ -586,7 +558,6 @@ const main = async (): Promise<void> => {
     String(result.body?.result?.overallConversionRate),
   );
 
-  // The funnel is named by slug (or funnel), never id — the schema is strict.
   const funnelMissing = await admin.get('/api/v1/analytics/getFunnel?slug=no-such-funnel');
   record(
     'an unknown funnel -> 404',
@@ -594,8 +565,6 @@ const main = async (): Promise<void> => {
     `status=${funnelMissing.status} msg=${funnelMissing.body?.message}`,
   );
 
-  // A funnel report with no name resolves to an empty lookup, not a validation
-  // error — the query schema has nothing required.
   const funnelNoName = await admin.get('/api/v1/analytics/getFunnel');
   record(
     'a funnel report with no name -> 404',
@@ -637,7 +606,6 @@ const main = async (): Promise<void> => {
     String(funnelToggled.body?.result?.isActive),
   );
 
-  // ══ Search ════════════════════════════════════════════════════════════════
   const noQuery = await request(app).get('/api/v1/search/global');
   record('GET /search without a term -> 400', noQuery.status === 400, `status=${noQuery.status}`);
 
@@ -775,7 +743,6 @@ const main = async (): Promise<void> => {
     `total=${searchLogs.body?.result?.totalRecord}`,
   );
 
-  // ══ Uploads ════════════════════════════════════════════════════════════════
   const anonUpload = await request(app).post('/api/v1/uploads/uploadImage');
   record(
     'POST /upload/image without auth -> 401',
@@ -783,8 +750,6 @@ const main = async (): Promise<void> => {
     `status=${anonUpload.status}`,
   );
 
-  // multer runs happily with no file, so this used to answer 201 "Image uploaded
-  // successfully." for a request that uploaded nothing.
   const noFile = await cu.post('/api/v1/uploads/uploadImage');
   record(
     'an upload with no file -> 400 FILE_REQUIRED',
@@ -792,8 +757,6 @@ const main = async (): Promise<void> => {
     `status=${noFile.status} msg=${noFile.body?.message}`,
   );
 
-  // Uploads are open to any signed-in account per the contract, so a customer is
-  // allowed here — the guard is the missing file, not the role.
   const documentNoFile = await cu.post('/api/v1/uploads/uploadDocument');
   record(
     'a document upload with no file -> 400 as well',
@@ -813,7 +776,6 @@ const main = async (): Promise<void> => {
     signed.body?.message,
   );
 
-  // ══ Cleanup ════════════════════════════════════════════════════════════════
   await prisma.funnel.deleteMany({ where: { slug: funnelSlug } });
   await prisma.event.deleteMany({ where: { sessionKey: { startsWith: 'an-' } } });
   await prisma.pageView.deleteMany({ where: { sessionKey: { startsWith: 'an-' } } });
@@ -821,7 +783,6 @@ const main = async (): Promise<void> => {
   await prisma.device.deleteMany({ where: { deviceId: { startsWith: 'an-' } } });
   await prisma.searchLog.deleteMany({ where: { term: { startsWith: 'AN' } } });
 
-  // The sales order has to go before the products: OrderItem.productId is RESTRICT.
   if (salesOrderId) {
     const orderRows = await prisma.order.findUnique({
       where: { id: salesOrderId },
@@ -846,9 +807,7 @@ const main = async (): Promise<void> => {
   await prisma.product.deleteMany({
     where: { id: { in: [teeId, hat.body?.result?.productId] } },
   });
-  // Scoped by the run id: Prisma compiles `contains` to a LIKE without escaping `_`,
-  // so a prefix pattern like `an_` is really `%an_%` and would match
-  // "superadmin@projectname.com" too. Digits are not LIKE metacharacters.
+
   await prisma.user.deleteMany({ where: { email: { contains: run } } });
 
   const passed = checks.filter((c) => c.passed).length;

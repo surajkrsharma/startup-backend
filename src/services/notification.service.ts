@@ -21,7 +21,6 @@ export interface NotifyInput {
   data?: Record<string, any>;
 }
 
-/** In-app notification + realtime push. Never throws. */
 export const notifyUser = async (input: NotifyInput): Promise<string> => {
   try {
     const row = await prisma.notification.create({
@@ -55,7 +54,6 @@ export const notifyUser = async (input: NotifyInput): Promise<string> => {
   }
 };
 
-/** Fan-out helper for order/payout/return events. */
 export const notifyUsers = async (
   userIds: string[],
   input: Omit<NotifyInput, 'userId'>,
@@ -65,7 +63,6 @@ export const notifyUsers = async (
   return results.filter(Boolean).length;
 };
 
-/** Email notification (also queued when BullMQ is available). */
 export const sendMailNotification = async (input: {
   to: string;
   templateKey?: string;
@@ -80,7 +77,6 @@ export const sendMailNotification = async (input: {
   return sent.sent;
 };
 
-/** Validates a client-reported tracking event name. */
 export const assertAllowedEvent = (eventName: string): string => {
   const value = D.str(eventName);
   if (!value || !TRACKING_EVENT_VALUES.includes(value)) {

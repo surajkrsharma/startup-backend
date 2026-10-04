@@ -9,10 +9,6 @@ export interface AppErrorOptions {
   isOperational?: boolean;
 }
 
-/**
- * Operational error thrown from the service layer and rendered by `errorHandler`.
- * `code` is appended to the message by ApiResponse.error as `Error Code (CODE)`.
- */
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly code: string;

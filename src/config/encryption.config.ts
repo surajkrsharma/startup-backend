@@ -14,10 +14,6 @@ export const ENCRYPTION = {
   SKIP_PATHS: ['/health', '/docs', '/docs.json', '/webhooks', '/track'],
 } as const;
 
-/**
- * Matches skip paths against the API-relative route (`/health`), so it works
- * regardless of the mount prefix — the middleware runs before the router.
- */
 export const isSkippedPath = (path: string): boolean => {
   const target = path.startsWith(APP.API_PREFIX) ? path.slice(APP.API_PREFIX.length) : path;
   return ENCRYPTION.SKIP_PATHS.some(
@@ -27,7 +23,6 @@ export const isSkippedPath = (path: string): boolean => {
 
 export const isEncryptionReady = () => ENCRYPTION.ENABLED && isHexKey(ENCRYPTION.KEY);
 
-/** Only ever warn once at boot so logs stay readable. */
 export const encryptionBootWarning = () => {
   if (!ENCRYPTION.ENABLED) return null;
   if (isHexKey(ENCRYPTION.KEY)) return null;

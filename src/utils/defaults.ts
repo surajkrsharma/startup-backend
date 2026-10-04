@@ -1,17 +1,3 @@
-/**
- * Default value helpers.
- *
- * Enforces the project's "No Null" contract: a missing value is never sent as
- * `null` — it is replaced by the type-appropriate empty value.
- *
- *  string  -> ''
- *  number  -> 0
- *  float   -> 0.0
- *  boolean -> false
- *  array   -> []
- *  object  -> {}
- *  date    -> ''
- */
 export const D = {
   str: (v?: string | null): string => (v === null || v === undefined ? '' : String(v)),
   num: (v?: number | string | null): number => {
@@ -43,13 +29,11 @@ export const D = {
   json: (v?: unknown): any => (v === null || v === undefined ? {} : v),
 };
 
-/** Round to N decimals without float drift artefacts. */
 export const round = (value: number, decimals = 2): number => {
   const factor = 10 ** decimals;
   return Math.round((Number(value) + Number.EPSILON) * factor) / factor;
 };
 
-/** Money-safe rounding used across totals, commission and payouts. */
 export const money = (value: number | null | undefined, decimals = 2): number =>
   round(Number(value ?? 0), decimals);
 

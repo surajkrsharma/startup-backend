@@ -50,7 +50,6 @@ export const NOTIFICATION_CHANNEL_VALUES = Object.values(
   NOTIFICATION_CHANNEL,
 ) as NotificationChannelType[];
 
-/** Order events that trigger a customer notification by default. */
 export const DEFAULT_NOTIFICATION_ORDER_EVENTS = ['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
 export const NOTIFICATION_EVENT = {
@@ -68,7 +67,6 @@ export const NOTIFICATION_EVENT = {
 
 export type NotificationEvent = keyof typeof NOTIFICATION_EVENT;
 
-/** Mapping: internal notification event → email template key. */
 export const EMAIL_TEMPLATE_KEY = {
   ORDER_CONFIRM: 'order_confirm',
   ORDER_SHIPPED: 'order_shipped',

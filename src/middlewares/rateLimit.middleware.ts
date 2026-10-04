@@ -14,10 +14,6 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { ERROR } from '../messages/error';
 import { ERROR_CODE, HTTP_STATUS } from '../constants/http';
 
-/**
- * IPv6-safe key normalisation. A raw `::ffff:1.2.3.4` and a plain IPv6 address must
- * not share a bucket, and IPv6 /64 subnets are grouped by prefix.
- */
 const normaliseIp = (ip: string): string => {
   if (!ip) return 'unknown';
   const clean = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
@@ -38,10 +34,9 @@ const buildKey = (scope: string) => (req: Request) => {
   return `${REDIS_RATE_LIMIT_PREFIX}${scope}:${identifier}`;
 };
 
-/** Redis-backed store so counters survive a restart / scale-out. */
 const buildStore = (scope: string) => {
   const client = getRedis();
-  if (!client) return undefined; // fall back to the in-memory store
+  if (!client) return undefined;
   return new RedisStore({
     sendCommand: (...args: string[]) =>
       (client as any).call(...(args as [string, ...string[]])) as Promise<any>,
@@ -51,10 +46,6 @@ const buildStore = (scope: string) => {
 
 const limiterCache = new Map<string, RateLimitRequestHandler>();
 
-/**
- * Named rate limiter. Counts live in Redis when available and in process memory
- * otherwise, so a Redis outage degrades instead of failing requests.
- */
 export const rateLimitBy = (preset: RateLimitPreset | string): RequestHandler => {
   const cached = limiterCache.get(preset);
   if (cached) return cached;
@@ -93,7 +84,6 @@ export const passwordResetRateLimit = rateLimitBy('PASSWORD_RESET');
 export const twoFactorRateLimit = rateLimitBy('ENABLE_2FA');
 export const socialLoginRateLimit = rateLimitBy('SOCIAL_LOGIN');
 
-/** Per-user failed-login counter, Redis backed, layered on top of the IP limiter. */
 export const loginGuard = async (
   identifier: string,
 ): Promise<{ locked: boolean; remaining: number }> => {

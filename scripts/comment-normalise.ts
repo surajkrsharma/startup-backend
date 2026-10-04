@@ -1,20 +1,3 @@
-/**
- * Rewrites multi-line runs of `//` prose into doc blocks, in place.
- *
- * The project has one prose form for anything longer than a line. A run of two
- * or more line comments is the shape that drifts: it is only correct by
- * accident, it wraps at whatever column the author was editing, and it reads
- * differently from the doc block sitting directly above it.
- *
- * Preserved exactly:
- *   - indentation
- *   - word wrapping, reflowed to the surrounding width
- *   - blank `//` lines, which become the blank `*` separator
- *
- * Banners, ESLint directives and route markers are left alone.
- *
- * Usage: npx tsx scripts/comment-normalise.ts [--write]
- */
 import fs from 'fs';
 import path from 'path';
 
@@ -84,7 +67,6 @@ for (const dir of DIRS) {
         continue;
       }
 
-      // Collect the whole run of consecutive prose line comments.
       const run: Array<{ indent: string; text: string }> = [];
       let j = i;
       while (j < lines.length) {
@@ -104,10 +86,6 @@ for (const dir of DIRS) {
         continue;
       }
 
-      /**
-       * A run that opens a block, e.g. "// if (x) {" style continuation, is left alone: it is code
-       * continuation, not prose.
-       */
       const lastEndsOpen = /[{(,]$/.test(run[run.length - 1].text.trim());
       if (lastEndsOpen) {
         out.push(...run.map((r) => `${r.indent}// ${r.text}`.trimEnd()));
@@ -118,7 +96,6 @@ for (const dir of DIRS) {
       const indent = run[0].indent;
       const body = run.map((r) => r.text);
 
-      // Rebuild as paragraphs split on blank line comments.
       const paragraphs: string[][] = [[]];
       for (const line of body) {
         if (!line.trim()) {

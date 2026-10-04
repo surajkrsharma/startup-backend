@@ -4,17 +4,12 @@ import { authenticate } from '../../middlewares/auth.middleware';
 import * as controller from './engagement.controller';
 import * as schema from './engagement.schema';
 
-// ── Loyalty ───────────────────────────────────────────────────────────────────
-
 const loyalty = Router();
 
-/** GET /loyalty/getPoints */
 loyalty.get('/getPoints', authenticate, controller.getSummary);
 
-/** GET /loyalty/getTiers */
 loyalty.get('/getTiers', controller.getTiers);
 
-/** GET /loyalty/getHistory */
 loyalty.get(
   '/getHistory',
   authenticate,
@@ -22,7 +17,6 @@ loyalty.get(
   controller.getHistory,
 );
 
-/** POST /loyalty/redeem */
 loyalty.post(
   '/redeem',
   authenticate,
@@ -30,7 +24,6 @@ loyalty.post(
   controller.redeemPoints,
 );
 
-/** POST /loyalty/adjust/:userId — admin */
 loyalty.post(
   '/adjust/:userId',
   authenticate,
@@ -39,14 +32,10 @@ loyalty.post(
   controller.adjust,
 );
 
-// ── Referrals ─────────────────────────────────────────────────────────────────
-
 const referrals = Router();
 
-/** GET /referral/getMyCode */
 referrals.get('/getMyCode', authenticate, controller.getReferralSummary);
 
-/** POST /referral/applyCode */
 referrals.post(
   '/applyCode',
   authenticate,
@@ -54,7 +43,6 @@ referrals.post(
   controller.applyCode,
 );
 
-/** GET /referral/getRewards */
 referrals.get(
   '/getRewards',
   authenticate,
@@ -62,10 +50,8 @@ referrals.get(
   controller.getMyReferrals,
 );
 
-/** GET /referral/getLeaderboard */
 referrals.get('/getLeaderboard', authenticate, controller.getLeaderboard);
 
-/** GET /referral/admin/getAll — admin */
 referrals.get(
   '/admin/getAll',
   authenticate,
@@ -74,7 +60,6 @@ referrals.get(
   controller.getAllReferrals,
 );
 
-/** POST /referral/complete/:id — admin */
 referrals.post(
   '/complete/:id',
   authenticate,
@@ -83,7 +68,6 @@ referrals.post(
   controller.complete,
 );
 
-/** PATCH /referral/updateStatus/:id — admin */
 referrals.patch(
   '/updateStatus/:id',
   authenticate,
@@ -92,18 +76,14 @@ referrals.patch(
   controller.updateStatus,
 );
 
-// ── Gift cards ────────────────────────────────────────────────────────────────
-
 const giftCards = Router();
 
-/** GET /giftCards/checkBalance/:code */
 giftCards.get(
   '/checkBalance/:code',
   validate({ params: schema.giftCardCodeParamSchema }),
   controller.check,
 );
 
-/** POST /giftCards/redeem */
 giftCards.post(
   '/redeem',
   authenticate,
@@ -111,7 +91,6 @@ giftCards.post(
   controller.redeemGiftCard,
 );
 
-/** GET /giftCards/getAll — admin */
 giftCards.get(
   '/getAll',
   authenticate,
@@ -120,7 +99,6 @@ giftCards.get(
   controller.getAllGiftCards,
 );
 
-/** POST /giftCards/create — admin */
 giftCards.post(
   '/create',
   authenticate,
@@ -129,7 +107,6 @@ giftCards.post(
   controller.createGiftCard,
 );
 
-/** PATCH /giftCards/disable/:id — admin */
 giftCards.patch(
   '/disable/:id',
   authenticate,
@@ -138,7 +115,6 @@ giftCards.patch(
   controller.disableGiftCard,
 );
 
-/** DELETE /giftCards/delete/:id — admin */
 giftCards.delete(
   '/delete/:id',
   authenticate,
@@ -147,11 +123,8 @@ giftCards.delete(
   controller.removeGiftCard,
 );
 
-// ── Message templates ────────────────────────────────────────────────────────
-
 const templates = Router();
 
-/** GET /templates/email/getAll — admin */
 templates.get(
   '/email/getAll',
   authenticate,
@@ -160,7 +133,6 @@ templates.get(
   controller.listEmail,
 );
 
-/** POST /templates/email/upsert — admin */
 templates.post(
   '/email/upsert',
   authenticate,
@@ -169,7 +141,6 @@ templates.post(
   controller.upsertEmail,
 );
 
-/** POST /templates/email/:key/render — admin */
 templates.post(
   '/email/:key/render',
   authenticate,
@@ -178,7 +149,6 @@ templates.post(
   controller.renderEmail,
 );
 
-/** DELETE /templates/email/:key/delete — admin */
 templates.delete(
   '/email/:key/delete',
   authenticate,
@@ -187,7 +157,6 @@ templates.delete(
   controller.deleteEmail,
 );
 
-/** GET /templates/sms/getAll — admin */
 templates.get(
   '/sms/getAll',
   authenticate,
@@ -196,7 +165,6 @@ templates.get(
   controller.listSms,
 );
 
-/** POST /templates/sms/upsert — admin */
 templates.post(
   '/sms/upsert',
   authenticate,
@@ -205,7 +173,6 @@ templates.post(
   controller.upsertSms,
 );
 
-/** POST /templates/sms/:key/render — admin */
 templates.post(
   '/sms/:key/render',
   authenticate,
@@ -214,7 +181,6 @@ templates.post(
   controller.renderSms,
 );
 
-/** DELETE /templates/sms/:key/delete — admin */
 templates.delete(
   '/sms/:key/delete',
   authenticate,
@@ -223,7 +189,6 @@ templates.delete(
   controller.deleteSms,
 );
 
-/** GET /templates/notification/getAll — admin */
 templates.get(
   '/notification/getAll',
   authenticate,
@@ -232,7 +197,6 @@ templates.get(
   controller.listNotifications,
 );
 
-/** POST /templates/notification/upsert — admin */
 templates.post(
   '/notification/upsert',
   authenticate,
@@ -241,7 +205,6 @@ templates.post(
   controller.upsertNotification,
 );
 
-/** POST /templates/notification/:key/render — admin */
 templates.post(
   '/notification/:key/render',
   authenticate,
@@ -250,7 +213,6 @@ templates.post(
   controller.renderNotification,
 );
 
-/** DELETE /templates/notification/:key/delete — admin */
 templates.delete(
   '/notification/:key/delete',
   authenticate,

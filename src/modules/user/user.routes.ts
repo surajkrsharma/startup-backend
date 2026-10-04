@@ -7,10 +7,6 @@ import * as schema from './user.schema';
 
 const router = Router();
 
-/**
- * Every route requires a valid access token; role/permission guards are applied per route
- * below (see controller.guards).
- */
 router.use(authenticate);
 
 /**
@@ -43,7 +39,6 @@ router.patch(
   controller.updateProfile,
 );
 
-/** PATCH /users/updateAvatar */
 router.patch('/updateAvatar', validate({ body: schema.avatarSchema }), controller.updateAvatar);
 
 /**
@@ -89,7 +84,6 @@ router.post(
   controller.addAddress,
 );
 
-/** PATCH /users/updateAddress/:id */
 router.patch(
   '/updateAddress/:id',
   ...controller.guards.customer,
@@ -113,7 +107,6 @@ router.delete(
   controller.deleteAddress,
 );
 
-/** PATCH /users/setDefaultAddress/:id */
 router.patch(
   '/setDefaultAddress/:id',
   ...controller.guards.customer,
@@ -137,7 +130,6 @@ router.get(
   controller.getAll,
 );
 
-/** GET /users/getById/:id */
 router.get(
   '/getById/:id',
   ...controller.guards.adminView,
@@ -145,7 +137,6 @@ router.get(
   controller.getById,
 );
 
-/** PATCH /users/updateUser/:id */
 router.patch(
   '/updateUser/:id',
   ...controller.guards.adminUpdate,
@@ -188,7 +179,6 @@ router.delete(
   controller.deleteUser,
 );
 
-/** GET /users/getActivity/:id */
 router.get(
   '/getActivity/:id',
   ...controller.guards.adminView,
@@ -196,7 +186,6 @@ router.get(
   controller.getActivity,
 );
 
-/** GET /users/getOrders/:id */
 router.get(
   '/getOrders/:id',
   ...controller.guards.adminView,

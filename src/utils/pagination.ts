@@ -28,10 +28,6 @@ export const getPagination = (query: any): PaginationResult => {
   return { page, limit, skip, take: limit };
 };
 
-/**
- * Converts `?sort=-createdAt` into a Prisma `orderBy` clause.
- * Only whitelisted fields are accepted — unknown fields fall back to the default.
- */
 export const getSort = (
   query: any,
   allowed: readonly string[] = PAGINATION.ALLOWED_SORTS,
@@ -48,7 +44,6 @@ export const getSort = (
   return { [field]: direction };
 };
 
-/** Non-paginated cursor helper used by exports and large reports. */
 export const getCursor = (query: any, defaultTake = 50) => {
   const take = Math.min(500, Math.max(1, Number(query?.take) || defaultTake));
   return {
@@ -58,7 +53,6 @@ export const getCursor = (query: any, defaultTake = 50) => {
   };
 };
 
-/** Whitelisted `fields` selection for list endpoints. */
 export const getSelectedFields = (query: any, allowed: string[], fallback: string[]): string[] => {
   const raw = query?.fields;
   if (!raw) return fallback;

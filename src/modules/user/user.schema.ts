@@ -62,7 +62,6 @@ const addressBody = z
   })
   .strict();
 
-/** PATCH /users/updateProfile — every field optional, unknown keys rejected. */
 export const updateProfileSchema = z
   .object({
     name: name.optional(),
@@ -76,10 +75,8 @@ export const updateProfileSchema = z
     message: VALIDATION.INVALID_JSON,
   });
 
-/** POST /users/addAddress */
 export const addAddressSchema = addressBody;
 
-/** PATCH /users/updateAddress/:id */
 export const updateAddressSchema = addressBody.partial().refine((v) => Object.keys(v).length > 0, {
   message: VALIDATION.INVALID_JSON,
 });
@@ -93,7 +90,6 @@ export const deleteAccountSchema = z
   })
   .strict();
 
-/** GET /users/getAll — admin list. */
 export const listUsersSchema = paginationSchema.extend({
   role: z.enum(ROLE_VALUES as [string, ...string[]]).optional(),
   status: z.enum(['active', 'inactive', 'suspended', 'all']).optional(),

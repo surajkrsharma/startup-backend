@@ -21,7 +21,6 @@ const slug = z
 
 const image = z.string().trim().url(VALIDATION.INVALID_URL).max(500).optional().or(z.literal(''));
 
-/** POST /categories/createCategory */
 export const createCategorySchema = z
   .object({
     name,
@@ -35,7 +34,6 @@ export const createCategorySchema = z
   })
   .strict();
 
-/** PATCH /categories/updateCategory/:id */
 export const updateCategorySchema = createCategorySchema
   .partial()
   .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
@@ -44,19 +42,17 @@ export const categoryIdParamSchema = z.object({ id });
 
 export const categorySlugParamSchema = z.object({ slug: common.cuidOrSlug });
 
-/** GET /categories/getAll */
 export const listCategoriesSchema = paginationSchema.extend({
   parentId: id.optional(),
-  /** Only return top-level rows when true. */
+
   rootsOnly: common.flagQuery,
   isActive: common.flagQuery,
-  /** Return the full parent/child tree instead of one level. */
+
   tree: common.flagQuery,
   withCounts: common.flagQueryDefaultTrue,
   search: z.string().trim().max(120).optional(),
 });
 
-/** POST /categories/reorder — receives the ids in their intended order. */
 export const reorderSchema = z
   .object({
     categoryIds: z.array(id).min(1).max(500),
@@ -64,11 +60,6 @@ export const reorderSchema = z
   })
   .strict();
 
-/**
- * Loose row shape for bulk create. The minimum-length rule on `name` is enforced
- * per row inside the service, so one short name is skipped and reported instead
- * of failing every row in the batch.
- */
 export const bulkCreateSchema = z
   .object({
     categories: z

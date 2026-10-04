@@ -8,8 +8,6 @@ import { common, paginationSchema } from '../../middlewares/validate.middleware'
 const id = common.cuid;
 const url = z.string().trim().url(VALIDATION.INVALID_URL).max(500);
 
-// ─── Pages ───────────────────────────────────────────────────────────────────
-
 export const listPagesSchema = z
   .object({
     isPublished: z.enum(['true', 'false']).optional(),
@@ -40,8 +38,6 @@ export const updatePageSchema = createPageSchema
   .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
 
 export const pageSlugParamSchema = z.object({ slug: common.cuidOrSlug });
-
-// ─── Blog ────────────────────────────────────────────────────────────────────
 
 export const listBlogsSchema = z
   .object({
@@ -77,8 +73,6 @@ export const updateBlogSchema = createBlogSchema
 
 export const blogSlugParamSchema = z.object({ slug: common.cuidOrSlug });
 
-// ─── FAQ ─────────────────────────────────────────────────────────────────────
-
 export const listFaqsSchema = z
   .object({
     category: z.string().trim().max(80).optional(),
@@ -110,8 +104,6 @@ export const updateFaqSchema = createFaqSchema
   .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
 
 export const faqIdParamSchema = z.object({ id });
-
-// ─── Banners ─────────────────────────────────────────────────────────────────
 
 export const listBannersSchema = z
   .object({
@@ -145,18 +137,15 @@ const bannerBody = z
   })
   .strict();
 
-/** A banner's window has to end after it starts. */
 const bannerWindowValid = (v: { startsAt?: Date | string; endsAt?: Date | string }): boolean =>
   !v.startsAt || !v.endsAt || new Date(v.endsAt as any) > new Date(v.startsAt as any);
 
-/** POST /banners/createBanner */
 export const createBannerSchema = bannerBody.superRefine((v, ctx) => {
   if (!bannerWindowValid(v as any)) {
     ctx.addIssue({ code: 'custom', message: 'Banner end time must be after start time.' });
   }
 });
 
-/** PATCH /banners/updateBanner/:id */
 export const updateBannerSchema = bannerBody.partial().superRefine((v, ctx) => {
   if (Object.keys(v).length === 0) {
     ctx.addIssue({ code: 'custom', message: VALIDATION.INVALID_JSON });
@@ -168,16 +157,11 @@ export const updateBannerSchema = bannerBody.partial().superRefine((v, ctx) => {
 
 export const bannerIdParamSchema = z.object({ id });
 
-// ─── Contact / Newsletter ────────────────────────────────────────────────────
-
 export const submitContactSchema = z
   .object({
     name: z.string().trim().min(2, VALIDATION.MIN_LENGTH('name', 2)).max(NAME.MAX_LENGTH),
     email: z.string().trim().email(VALIDATION.INVALID_EMAIL),
-    /**
-     * No `.default('')`: an empty string would fail PHONE_REGEX and reject every request that
-     * simply omits the optional field.
-     */
+
     phone: z.string().trim().max(15).regex(PHONE_REGEX, VALIDATION.INVALID_PHONE).optional(),
     subject: z.string().trim().max(NAME.TITLE_MAX_LENGTH).optional().default(''),
     message: z
@@ -195,7 +179,6 @@ export const listContactsSchema = z
   .merge(paginationSchema)
   .strict();
 
-/** PATCH /content/contact/:id/markRead — omitting the flag means "mark read". */
 export const markContactReadSchema = z
   .object({
     isRead: z.boolean().optional().default(true),
@@ -221,8 +204,6 @@ export const unsubscribeSchema = z
   })
   .strict();
 
-// ─── Geo / currency / tax / translation / dropdown ───────────────────────────
-
 export const listCountriesSchema = z
   .object({
     isActive: z.enum(['true', 'false']).optional(),
@@ -235,7 +216,7 @@ export const listStatesSchema = z
   .object({
     countryCode: z.string().trim().length(2).optional(),
     isActive: z.enum(['true', 'false']).optional(),
-    /** Adds the nested cityList a state -> city dropdown needs. */
+
     includeCities: z.enum(['true', 'false']).optional(),
   })
   .merge(paginationSchema)
@@ -345,8 +326,6 @@ export const dropdownQuerySchema = z
 
 export const contentIdParamSchema = z.object({ id });
 
-// ─── Webhooks ────────────────────────────────────────────────────────────────
-
 export const listWebhooksSchema = z
   .object({
     provider: z.nativeEnum(WebhookProvider).optional(),
@@ -383,8 +362,6 @@ export const webhookProviderParamSchema = z.object({
   provider: z.enum(['razorpay', 'stripe', 'shipping', 'custom']),
 });
 
-// ─── Bulk jobs ───────────────────────────────────────────────────────────────
-
 export const listJobsSchema = z
   .object({
     type: z.string().trim().max(40).optional(),
@@ -395,7 +372,6 @@ export const listJobsSchema = z
 
 export const jobIdParamSchema = z.object({ jobId: z.string().trim().min(4).max(64) });
 
-/** GET /reports/export/:type - the report to render as CSV. */
 export const reportTypeParamSchema = z
   .object({
     type: z.enum([
@@ -414,7 +390,6 @@ export const reportTypeParamSchema = z
 
 export const bulkProductsSchema = z
   .object({
-    /** Per-row failures are reported rather than failing the whole batch. */
     rows: z
       .array(
         z
@@ -435,8 +410,6 @@ export const bulkProductsSchema = z
     continueOnError: z.boolean().optional().default(true),
   })
   .strict();
-
-// ─── Reports ─────────────────────────────────────────────────────────────────
 
 export const reportSchema = z
   .object({
@@ -461,7 +434,7 @@ export const createScheduleSchema = z
       'INVENTORY',
       'RETURNS',
     ]),
-    /** Standard five-field cron; validated for shape, not for a real calendar. */
+
     cron: z
       .string()
       .trim()
@@ -481,31 +454,23 @@ export const listSchedulesSchema = z
 
 export const scheduleIdParamSchema = z.object({ id });
 
-// ─── Newsletter campaign ──────────────────────────────────────────────────────
-
-/** POST /newsletter/sendCampaign — admin */
 export const sendCampaignSchema = z
   .object({
     subject: z.string().trim().min(2, VALIDATION.REQUIRED('subject')).max(NAME.TITLE_MAX_LENGTH),
     body: z.string().trim().min(2, VALIDATION.REQUIRED('body')).max(20_000),
-    /** Overrides the stored template when a campaign needs its own copy. */
+
     templateKey: z.string().trim().max(60).optional(),
   })
   .strict();
 
-// ─── Bulk import of orders and users ──────────────────────────────────────────
-
 export const bulkRowsSchema = z
   .object({
     rows: z.array(z.record(z.unknown())).min(1, VALIDATION.REQUIRED('rows')).max(5000),
-    /** Defaults to false, so a caller has to opt in to a partial import. */
+
     continueOnError: z.boolean().optional().default(false),
   })
   .strict();
 
-// ─── API keys ────────────────────────────────────────────────────────────────
-
-/** POST /apiKeys/create — the secret is returned exactly once. */
 export const createApiKeySchema = z
   .object({
     name: z.string().trim().min(2, VALIDATION.MIN_LENGTH('name', 2)).max(NAME.TITLE_MAX_LENGTH),
@@ -515,8 +480,6 @@ export const createApiKeySchema = z
   .strict();
 
 export const apiKeyIdParamSchema = z.object({ id });
-
-// ─── Translations ────────────────────────────────────────────────────────────
 
 export const localeParamSchema = z.object({ locale: z.string().trim().min(2).max(20) });
 
@@ -554,15 +517,12 @@ export const bulkUpsertTranslationsSchema = z
   })
   .strict();
 
-// ─── Geo ──────────────────────────────────────────────────────────────────────
-
 export const countryCodeParamSchema = z.object({
   countryCode: z.string().trim().min(2).max(4),
 });
 
 export const stateCodeParamSchema = z.object({ stateCode: z.string().trim().min(1).max(8) });
 
-/** POST /countries/checkPincode */
 type Assert<T> = T;
 export type ReportInput = Assert<z.infer<typeof reportSchema>>;
 export type CreateScheduleInput = z.infer<typeof createScheduleSchema>;

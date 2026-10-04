@@ -21,19 +21,13 @@ import { AppError } from './utils/AppError';
 import { ERROR } from './messages/error';
 import { ERROR_CODE, HTTP_STATUS } from './constants/http';
 
-/** CORS is an explicit whitelist — never a wildcard, especially with credentials. */
 const buildCorsOptions = (): CorsOptions => {
   const whitelist = ENV.CORS_ORIGINS;
   return {
     origin(origin, callback) {
-      // Same-origin / native clients / curl send no Origin header.
       if (!origin) return callback(null, true);
       if (!isProduction) return callback(null, true);
       if (whitelist.includes(origin)) return callback(null, true);
-      /**
-       * A plain Error here would fall through to the generic 500 handler and pollute the logs; a 403
-       * makes a misconfigured CORS_ORIGINS obvious.
-       */
       return callback(
         new AppError(ERROR.COMMON.CORS_ORIGIN_DENIED, HTTP_STATUS.FORBIDDEN, ERROR_CODE.FORBIDDEN),
       );
@@ -65,7 +59,6 @@ const buildCorsOptions = (): CorsOptions => {
 export const createApp = (): Application => {
   const app = express();
 
-  // Render / behind a proxy — needed for correct req.ip and rate limiting.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 
@@ -73,7 +66,6 @@ export const createApp = (): Application => {
   app.use(cors(buildCorsOptions()));
   app.use(compression());
 
-  // Structured per-request logging, correlated by the request id assigned below.
   app.use(
     pinoHttp({
       logger,
@@ -115,7 +107,6 @@ export const createApp = (): Application => {
   app.use(cookieParser());
   app.use(hpp());
 
-  // Optional AES-256-GCM transport encryption — runs before anything reads the body.
   if (isEncryptionReady()) app.use(encryptionMiddleware);
 
   app.use(maintenanceMiddleware);

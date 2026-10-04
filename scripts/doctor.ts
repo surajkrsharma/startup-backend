@@ -1,18 +1,3 @@
-/**
- * Reports whether the things this API depends on are actually alive.
- *
- * Run it before a deploy and after anything surprising. It answers the two
- * questions that are otherwise invisible:
- *
- *   • "Is my database still there?"  A deleted or suspended Render Postgres
- *     does not fail loudly — the API boots and then 500s on every route that
- *     touches data, while /api/v1/health still reports UP.
- *
- *   • "Has a secret leaked?"  Checks for known-weak values, for .env files that
- *     git is tracking, and for the values that are public by definition.
- *
- * Usage: npm run doctor
- */
 import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -58,7 +43,6 @@ const mask = (value: string, keep = 4): string => {
   return `${value.slice(0, keep)}…${value.slice(-2)} (${value.length} chars)`;
 };
 
-// ── 1. Database ──────────────────────────────────────────────────────────────
 const checkDatabase = async (): Promise<void> => {
   let host = '(unparsed)';
   try {
@@ -146,15 +130,9 @@ const checkDatabase = async (): Promise<void> => {
   }
 };
 
-// ── 2. Secrets ───────────────────────────────────────────────────────────────
 const checkSecrets = (): void => {
   const WEAK = new Set(['SuperSecret@123', 'changeme', 'secret', 'password', 'test', 'Demo@12345']);
 
-  /**
-   * Only the secrets we generate ourselves have a meaningful minimum length. A Cloudinary API
-   * secret is 27 characters by design, so a generic 32-char floor would cry wolf on a perfectly
-   * good key.
-   */
   const lengthFloor: Record<string, number> = {
     JWT_ACCESS_SECRET: 32,
     JWT_REFRESH_SECRET: 32,
@@ -210,7 +188,6 @@ const checkSecrets = (): void => {
     say('ok', 'OTP_STATIC_CODE', 'empty (real random codes)');
   }
 
-  // ── Exposure ───────────────────────────────────────────────────────────────
   const tracked = git(['ls-files', '--', '.env', '.env.example']);
   if (tracked === null) {
     say('skip', 'git', 'not a git repository');
@@ -232,7 +209,6 @@ const checkSecrets = (): void => {
     if (ignored) say('fail', 'exposure', `these must never be tracked: ${ignored}`);
   }
 
-  // Anything in the working tree that looks like a stray key.
   const stray: string[] = [];
   for (const name of fs.readdirSync(ROOT)) {
     if (/\.(pem|key|p12|pfx)$/i.test(name)) stray.push(name);
@@ -244,9 +220,7 @@ const checkSecrets = (): void => {
   }
 };
 
-// ── 3. Optional integrations ─────────────────────────────────────────────────
 const checkIntegrations = async (): Promise<void> => {
-  // OTP first: it decides whether the whole account flow works at all.
   const policy = otpRequirement();
 
   if (ENV.OTP_REQUIRED) {
@@ -291,10 +265,6 @@ const checkIntegrations = async (): Promise<void> => {
     );
   }
 
-  /**
-   * An App Password, not the account password. Gmail rejects the latter with a bare
-   * authentication failure that reads like wrong credentials, which is an easy hour to lose.
-   */
   if (ENV.SMTP_HOST && /gmail\.com|googlemail\.com/i.test(ENV.SMTP_HOST)) {
     say(
       'ok',
@@ -366,7 +336,6 @@ const checkIntegrations = async (): Promise<void> => {
   }
 };
 
-// ── main ─────────────────────────────────────────────────────────────────────
 const main = async (): Promise<void> => {
   // eslint-disable-next-line no-console
   console.log(`\n  projectname-api doctor — NODE_ENV=${ENV.NODE_ENV}\n`);

@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for payment, wallet, payout and return modules.
- *
- * Covers: token payment, balance settlement, COD collection, refunds and their
- * caps, wallet ledger and admin adjustments, payout request/approve/reject/settle
- * with the earnings hold, and the full return lifecycle including the window,
- * quantity limits, per-item approval, stock restore and wallet refunds.
- *
- * Usage: npx tsx scripts/e2e-payment.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -114,10 +100,6 @@ const main = async (): Promise<void> => {
   await setSetting('order.minAmount', 0, 'order', undefined, false);
   await setSetting('tax.inclusive', false, 'tax', undefined, false);
 
-  /**
-   * Pin the token settings off: a crashed earlier run can leave them enabled, which would
-   * silently turn every COD order into a token order.
-   */
   await setSetting('payment.token.enabled', false, 'payment', undefined, false);
   await setSetting('payment.token.applicableAbove', 2000, 'payment', undefined, false);
   await setSetting('wallet.enabled', false, 'wallet', undefined, false);
@@ -140,7 +122,7 @@ const main = async (): Promise<void> => {
   const admin = api(adminToken);
 
   await admin.patch(`/api/v1/vendors/approveVendor/${vendor.vendorId}`, {});
-  // Bank details are required before a payout can be requested.
+
   await prisma.vendorProfile.update({
     where: { id: vendor.vendorId },
     data: {
@@ -174,7 +156,6 @@ const main = async (): Promise<void> => {
   });
   const addressId = address.body?.result?.addressId ?? '';
 
-  /** Places an order and returns its id. */
   const place = async (qty = 1) => {
     await cu.del('/api/v1/cart/clearCart');
     await cu.post('/api/v1/cart/addItem', { productId, qty });
@@ -190,7 +171,6 @@ const main = async (): Promise<void> => {
     };
   };
 
-  // ══ Guards ═════════════════════════════════════════════════════════════════
   const anon = await request(app).get('/api/v1/payments/getAll');
   record('GET /payments/getAll without token -> 401', anon.status === 401, `status=${anon.status}`);
 
@@ -201,7 +181,6 @@ const main = async (): Promise<void> => {
     `status=${noRecord.status}`,
   );
 
-  // ══ COD order ══════════════════════════════════════════════════════════════
   const codOrder = await place(2);
   record(
     'COD order placed',
@@ -234,7 +213,6 @@ const main = async (): Promise<void> => {
     `status=${foreignPayments.status}`,
   );
 
-  // getAll is an admin listing; the customer-facing read is getByOrder.
   const list = await admin.get('/api/v1/payments/getAll');
   record('GET /payments/getAll -> 200 (admin)', list.status === 200, `status=${list.status}`);
   record(
@@ -258,7 +236,6 @@ const main = async (): Promise<void> => {
     String(methods.body?.result?.cod?.maxAmount),
   );
 
-  // ══ COD collection ═════════════════════════════════════════════════════════
   const codCollect = await admin.patch(`/api/v1/payments/markCodCollected/${codOrder.id}`);
   record(
     'PATCH /payments/markCodCollected/:orderId -> 200',
@@ -278,7 +255,6 @@ const main = async (): Promise<void> => {
     `status=${codTwice.status} msg=${codTwice.body?.message}`,
   );
 
-  // ══ Token payment ══════════════════════════════════════════════════════════
   await setSetting('payment.token.enabled', true, 'payment', undefined, false);
   await setSetting('payment.token.mode', 'fixed', 'payment', undefined, false);
   await setSetting('payment.token.fixedAmount', 200, 'payment', undefined, false);
@@ -307,8 +283,6 @@ const main = async (): Promise<void> => {
   const tokenPayments = await cu.get(`/api/v1/payments/getByOrder/${tokenOrder.id}`);
   const tokenPaymentId = tokenPayments.body?.result?.itemList?.[0]?.paymentId ?? '';
 
-  // The order is named in the path, so the body must not repeat it — the schema is
-  // strict and an extra orderId is a 400, not a harmless duplicate.
   const noToken = await cu.post(`/api/v1/payments/payToken/${codOrder.id}`, {});
   record(
     'paying a token on a COD order -> 422',
@@ -409,10 +383,6 @@ const main = async (): Promise<void> => {
 
   await setSetting('payment.token.enabled', false, 'payment', undefined, false);
 
-  // ══ Refunds ═══════════════════════════════════════════════════════════════
-  // The payment is named in the path; orderId is still a required body field.
-  // The token payment only ever collected the token (200); the balance settled as a
-  // separate payment row, so 200 is the ceiling here.
   const refundInit = await admin.post(`/api/v1/payments/refund/${tokenPaymentId}`, {
     orderId: tokenOrder.id,
     amount: 200,
@@ -456,12 +426,6 @@ const main = async (): Promise<void> => {
     `status=${missingOrder.status} msg=${missingOrder.body?.message}`,
   );
 
-  // A payment-level refund stays PENDING until money actually moves. The only route
-  // that settles a refund is the return flow (/returns/processRefund/:id), which is
-  // covered further down — so here we assert the payment refund is still open and
-  // that it is visible in the history.
-  // Scoped to the order's owner, so this is the customer's read — an admin asking for
-  // someone else's order gets the same 404 as any other stranger.
   const refundStillOpen = await cu.get(`/api/v1/payments/getRefundHistory/${tokenOrder.id}`);
   record(
     'the new refund is listed as PENDING',
@@ -505,7 +469,6 @@ const main = async (): Promise<void> => {
     `status=${refundAsCustomer.status}`,
   );
 
-  // ══ Wallet ═════════════════════════════════════════════════════════════════
   await setSetting('wallet.enabled', true, 'wallet', undefined, false);
   await setSetting('wallet.maxBalance', 100000, 'wallet', undefined, false);
 
@@ -575,7 +538,6 @@ const main = async (): Promise<void> => {
     `after=${debit.body?.result?.balanceAfter}`,
   );
 
-  // adminCredit only credits: a negative amount is not a debit, it is a bad request.
   const negativeCredit = await admin.post('/api/v1/wallet/adminCredit', {
     userId: customer.userId,
     amount: -100,
@@ -619,7 +581,6 @@ const main = async (): Promise<void> => {
     `status=${adjustAsCustomer.status}`,
   );
 
-  // ══ Earnings and payouts ══════════════════════════════════════════════════
   await setSetting('vendor.payoutHoldDays', 0, 'vendor', undefined, false);
   await setSetting('vendor.minPayoutAmount', 100, 'vendor', undefined, false);
 
@@ -630,13 +591,11 @@ const main = async (): Promise<void> => {
   });
   await admin.patch(`/api/v1/orders/updateStatus/${deliveredOrder.id}`, { status: 'DELIVERED' });
 
-  // Earnings are recorded and released so they can be claimed.
   const subOrder = await prisma.subOrder.findFirst({
     where: { orderId: deliveredOrder.id },
     select: { id: true, vendorEarning: true, commission: true },
   });
 
-  // Delivery books the earning automatically; the test just clears its hold.
   const autoEarning = await prisma.vendorEarning.findFirst({
     where: { subOrderId: subOrder?.id },
     select: { id: true, isAvailable: true },
@@ -648,8 +607,6 @@ const main = async (): Promise<void> => {
     autoEarning ? 'booked' : 'missing',
   );
 
-  // The claimable window ends at the START of today (toDayKey truncates), so an
-  // earning made available a second ago is still inside the hold period.
   if (autoEarning) {
     await prisma.vendorEarning.update({
       where: { id: autoEarning.id },
@@ -661,8 +618,6 @@ const main = async (): Promise<void> => {
     });
   }
 
-  // Re-read: the object fetched above predates the update, so asserting on it would
-  // test the pre-update value rather than the backdating we just did.
   const backdated = await prisma.vendorEarning.findFirst({
     where: { id: autoEarning?.id },
     select: { isAvailable: true, availableAt: true, status: true },
@@ -726,8 +681,6 @@ const main = async (): Promise<void> => {
     requested.body?.result?.status === 'PENDING',
     requested.body?.result?.status,
   );
-  // requestPayout deliberately returns a narrow projection (no account reference);
-  // the masked reference is only visible on the admin listing, asserted below.
 
   const doubleRequest = await api(vendor.token).post('/api/v1/vendors/requestPayout', {
     amount: availableNet,
@@ -825,7 +778,6 @@ const main = async (): Promise<void> => {
     `status=${payoutAsVendor.status}`,
   );
 
-  // Rejection releases the earnings back.
   await prisma.vendorEarning.updateMany({
     where: { vendorId: vendor.vendorId },
     data: { status: 'PENDING', isAvailable: true },
@@ -853,7 +805,6 @@ const main = async (): Promise<void> => {
     released?.status,
   );
 
-  // ══ Returns ═════════════════════════════════════════════════════════════════
   await setSetting('return.enabled', true, 'return', undefined, false);
   await setSetting('return.windowDays', 7, 'return', undefined, false);
   await setSetting('return.reasonRequired', true, 'return', undefined, false);
@@ -1103,7 +1054,6 @@ const main = async (): Promise<void> => {
     `total=${otherReturns.body?.result?.totalRecord}`,
   );
 
-  // ══ Return window ══════════════════════════════════════════════════════════
   const windowOrder = await place(1);
   await admin.patch(`/api/v1/orders/updateStatus/${windowOrder.id}`, { status: 'SHIPPED' });
   await admin.patch(`/api/v1/orders/updateStatus/${windowOrder.id}`, {
@@ -1111,7 +1061,6 @@ const main = async (): Promise<void> => {
   });
   await admin.patch(`/api/v1/orders/updateStatus/${windowOrder.id}`, { status: 'DELIVERED' });
 
-  // Backdate the delivery so the window has elapsed.
   await prisma.order.update({
     where: { id: windowOrder.id },
     data: { deliveredAt: new Date(Date.now() - 30 * 86_400_000) },
@@ -1129,7 +1078,6 @@ const main = async (): Promise<void> => {
     `status=${tooLate.status} msg=${tooLate.body?.message}`,
   );
 
-  // ══ Cleanup ═══════════════════════════════════════════════════════════════
   const orderIds = (
     await prisma.order.findMany({ where: { userId: customer.userId }, select: { id: true } })
   ).map((o) => o.id);

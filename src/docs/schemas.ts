@@ -3,7 +3,6 @@
  * These describe the strict envelope and the most reused payloads.
  */
 export const SERVER_SCHEMA: Record<string, any> = {
-  // ── Envelope ───────────────────────────────────────────────────────────────
   SuccessResponse: {
     type: 'object',
     required: ['status', 'message', 'result'],
@@ -38,10 +37,6 @@ export const SERVER_SCHEMA: Record<string, any> = {
       'Returned only when the request carried `x-encrypted: 1` and encryption is enabled.',
   },
 
-  /**
-   * What every list endpoint returns. `result` carries the pagination block first,
-   * then the caller's own keys, so the per-module payload sits alongside the counts.
-   */
   PaginatedResponse: {
     allOf: [
       { $ref: '#/components/schemas/SuccessResponse' },
@@ -71,7 +66,6 @@ export const SERVER_SCHEMA: Record<string, any> = {
     ],
   },
 
-  // ── Pagination ─────────────────────────────────────────────────────────────
   PaginationMeta: {
     type: 'object',
     description: 'Present inside `result` only when an `xxxList` is returned, always first.',
@@ -87,13 +81,6 @@ export const SERVER_SCHEMA: Record<string, any> = {
     },
   },
 
-  /**
-   * What the provider webhook receivers actually read off the request.
-   *
-   * `handleProviderWebhook` pulls `endpointId`, `event`, `eventId` and then stores the
-   * whole body, so the payload is passed through rather than modelled field by field -
-   * each provider ships its own shape and no schema here would be honest.
-   */
   WebhookProviderPayload: {
     type: 'object',
     description:
@@ -118,7 +105,6 @@ export const SERVER_SCHEMA: Record<string, any> = {
     },
   },
 
-  // ── Auth ───────────────────────────────────────────────────────────────────
   RegisterCustomerRequest: {
     type: 'object',
     required: ['type', 'name', 'email', 'password', 'otp'],
@@ -201,7 +187,6 @@ export const SERVER_SCHEMA: Record<string, any> = {
     ],
   },
 
-  // ── Shared ─────────────────────────────────────────────────────────────────
   DeviceData: {
     type: 'object',
     properties: {

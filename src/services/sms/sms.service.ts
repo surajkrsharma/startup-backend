@@ -3,7 +3,7 @@ import { logger } from '../logger.service';
 
 export interface SmsPayload {
   to: string;
-  /** Pre-rendered body. MSG91 template mode ignores this and uses its own copy. */
+
   message: string;
 }
 
@@ -13,11 +13,6 @@ export interface SmsResult {
   provider: string;
 }
 
-/**
- * Normalises to the 10-digit form Indian DLT routes expect, keeping the country
- * code out of the request body. Numbers that are not Indian are passed through
- * with their leading '+' intact.
- */
 const toDialable = (raw: string): string => {
   const digits = String(raw).replace(/[^\d]/g, '');
   if (!digits) return '';
@@ -30,14 +25,6 @@ const toDialable = (raw: string): string => {
   return digits;
 };
 
-/**
- * Sends transactional SMS through MSG91's Flow API.
- * Docs: https://docs.msg91.com/reference/send-sms
- *
- * Template mode is used when MSG91_TEMPLATE_ID is set, which is what Indian DLT
- * rules require for business traffic. Without it the free-form endpoint is used,
- * which only works for transactional alerts and is not DLT compliant.
- */
 export const sendSms = async (payload: SmsPayload): Promise<SmsResult> => {
   const to = toDialable(payload.to);
 
@@ -68,7 +55,7 @@ export const sendSms = async (payload: SmsPayload): Promise<SmsResult> => {
         recipients: [
           {
             mobiles: to,
-            // MSG91 template variables are positional; {{0}} is the OTP.
+
             OTP: payload.message,
             otp: payload.message,
           },
@@ -109,6 +96,5 @@ export const sendSms = async (payload: SmsPayload): Promise<SmsResult> => {
   }
 };
 
-/** MSG91 template bodies are authored in the dashboard; this is the fallback. */
 export const sendOtpSms = (to: string, otp: string, appName: string): Promise<SmsResult> =>
   sendSms({ to, message: `${otp} is your ${appName} verification code.` });

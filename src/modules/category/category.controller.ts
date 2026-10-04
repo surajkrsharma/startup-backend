@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import { ApiResponse } from '../../utils/ApiResponse';
 import { SUCCESS } from '../../messages/success';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -23,14 +22,10 @@ export const guards = {
   ],
 };
 
-// ══ Public ═══════════════════════════════════════════════════════════════════
-
-/** GET /categories/getAll */
 export const getAll = asyncHandler(async (req, res) => {
   const { rows, total, tree } = await service.listCategories(req.query);
   const { page, limit } = getPagination(req.query);
 
-  // The tree response carries no pagination numbers: there are no pages.
   if (tree) {
     return ApiResponse.success(res, {
       message: SUCCESS.CATEGORY.FETCHED,
@@ -76,10 +71,6 @@ export const getById = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * GET /categories/getBySlug/:slug — a separate handler from getById, because the
- * path param is named and `req.params.id` would be undefined here.
- */
 export const getBySlug = asyncHandler(async (req, res) => {
   const category = await service.getCategoryBySlug(req.params.slug);
   return ApiResponse.success(res, {
@@ -88,15 +79,11 @@ export const getBySlug = asyncHandler(async (req, res) => {
   });
 });
 
-// ══ Admin ════════════════════════════════════════════════════════════════════
-
-/** POST /categories/createCategory */
 export const createCategory = asyncHandler(async (req, res) => {
   const category = await service.createCategory(req.body, req);
   return ApiResponse.created(res, SUCCESS.CATEGORY.CREATED, serializeCategory(category));
 });
 
-/** PATCH /categories/updateCategory/:id */
 export const updateCategory = asyncHandler(async (req, res) => {
   const category = await service.updateCategory(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -134,7 +121,6 @@ export const deleteCategory = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /categories/reorder — ids in the desired order. */
 export const reorder = asyncHandler(async (req, res) => {
   const count = await service.reorderCategories(
     req.body.categoryIds,
@@ -148,7 +134,6 @@ export const reorder = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /categories/bulkCreate — per-row errors are reported, not thrown. */
 export const bulkCreate = asyncHandler(async (req, res) => {
   const result = await service.bulkCreate(req.body, req);
   return ApiResponse.created(res, SUCCESS.CATEGORY.CREATED, serializeBulkResult(result));

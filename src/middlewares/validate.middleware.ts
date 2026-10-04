@@ -11,18 +11,11 @@ export interface ValidateSchemas {
 
 export type Source = keyof ValidateSchemas;
 
-/**
- * Zod validation for body / query / params / headers.
- *
- * Validated output replaces the raw value, so handlers always receive coerced,
- * stripped data. Unknown keys are rejected because schemas use `.strict()`.
- */
 export const validate = (schemas: ValidateSchemas): RequestHandler => {
   const handler: RequestHandler = (req, res, next) => {
     try {
       if (schemas.params) req.params = schemas.params.parse(req.params) as any;
       if (schemas.query) {
-        // req.query has only a getter on Express 5-style objects; assign defensively.
         const parsed = schemas.query.parse(req.query) as Record<string, unknown>;
         Object.defineProperty(req, 'query', {
           value: parsed,
@@ -61,23 +54,18 @@ export const validateBody = (schema: ZodTypeAny): RequestHandler => validate({ b
 export const validateQuery = (schema: ZodTypeAny): RequestHandler => validate({ query: schema });
 export const validateParams = (schema: ZodTypeAny): RequestHandler => validate({ params: schema });
 
-/** Shared building blocks so schemas stay short and consistent. */
 export const common = {
   id: z.string().min(1, VALIDATION.REQUIRED('id')),
   cuid: z.string().min(1).max(40),
   cuidOrSlug: z.string().min(1).max(140),
-  /** `1` / `"1"` -> 1 */
+
   numericString: z.coerce.number().int(),
   positiveInt: z.coerce.number().int().positive(),
   nonNegativeInt: z.coerce.number().int().min(0),
   booleanish: z
     .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
     .transform((v) => v === true || v === 'true' || v === '1'),
-  /**
-   * Optional boolean flag for filters. Absent means "no filter", so it resolves
-   * to `undefined` rather than `true` — defaulting to true would silently apply
-   * a filter the caller never asked for.
-   */
+
   flagQuery: z
     .union([z.boolean(), z.string()])
     .optional()
@@ -86,7 +74,7 @@ export const common = {
       if (typeof v === 'boolean') return v;
       return ['true', '1', 'yes', 'on'].includes(v.toLowerCase());
     }),
-  /** Same as flagQuery but always a boolean (use where the default is meaningful). */
+
   flagQueryDefaultTrue: z
     .union([z.boolean(), z.string()])
     .optional()

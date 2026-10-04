@@ -9,11 +9,6 @@ const TEMPLATE_DIR = path.join(process.cwd(), 'src', 'templates');
 
 const fileTemplateCache = new Map<string, string>();
 
-/**
- * Renders a template from the DB (`EmailTemplate`) first, falling back to the
- * bundled HTML file under `src/templates`. Unknown keys render as an empty string
- * and are logged rather than crashing the mail pipeline.
- */
 export const renderTemplate = async (
   key: string,
   data: Record<string, any> = {},
@@ -60,7 +55,6 @@ const compile = (engine: 'handlebars' | 'none', source: string) => {
   }
 };
 
-/** Renders a template synchronously for a known key (no DB hit). */
 export const renderInline = (source: string, data: Record<string, any>): string =>
   compile('handlebars', source)(data);
 

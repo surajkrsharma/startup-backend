@@ -17,7 +17,6 @@ import {
   serializeFlashSaleDetail,
 } from './review.serializer';
 
-/** Coupon details attached to a totals object, for the `couponData` block. */
 const couponExtras = (totals: any): Record<string, any> => ({
   couponCode: D.str(totals?.couponCode),
   couponTitle: D.str(totals?.couponTitle),
@@ -35,8 +34,6 @@ export const guards = {
   vendor: [requireRole('VENDOR')],
   customer: [requireRole('CUSTOMER')],
 };
-
-// ═══ Reviews ═════════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -194,9 +191,6 @@ export const markHelpful = asyncHandler(async (req, res) => {
   });
 });
 
-// ═══ Moderation shortcuts ═════════════════════════════════════════════════════
-
-/** Each of these pins the target status, so the route itself documents the intent. */
 const moderateReviewStatus = (status: string, message: string) =>
   asyncHandler(async (req: Request, res: any) => {
     const review = await service.moderateReview(
@@ -211,8 +205,6 @@ const moderateReviewStatus = (status: string, message: string) =>
 
 export const approveReview = moderateReviewStatus('APPROVED', SUCCESS.REVIEW.APPROVED);
 export const rejectReview = moderateReviewStatus('REJECTED', SUCCESS.REVIEW.REJECTED);
-
-// ═══ Questions ════════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -288,7 +280,7 @@ export const answer = asyncHandler(async (req, res) => {
  *     responses:
  *       200: { description: Question moderated }
  */
-/** PATCH /questions/approve/:id — admin */
+
 export const approveQuestion = asyncHandler(async (req, res) => {
   const row = await service.moderateQuestion(D.str(req.params.id), true, req.auth!.userId, req);
 
@@ -315,8 +307,6 @@ export const deleteQuestion = asyncHandler(async (req, res) => {
     result: { id: D.str(req.params.id) },
   });
 });
-
-// ═══ Coupons ══════════════════════════════════════════════════════════════════
 
 /**
  * @openapi
@@ -494,8 +484,6 @@ export const couponUsages = asyncHandler(async (req, res) => {
     limit,
   });
 });
-
-// ═══ Flash sale ═══════════════════════════════════════════════════════════════
 
 /**
  * @openapi

@@ -22,7 +22,6 @@ import {
 } from '../../services/settings.service';
 import { BulkResult, ProductFilters, PriceChangeType, StockResult } from './product.types';
 
-/** Rejects an action when the vendor profile is missing or not approved. */
 export const requireApprovedVendor = async (vendorId: string): Promise<any> => {
   const vendor = await prisma.vendorProfile.findUnique({
     where: { id: vendorId },
@@ -40,7 +39,6 @@ export const requireApprovedVendor = async (vendorId: string): Promise<any> => {
   return vendor;
 };
 
-/** Loads a product and asserts the caller owns it (admins bypass this). */
 export const requireOwnProduct = async (
   productId: string,
   req: any,
@@ -98,19 +96,13 @@ const PRODUCT_SUMMARY_SELECT = {
   images: { select: { url: true, sortOrder: true } },
 } satisfies Prisma.ProductSelect;
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Create / update
-// ═══════════════════════════════════════════════════════════════════════════
-
 const resolveStatus = async (input: any): Promise<ProductStatus> => {
   if (input.status) return input.status;
 
-  // A product with no stock is never published automatically.
   const stock = D.num(input.stock);
   return stock > 0 ? PRODUCT_STATUS.ACTIVE : PRODUCT_STATUS.DRAFT;
 };
 
-/** Builds the create payload, validating category/brand/tag references. */
 const buildCreateData = async (
   vendorId: string,
   input: any,
@@ -182,7 +174,6 @@ const buildCreateData = async (
   return data;
 };
 
-/** Confirms the referenced category/brand exist so we fail before writing. */
 const validateReferences = async (input: any): Promise<void> => {
   const [category, brand, tags] = await Promise.all([
     D.str(input.categoryId)
@@ -277,7 +268,6 @@ export const getProductBySlug = async (slug: string): Promise<any> => {
 
   if (!product) throw AppError.notFound(ERROR.PRODUCT.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
-  // Fire-and-forget: a view counter must never slow the response or fail it.
   void prisma.product
     .update({ where: { id: product.id }, data: { viewCount: { increment: 1 } } })
     .catch(() => undefined);
@@ -399,7 +389,6 @@ export const updateProduct = async (productId: string, input: any, req?: any): P
 export const deleteProduct = async (productId: string, req?: any): Promise<boolean> => {
   await requireOwnProduct(productId, req);
 
-  // Soft delete: any historical order item keeps pointing at the row.
   await prisma.product.update({
     where: { id: productId },
     data: { deletedAt: new Date(), status: PRODUCT_STATUS.ARCHIVED, isFeatured: false },
@@ -416,10 +405,6 @@ export const deleteProduct = async (productId: string, req?: any): Promise<boole
 
   return true;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Stock & status
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const updateStock = async (
   productId: string,
@@ -509,10 +494,6 @@ export const toggleStatus = async (
   return product;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Images
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const uploadImages = async (
   productId: string,
   files: Express.Multer.File[],
@@ -589,10 +570,6 @@ export const deleteImage = async (
   return true;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Public listing
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const listProducts = async (
   query: any,
   req?: any,
@@ -619,7 +596,6 @@ export const listProducts = async (
     excludeProductId: D.str(query?.excludeProductId),
   };
 
-  // Resolve a category slug to an id, including its children.
   let categoryIds: string[] = [];
   if (filters.categorySlug) {
     const category = await prisma.category.findUnique({
@@ -637,7 +613,7 @@ export const listProducts = async (
 
   const where: Prisma.ProductWhereInput = {
     deletedAt: null,
-    // Only approved shops are publicly visible.
+
     vendor: { is: { status: 'APPROVED', deletedAt: null } },
     ...(filters.categoryId
       ? { categoryId: filters.categoryId }
@@ -670,7 +646,6 @@ export const listProducts = async (
       : {}),
   };
 
-  // A vendor sees their own drafts; everyone else only sees ACTIVE.
   if (req?.auth?.role === 'VENDOR' && req.auth.vendorId) {
     where.OR = undefined;
     where.vendorId = req.auth.vendorId;
@@ -683,7 +658,7 @@ export const listProducts = async (
     }
   } else {
     where.status = filters.status || PRODUCT_STATUS.ACTIVE;
-    // Honour the catalog visibility setting unless an admin is browsing.
+
     if (!catalog.showOutOfStock) {
       where.stock = { gt: 0 };
     }
@@ -784,11 +759,6 @@ export const getFilters = async (query: any): Promise<any> => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Recommendations
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** Same category, then same brand, then featured — never the product itself. */
 export const getRelated = async (productId: string, limit = 12): Promise<any[]> => {
   const product = await prisma.product.findFirst({
     where: { id: productId, deletedAt: null },
@@ -865,7 +835,6 @@ const recentBrandIds = async (userId: string): Promise<string[]> => {
   );
 };
 
-/** Products most often bought alongside this one. */
 export const getFrequentlyBought = async (
   productId: string,
   limit = 10,
@@ -877,7 +846,6 @@ export const getFrequentlyBought = async (
 
   if (!product) throw AppError.notFound(ERROR.PRODUCT.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
-  // Co-purchase: orders containing this item, then the other items in them.
   const orders = await prisma.orderItem.findMany({
     where: { productId },
     select: { orderId: true },
@@ -948,7 +916,6 @@ export const trackView = async (
     select: { viewCount: true },
   });
 
-  // Personal history, keyed by user or anonymous session.
   if (req?.auth?.userId || req?.sessionKey) {
     void prisma.recentlyViewed
       .create({
@@ -963,10 +930,6 @@ export const trackView = async (
 
   return { productId, viewCount: updated.viewCount };
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Bulk operations
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const bulkCreate = async (
   vendorId: string,
@@ -987,7 +950,6 @@ export const bulkCreate = async (
 
   for (const [index, item] of input.products.entries()) {
     try {
-      // Business rules are checked per row so one bad entry does not abort the batch.
       if (!(Number(item.price) > 0)) {
         throw AppError.badRequest(VALIDATION.INVALID_PRICE, ERROR_CODE.VALIDATION_ERROR);
       }
@@ -1029,7 +991,6 @@ export const bulkUpdate = async (
 ): Promise<BulkResult & { updated: any[] }> => {
   const isAdmin = isAdminRole(D.str(req?.auth?.role));
 
-  // A vendor may only touch its own rows.
   const owned = isAdmin
     ? input.productIds
     : (
@@ -1048,7 +1009,6 @@ export const bulkUpdate = async (
   if (input.updates.lowStockThreshold !== undefined)
     data.lowStockThreshold = D.num(input.updates.lowStockThreshold);
 
-  // Relations cannot be set through updateMany — handle them separately.
   const relationIds = {
     categoryId: input.updates.categoryId,
     brandId: input.updates.brandId,
@@ -1123,7 +1083,6 @@ export const bulkDelete = async (productIds: string[], req?: any): Promise<BulkR
   const forbidden = productIds.filter((id) => !owned.includes(id));
 
   if (owned.length) {
-    // Soft delete keeps historical order lines intact.
     await prisma.product.updateMany({
       where: { id: { in: owned } },
       data: { deletedAt: new Date(), status: PRODUCT_STATUS.ARCHIVED, isFeatured: false },
@@ -1175,7 +1134,6 @@ export const bulkPriceUpdate = async (
         next = money(row.price * (1 - input.value / 100));
       }
 
-      // A price can never go to zero or below.
       next = Math.max(0.01, round(next, input.roundTo));
 
       await tx.product.update({ where: { id: row.id }, data: { price: next } });
@@ -1194,14 +1152,6 @@ export const bulkPriceUpdate = async (
   return { updated, failed };
 };
 
-// ═══ CSV import and export ════════════════════════════════════════════════════════
-
-/**
- * Column aliases accepted on import.
- *
- * A merchant's spreadsheet never matches our field names, and silently dropping a column is
- * worse than accepting a couple of spellings of it.
- */
 const CSV_COLUMNS: Record<string, string[]> = {
   name: ['name', 'title', 'productname', 'product_name'],
   price: ['price', 'saleprice', 'sale_price'],
@@ -1213,7 +1163,6 @@ const CSV_COLUMNS: Record<string, string[]> = {
   brandName: ['brand', 'brandname', 'brand_name'],
 };
 
-/** Maps one CSV row onto the bulk-create input shape, ignoring blank cells. */
 const csvRowToProduct = (row: Record<string, any>): Record<string, any> => {
   const pick = (field: string): string => {
     for (const alias of CSV_COLUMNS[field]) {
@@ -1233,12 +1182,6 @@ const csvRowToProduct = (row: Record<string, any>): Record<string, any> => {
   };
 };
 
-/**
- * Imports products from an uploaded CSV.
- *
- * The file is streamed through csv-parser rather than read whole, so a large sheet cannot
- * exhaust memory, and rows that fail are reported instead of aborting the import.
- */
 export const importCsv = async (
   vendorId: string,
   filePath: string,
@@ -1309,7 +1252,6 @@ const csvCell = (value: unknown): string => {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
-/** Renders the caller's catalogue as CSV, capped so one request cannot stream the table. */
 export const exportCsv = async (
   query: Record<string, any>,
   vendorId?: string,

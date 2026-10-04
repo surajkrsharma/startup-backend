@@ -16,10 +16,6 @@ export const toSlug = (value: string): string =>
     replacement: SLUG.SEPARATOR,
   }).slice(0, SLUG.MAX_LENGTH);
 
-/**
- * Produces a unique slug by appending `-2`, `-3`, ... when the base is taken.
- * `exists` receives a candidate slug and must resolve to a boolean.
- */
 export const uniqueSlug = async (
   value: string,
   exists: (slug: string) => Promise<boolean>,

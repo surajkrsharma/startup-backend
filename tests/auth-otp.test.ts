@@ -5,15 +5,6 @@ import {
   changePasswordSchema,
 } from '../src/modules/auth/auth.schema';
 
-/**
- * Registration is the only unauthenticated way to create an account, so it is
- * the only place where "do you actually own this email/phone" can be proven.
- *
- * `otp` is OPTIONAL in the schema and enforced in the service, gated on
- * OTP_REQUIRED. That split is deliberate: making it conditionally required here
- * would change the request contract the moment the flag is toggled, and the
- * requirement itself would then be duplicated in two places.
- */
 describe('register schema', () => {
   const base = {
     type: 'CUSTOMER',
@@ -23,7 +14,6 @@ describe('register schema', () => {
   };
 
   it('accepts a body with no otp field', () => {
-    // Whether this is enough is decided by OTP_REQUIRED in the service.
     expect(registerSchema.safeParse(base).success).toBe(true);
   });
 
@@ -52,7 +42,6 @@ describe('register schema', () => {
   });
 
   it('reports a bad otp as an OTP problem, not as a bad register type', () => {
-    // A catch-all branch here would mask the real field behind "Invalid register type."
     const r = registerSchema.safeParse({ ...base, otp: '123' });
     expect(r.success).toBe(false);
     if (!r.success) {
@@ -86,7 +75,6 @@ describe('changePassword schema', () => {
   const base = { currentPassword: 'Aa1!aaaa', newPassword: 'Bb2!bbbb' };
 
   it('accepts a change without an otp', () => {
-    // Also gated on OTP_REQUIRED, in the service.
     expect(changePasswordSchema.safeParse(base).success).toBe(true);
   });
 

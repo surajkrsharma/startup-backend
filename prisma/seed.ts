@@ -1,16 +1,3 @@
-/**
- * Idempotent seed.
- *
- * Upserts (never `create`) so re-running never overwrites admin-tweaked values
- * except where explicitly intended. Creates the SUPER_ADMIN account and a set of
- * demo records so a fresh environment is usable in one command.
- *
- * Run: `npm run seed`  (or automatically via `prisma migrate reset`)
- */
-/**
- * Loads .env before Prisma reads DATABASE_URL — the seed runs standalone, so it cannot rely on
- * the app's import chain having loaded it already.
- */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
@@ -19,7 +6,6 @@ import slugify from 'slugify';
 
 const prisma = new PrismaClient();
 
-/** Code-level permission defaults mirrored into RolePermission. */
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ['*'],
   SUB_ADMIN: [
@@ -127,7 +113,7 @@ const seedSettings = async (): Promise<number> => {
         category: setting.category,
         isPublic: setting.isPublic,
       },
-      // Preserve admin overrides: only fill a row that does not exist yet.
+
       update: { category: setting.category },
     });
   }
@@ -155,9 +141,7 @@ const seedSuperAdmin = async (): Promise<string> => {
 
   const user = await prisma.user.upsert({
     where: { email },
-    // Only the password hash is left alone here: re-seeding must never silently reset a
-    // password an operator has since changed. SUPER_ADMIN_PASSWORD only applies when the
-    // account is created.
+
     update: { isEmailVerified: true, isActive: true },
     create: {
       email,
@@ -180,7 +164,6 @@ const seedSuperAdmin = async (): Promise<string> => {
 const seedDemoData = async (superAdminId: string): Promise<void> => {
   const demoEnabled = process.env.SEED_DEMO_DATA !== 'false';
 
-  // ── Countries / States ───────────────────────────────────────────────────
   const india = await prisma.country.upsert({
     where: { code: 'IN' },
     create: { code: 'IN', name: 'India', dialCode: '+91', currency: 'INR' },
@@ -223,7 +206,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     }
   }
 
-  // ── Currency / Tax / Dropdown / Translation ─────────────────────────────
   await prisma.currency.upsert({
     where: { code: 'INR' },
     create: {
@@ -315,7 +297,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     }
   }
 
-  // ── Categories / Brands / Tags / Attributes / Collection ─────────────────
   const categorySeeds = [
     { name: 'Men', slug: 'men', parentId: null, sortOrder: 1 },
     { name: 'Women', slug: 'women', parentId: null, sortOrder: 2 },
@@ -406,7 +387,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     update: {},
   });
 
-  // ── Return reasons / Ticket categories ───────────────────────────────────
   const returnReasons = [
     { title: 'Wrong size', slug: 'wrong-size' },
     { title: 'Damaged product', slug: 'damaged-product' },
@@ -437,7 +417,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     });
   }
 
-  // ── Shipping ─────────────────────────────────────────────────────────────
   await prisma.shippingZone.upsert({
     where: { id: 'seed-zone-india' },
     create: {
@@ -472,7 +451,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     update: {},
   });
 
-  // ── Demo accounts ────────────────────────────────────────────────────────
   const demoPassword = await bcrypt.hash('Demo@12345', 12);
 
   const vendorUser = await prisma.user.upsert({
@@ -553,11 +531,7 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
 
   await prisma.user.upsert({
     where: { email: 'subadmin@projectname.com' },
-    /**
-     * Login now requires a verified contact, so seeded accounts must carry the flag on update as
-     * well as create — otherwise a re-seed cannot repair a database created before that rule
-     * existed.
-     */
+
     update: { isEmailVerified: true },
     create: {
       email: 'subadmin@projectname.com',
@@ -570,7 +544,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     },
   });
 
-  // ── Demo products ────────────────────────────────────────────────────────
   if (!demoEnabled) return;
 
   const shirtsId = (await prisma.category.findUnique({
@@ -630,11 +603,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
   ];
 
   for (const product of productSeeds) {
-    /**
-     * Deterministic on purpose: the upsert key *is* the slug, so deriving a new "unique" slug on
-     * every run would insert a duplicate row rather than match the existing one. Product creation
-     * has its own uniqueProductSlug helper.
-     */
     const slug = toSlug(product.slugSeed);
 
     await prisma.product.upsert({
@@ -659,7 +627,6 @@ const seedDemoData = async (superAdminId: string): Promise<void> => {
     });
   }
 
-  // ── Coupon / FAQ / Page / Banner / Flash sale ─────────────────────────────
   await prisma.coupon.upsert({
     where: { code: 'WELCOME100' },
     create: {
@@ -800,11 +767,6 @@ const main = async (): Promise<void> => {
   // eslint-disable-next-line no-console
   console.log('[seed] complete:', counts);
 
-  /**
-   * The super admin's password comes from the environment and is NOT Demo@12345, so it has to be
-   * printed from the same source the row was written from — otherwise the log misleads whoever
-   * is logging in.
-   */
   const adminEmail = (process.env.SUPER_ADMIN_EMAIL || 'superadmin@projectname.com').toLowerCase();
   const adminPassword = process.env.SUPER_ADMIN_PASSWORD || 'SuperSecret@123';
   // eslint-disable-next-line no-console

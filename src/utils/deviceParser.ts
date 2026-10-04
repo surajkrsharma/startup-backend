@@ -19,7 +19,6 @@ export interface ParsedDevice {
 const BOT_REGEX =
   /bot|crawl|spider|slurp|curl|wget|python|java|okhttp|axios|node-fetch|postman|insomnia|headless|lighthouse|pingdom|monitoring|preview|facebookexternalhit|whatsapp|telegrambot|slackbot/i;
 
-/** Parses the User-Agent into a normalised device fingerprint. */
 export const parseUserAgent = (userAgent: string): ParsedDevice => {
   const ua = userAgent || '';
   const parser = new UAParser(ua);
@@ -61,7 +60,6 @@ export const parseUserAgent = (userAgent: string): ParsedDevice => {
   };
 };
 
-/** Client-generated fingerprint id; falls back to a UA/IP-derived hash. */
 export const resolveDeviceId = (req: any): string => {
   const header = req.headers?.[HEADER.DEVICE_ID];
   const fromHeader = Array.isArray(header) ? header[0] : header;
@@ -82,7 +80,6 @@ const hashToId = (value: string): string => {
   return Math.abs(hash).toString(36) + nanoid(6);
 };
 
-/** Client-supplied platform header wins over UA sniffing (native apps know better). */
 export const resolvePlatform = (req: any, parsed: ParsedDevice): Platform | 'OTHER' => {
   const header = req.headers?.[HEADER.PLATFORM];
   const fromHeader = Array.isArray(header) ? header[0] : header;

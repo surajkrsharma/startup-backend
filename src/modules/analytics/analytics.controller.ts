@@ -17,8 +17,6 @@ export const guards = {
   admin: [requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN)],
 };
 
-// â•â•â• Tracking (client-facing) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
 /**
  * @openapi
  * /track/event:
@@ -59,13 +57,11 @@ export const trackPageView = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.TRACK.PAGE_VIEW_TRACKED, result);
 });
 
-/** POST /track/session/start */
 export const startSession = asyncHandler(async (req, res) => {
   const result = await service.startSession(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.SESSION_STARTED, result);
 });
 
-/** POST /track/session/end */
 export const endSession = asyncHandler(async (req, res) => {
   const result = await service.endSession(req.body, req);
   return ApiResponse.success(res, { message: SUCCESS.TRACK.SESSION_ENDED, result });
@@ -85,79 +81,66 @@ export const trackCrash = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.TRACK.CRASH_TRACKED, result);
 });
 
-/** POST /track/performance */
 export const trackPerformance = asyncHandler(async (req, res) => {
   const result = await service.trackPerformance(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.PERFORMANCE_TRACKED, result);
 });
 
-/** POST /track/error */
 export const trackError = asyncHandler(async (req, res) => {
   const result = await service.trackClientError(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.ERROR_TRACKED, result);
 });
 
-/** POST /track/funnel */
 export const trackFunnel = asyncHandler(async (req, res) => {
   const result = await service.trackFunnelStep(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.FUNNEL_TRACKED, result);
 });
 
-/** POST /track/conversion */
 export const trackConversion = asyncHandler(async (req, res) => {
   const result = await service.trackConversion(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.CONVERSION_TRACKED, result);
 });
 
-/** POST /track/click */
 export const trackClick = asyncHandler(async (req, res) => {
   const result = await service.trackClick(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.CLICK_TRACKED, result);
 });
 
-/** POST /track/scroll */
 export const trackScroll = asyncHandler(async (req, res) => {
   const result = await service.trackScroll(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.SCROLL_TRACKED, result);
 });
 
-/** POST /track/search */
 export const trackSearch = asyncHandler(async (req, res) => {
   const result = await service.trackSearch(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.SEARCH_TRACKED, result);
 });
 
-/** POST /track/utm */
 export const trackUtm = asyncHandler(async (req, res) => {
   const result = await service.trackUtm(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.UTM_TRACKED, result);
 });
 
-/** POST /track/referrer */
 export const trackReferrer = asyncHandler(async (req, res) => {
   const result = await service.trackReferrer(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.REFERRER_TRACKED, result);
 });
 
-/** POST /track/heartbeat */
 export const trackHeartbeat = asyncHandler(async (req, res) => {
   const result = await service.trackHeartbeat(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.HEARTBEAT, result);
 });
 
-/** POST /track/appInstall */
 export const trackAppInstall = asyncHandler(async (req, res) => {
   const result = await service.trackAppInstall(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.APP_INSTALL_TRACKED, result);
 });
 
-/** POST /track/appOpen */
 export const trackAppOpen = asyncHandler(async (req, res) => {
   const result = await service.trackAppOpen(req.body, req);
   return ApiResponse.created(res, SUCCESS.TRACK.APP_OPEN_TRACKED, result);
 });
 
-/** POST /track/device â€” register or refresh a device token */
 export const registerDevice = asyncHandler(async (req, res) => {
   const row = await service.registerDevice(req.body, req.auth?.userId, req);
 
@@ -168,9 +151,6 @@ export const registerDevice = asyncHandler(async (req, res) => {
   });
 });
 
-// â•â•â• Devices â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-/** GET /devices/getAll â€” admin */
 export const listAllDevices = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listAllDevices({ ...(req.query as any), skip, take });
@@ -185,7 +165,6 @@ export const listAllDevices = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /devices/getById/:id */
 export const getDevice = asyncHandler(async (req, res) => {
   const row = await service.getDeviceById(D.str(req.params.id));
 
@@ -196,7 +175,6 @@ export const getDevice = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /devices/getByUser/:userId â€” admin */
 export const listUserDevices = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listDevicesByUser(D.str(req.params.userId), {
@@ -215,7 +193,6 @@ export const listUserDevices = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /devices/block/:id â€” admin */
 export const blockDevice = asyncHandler(async (req, res) => {
   const row = await service.toggleDeviceBlock(D.str(req.params.id), true, req);
 
@@ -226,7 +203,6 @@ export const blockDevice = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /devices/unblock/:id â€” admin */
 export const unblockDevice = asyncHandler(async (req, res) => {
   const row = await service.toggleDeviceBlock(D.str(req.params.id), false, req);
 
@@ -237,13 +213,11 @@ export const unblockDevice = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /devices/delete/:id â€” admin */
 export const deleteDevice = asyncHandler(async (req, res) => {
   const result = await service.removeDevice(D.str(req.params.id));
   return ApiResponse.success(res, { message: SUCCESS.DEVICE.DELETED, result });
 });
 
-/** GET /devices/getTrusted â€” the caller's own trusted devices */
 export const listTrustedDevices = asyncHandler(async (req, res) => {
   const rows = await service.listTrustedDevices(userId(req));
 
@@ -254,7 +228,6 @@ export const listTrustedDevices = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /devices/trust/:id */
 export const trustDevice = asyncHandler(async (req, res) => {
   const row = await service.setDeviceTrusted(D.str(req.params.id), true);
 
@@ -265,7 +238,6 @@ export const trustDevice = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /devices/untrust/:id */
 export const untrustDevice = asyncHandler(async (req, res) => {
   const row = await service.setDeviceTrusted(D.str(req.params.id), false);
 
@@ -276,33 +248,26 @@ export const untrustDevice = asyncHandler(async (req, res) => {
   });
 });
 
-// â•â•â• Analytics (admin) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-/** GET /analytics/getOverview */
 export const getOverview = asyncHandler(async (req, res) => {
   const result = await service.getOverview(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.OVERVIEW_FETCHED, result });
 });
 
-/** GET /analytics/getVisitors */
 export const getVisitors = asyncHandler(async (req, res) => {
   const result = await service.getVisitors(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.VISITORS_FETCHED, result });
 });
 
-/** GET /analytics/getUniqueVisitors */
 export const getUniqueVisitors = asyncHandler(async (req, res) => {
   const result = await service.getUniqueVisitors(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.VISITORS_FETCHED, result });
 });
 
-/** GET /analytics/getPageViews */
 export const getPageViews = asyncHandler(async (req, res) => {
   const result = await service.getPageViews(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.PAGE_VIEWS_FETCHED, result });
 });
 
-/** GET /analytics/getTopPages */
 export const getTopPages = asyncHandler(async (req, res) => {
   const rows = await service.getTopPages(req.query);
   return ApiResponse.success(res, {
@@ -311,7 +276,6 @@ export const getTopPages = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getTrafficSources */
 export const getTrafficSources = asyncHandler(async (req, res) => {
   const rows = await service.getTrafficSources(req.query);
   return ApiResponse.success(res, {
@@ -320,13 +284,11 @@ export const getTrafficSources = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getDeviceBreakdown */
 export const getDeviceBreakdown = asyncHandler(async (req, res) => {
   const result = await service.getDeviceBreakdown(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.DEVICE_BREAKDOWN_FETCHED, result });
 });
 
-/** GET /analytics/getGeoBreakdown */
 export const getGeoBreakdown = asyncHandler(async (req, res) => {
   const rows = await service.getGeoBreakdown(req.query);
   return ApiResponse.success(res, {
@@ -335,7 +297,6 @@ export const getGeoBreakdown = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getSessions */
 export const getSessions = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listSessionRows({ ...(req.query as any), skip, take });
@@ -359,13 +320,11 @@ export const getSessions = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getSessionDetail/:id */
 export const getSessionDetail = asyncHandler(async (req, res) => {
   const result = await service.getSessionDetail(D.str(req.params.id));
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.SESSION_DETAIL_FETCHED, result });
 });
 
-/** GET /analytics/getFunnel */
 export const getFunnel = asyncHandler(async (req, res) => {
   const result = await service.getFunnel(
     D.str(req.query.slug as string) || D.str(req.query.funnel as string),
@@ -374,19 +333,16 @@ export const getFunnel = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.FUNNEL_FETCHED, result });
 });
 
-/** GET /analytics/getConversions */
 export const getConversions = asyncHandler(async (req, res) => {
   const result = await service.getConversions(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.CONVERSIONS_FETCHED, result });
 });
 
-/** GET /analytics/getRevenueReport */
 export const getRevenueReport = asyncHandler(async (req, res) => {
   const result = await service.getRevenue(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.REVENUE_FETCHED, result });
 });
 
-/** GET /analytics/getProductPerformance â€” a vendor sees only their own */
 export const getProductPerformance = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const isVendor = req.auth!.role === 'VENDOR';
@@ -405,7 +361,6 @@ export const getProductPerformance = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getVendorPerformance */
 export const getVendorPerformance = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.getVendorPerformance({ ...(req.query as any), skip, take });
@@ -419,13 +374,11 @@ export const getVendorPerformance = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getCustomerCohorts */
 export const getCustomerCohorts = asyncHandler(async (req, res) => {
   const result = await service.getCohorts(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.COHORTS_FETCHED, result });
 });
 
-/** GET /analytics/getAbandonedCarts */
 export const getAbandonedCarts = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total, value } = await service.getAbandonedCarts({
@@ -443,7 +396,6 @@ export const getAbandonedCarts = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getSearchTerms */
 export const getSearchTerms = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.getSearchTerms({ ...(req.query as any), skip, take });
@@ -465,7 +417,6 @@ export const getSearchTerms = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getZeroResultSearches */
 export const getZeroResultSearches = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.getSearchTerms({
@@ -492,13 +443,11 @@ export const getZeroResultSearches = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getRealtime */
 export const getRealtime = asyncHandler(async (_req, res) => {
   const result = await service.getRealtime();
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.REALTIME_FETCHED, result });
 });
 
-/** GET /analytics/getCrashes */
 export const getCrashes = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.listCrashes({ ...(req.query as any), skip, take });
@@ -522,13 +471,11 @@ export const getCrashes = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /analytics/getAppVersions */
 export const getAppVersions = asyncHandler(async (req, res) => {
   const result = await service.getAppVersions(req.query);
   return ApiResponse.success(res, { message: SUCCESS.ANALYTICS.APP_VERSIONS_FETCHED, result });
 });
 
-/** GET /analytics/export */
 export const exportAnalytics = asyncHandler(async (req, res) => {
   const { columns, rows, truncated } = await service.exportAnalytics(req.query);
 
@@ -536,16 +483,12 @@ export const exportAnalytics = asyncHandler(async (req, res) => {
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="analytics.csv"');
-  // The cap is a real limit, so the client is told when it was reached rather than silently
-  // receiving a partial file it would read as complete.
+
   res.setHeader('X-Truncated', String(truncated));
 
   return res.status(200).send(csv);
 });
 
-// â•â•â• Funnels â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-/** GET /analytics/funnels â€” admin */
 export const listFunnels = asyncHandler(async (_req, res) => {
   const rows = await service.listFunnels();
 
@@ -571,7 +514,6 @@ export const listFunnels = asyncHandler(async (_req, res) => {
   });
 });
 
-/** POST /analytics/funnels â€” admin */
 export const createFunnel = asyncHandler(async (req, res) => {
   const row = await service.createFunnel(req.body, req);
 
@@ -582,7 +524,6 @@ export const createFunnel = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /analytics/funnels/:id â€” admin */
 export const updateFunnel = asyncHandler(async (req, res) => {
   const row = await service.updateFunnel(D.str(req.params.id), req.body, req);
   return ApiResponse.success(res, {
@@ -590,8 +531,6 @@ export const updateFunnel = asyncHandler(async (req, res) => {
     result: { funnelId: D.str(row.id), isActive: D.bool(row.isActive) },
   });
 });
-
-// â•â•â• Search â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
  * @openapi
@@ -607,7 +546,6 @@ export const globalSearch = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, { message: SUCCESS.SEARCH.GLOBAL_FETCHED, result });
 });
 
-/** GET /search/products */
 export const searchProducts = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.searchProducts({ ...(req.query as any), skip, take }, req);
@@ -623,7 +561,6 @@ export const searchProducts = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /search/vendors */
 export const searchVendors = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
   const { rows, total } = await service.searchVendors({ ...(req.query as any), skip, take });
@@ -639,7 +576,6 @@ export const searchVendors = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /search/autocomplete */
 export const autocomplete = asyncHandler(async (req, res) => {
   const rows = await service.getSuggestions(req.query);
   return ApiResponse.success(res, {
@@ -648,7 +584,6 @@ export const autocomplete = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /search/trending */
 export const getTrending = asyncHandler(async (req, res) => {
   const rows = await service.getTrendingSearches(req.query);
   return ApiResponse.success(res, {
@@ -657,7 +592,6 @@ export const getTrending = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /search/recent */
 export const getRecent = asyncHandler(async (req, res) => {
   const rows = await service.getRecentSearches(userId(req), req);
   return ApiResponse.success(res, {
@@ -666,7 +600,6 @@ export const getRecent = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /search/recent/clear */
 export const clearRecent = asyncHandler(async (req, res) => {
   const count = await service.clearRecentSearches(userId(req));
   return ApiResponse.success(res, {
@@ -674,8 +607,6 @@ export const clearRecent = asyncHandler(async (req, res) => {
     result: { clearedCount: D.num(count) },
   });
 });
-
-// â•â•â• Uploads â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
  * @openapi
@@ -698,7 +629,6 @@ export const uploadImage = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.UPLOAD.IMAGE_UPLOADED, result);
 });
 
-/** POST /uploads/uploadVideo */
 export const uploadVideo = asyncHandler(async (req, res) => {
   const result = await service.uploadFiles(
     getUploadedFiles(req),
@@ -709,7 +639,6 @@ export const uploadVideo = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.UPLOAD.VIDEO_UPLOADED, result);
 });
 
-/** POST /uploads/uploadDocument */
 export const uploadDocument = asyncHandler(async (req, res) => {
   const result = await service.uploadFiles(
     getUploadedFiles(req),
@@ -720,7 +649,6 @@ export const uploadDocument = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.UPLOAD.DOCUMENT_UPLOADED, result);
 });
 
-/** POST /uploads/uploadMultiple â€” mixed media in one request */
 export const uploadMultiple = asyncHandler(async (req, res) => {
   const result = await service.uploadFiles(
     getUploadedFiles(req),
@@ -731,7 +659,6 @@ export const uploadMultiple = asyncHandler(async (req, res) => {
   return ApiResponse.created(res, SUCCESS.UPLOAD.MULTIPLE_UPLOADED, result);
 });
 
-/** POST /uploads/deleteFile */
 export const removeFile = asyncHandler(async (req, res) => {
   const result = await service.deleteFile(D.str(req.body.publicId), req.auth?.userId, req);
   return ApiResponse.success(res, { message: SUCCESS.UPLOAD.DELETED, result });

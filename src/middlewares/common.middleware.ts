@@ -7,7 +7,6 @@ import { isFeatureEnabled } from '../services/settings.service';
 import { PAYMENT_METHOD } from '../constants/roles';
 import { asyncHandler } from '../utils/asyncHandler';
 
-/** 404 for unmatched routes, using the standard envelope. */
 export const notFoundHandler: RequestHandler = (req, res) =>
   ApiResponse.error(res, {
     statusCode: HTTP_STATUS.NOT_FOUND,
@@ -15,10 +14,6 @@ export const notFoundHandler: RequestHandler = (req, res) =>
     code: ERROR_CODE.NOT_FOUND,
   });
 
-/**
- * Feature-flag gate. Routes declare a `feature.*` key; when the flag is off the
- * request is rejected with 422 FEATURE_DISABLED instead of silently 404-ing.
- */
 export const requireFeature = (featureKey: string): RequestHandler =>
   asyncHandler(async (req, res, next) => {
     const enabled = await isFeatureEnabled(featureKey, false);
@@ -32,7 +27,6 @@ export const requireFeature = (featureKey: string): RequestHandler =>
     return next();
   });
 
-/** Ensures the requested payment method is currently enabled in settings. */
 export const requirePaymentMethod = (method: keyof typeof PAYMENT_METHOD): RequestHandler =>
   asyncHandler(async (req, res, next) => {
     const config = await getPaymentMethodsConfig();

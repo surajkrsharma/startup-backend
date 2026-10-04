@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { ApiResponse } from '../../utils/ApiResponse';
 import { SUCCESS } from '../../messages/success';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -19,8 +19,6 @@ import {
   serializeVendorList,
   serializeVendorPublic,
   serializeVendorStats,
-  serializeVendorEarnings,
-  serializePayoutHistory,
   serializePayoutHistoryList,
   serializeKycDocumentList,
   serializeRatingSummary,
@@ -29,7 +27,6 @@ import { serializeProductSummary, serializeProductList } from '../../utils/seria
 
 const vendorId = (req: Request): string => req.auth!.vendorId;
 
-/** Guards for routes that operate on the caller's own shop. */
 export const guards = {
   own: [requireRole('VENDOR')],
   ownApproved: [
@@ -69,9 +66,6 @@ export const guards = {
   ],
 };
 
-// ── Vendor: own shop ─────────────────────────────────────────────────────────
-
-/** GET /vendors/getProfile */
 export const getProfile = asyncHandler(async (req, res) => {
   const vendor = await service.getOwnProfile(vendorId(req));
   if (!vendor) throw AppError.notFound(ERROR.VENDOR.NOT_FOUND, ERROR_CODE.NOT_FOUND);
@@ -82,7 +76,6 @@ export const getProfile = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/updateProfile */
 export const updateProfile = asyncHandler(async (req, res) => {
   const vendor = await service.updateProfile(vendorId(req), req.body, req);
   return ApiResponse.success(res, {
@@ -136,7 +129,6 @@ export const updateBankDetails = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /vendors/getStats */
 export const getStats = asyncHandler(async (req, res) => {
   const stats = await service.getStats(vendorId(req));
   return ApiResponse.success(res, {
@@ -145,7 +137,6 @@ export const getStats = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /vendors/requestPayout */
 export const requestPayout = asyncHandler(async (req, res) => {
   const payout = await service.requestPayout(vendorId(req), req.body, req);
   return ApiResponse.created(res, SUCCESS.PAYOUT.REQUESTED, {
@@ -157,7 +148,6 @@ export const requestPayout = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /vendors/getPayoutHistory */
 export const getPayoutHistory = asyncHandler(async (req, res) => {
   const { rows, total } = await service.getPayoutHistory(vendorId(req), req.query);
   const { page, limit } = getPagination(req.query);
@@ -174,7 +164,6 @@ export const getPayoutHistory = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /vendors/uploadDocuments — multipart KYC upload. */
 export const uploadDocuments = asyncHandler(async (req, res) => {
   const files = getUploadedFiles(req);
   const rows = await service.uploadDocuments(
@@ -195,8 +184,6 @@ export const uploadDocuments = asyncHandler(async (req, res) => {
     })),
   });
 });
-
-// ── Public ───────────────────────────────────────────────────────────────────
 
 /**
  * @openapi
@@ -271,9 +258,6 @@ export const getProducts = asyncHandler(async (req, res) => {
   });
 });
 
-// ── Admin ────────────────────────────────────────────────────────────────────
-
-/** GET /vendors/getAll */
 export const getAll = asyncHandler(async (req, res) => {
   const { rows, total, filters } = await service.listVendors(req.query);
   const { page, limit } = getPagination(req.query);
@@ -294,7 +278,6 @@ export const getAll = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /vendors/getById/:id */
 export const getById = asyncHandler(async (req, res) => {
   const vendor = await service.getVendorById(req.params.id);
   return ApiResponse.success(res, {
@@ -397,7 +380,6 @@ export const suspendVendor = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/updateCommission/:id */
 export const updateCommission = asyncHandler(async (req, res) => {
   const vendor = await service.updateCommission(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -406,7 +388,6 @@ export const updateCommission = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /vendors/getDocuments — admin KYC queue */
 export const getDocuments = asyncHandler(async (req, res) => {
   const { rows, total } = await service.getDocuments(req.query);
   const { page, limit } = getPagination(req.query);
@@ -427,7 +408,6 @@ export const getDocuments = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/verifyDocuments/:id */
 export const verifyDocuments = asyncHandler(async (req, res) => {
   const doc = await service.verifyDocument(req.params.id, req.body, req);
   return ApiResponse.success(res, {

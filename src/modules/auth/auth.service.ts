@@ -19,19 +19,11 @@ import { uniqueVendorSlug } from '../../utils/slug';
 import { AppError } from '../../utils/AppError';
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE, HTTP_STATUS } from '../../constants/http';
-import {
-  ROLES,
-  OTP_TYPE,
-  OTP_CHANNEL,
-  SOCIAL_PROVIDER,
-  OtpType,
-  Role,
-  VENDOR_STATUS,
-} from '../../constants/roles';
+import { ROLES, OTP_TYPE, OTP_CHANNEL, OtpType, VENDOR_STATUS } from '../../constants/roles';
 import { OTP } from '../../config/otp.config';
 import { isOtpEnforceable } from '../../config/otp-policy';
 import { ENV, isProduction } from '../../config/env.config';
-import { JWT, REFRESH_TOKEN_TTL_SEC, ACCESS_TOKEN_TTL_SEC } from '../../config/jwt.config';
+import { REFRESH_TOKEN_TTL_SEC, ACCESS_TOKEN_TTL_SEC } from '../../config/jwt.config';
 import {
   getCommissionDefault,
   getVendorAutoApprove,
@@ -53,10 +45,6 @@ const normaliseIdentifier = (value: string): string => {
   const raw = D.str(value).trim();
   return EMAIL_REGEX.test(raw) ? raw.toLowerCase() : raw;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Registration
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const registerCustomer = async (
   input: any,
@@ -80,11 +68,7 @@ export const registerCustomer = async (
 
   const passwordHash = await hashPassword(input.password);
 
-  /**
-   * Proof of control of the contact being registered. Runs before the insert so no unverified
-   * account is ever created, and before any token is issued.
-   */
-  const verified = await consumeOtpForRegistration({ email, phone }, input.otp, input.otpChannel);
+  const verified = await consumeOtpForRegistration({ email, phone }, input.otp);
 
   const user = await prisma.user.create({
     data: {
@@ -143,7 +127,7 @@ export const registerVendor = async (
   const slug = await uniqueVendorSlug(D.str(input.slug) || D.str(input.shopName));
   const passwordHash = await hashPassword(input.password);
 
-  const verified = await consumeOtpForRegistration({ email, phone }, input.otp, input.otpChannel);
+  const verified = await consumeOtpForRegistration({ email, phone }, input.otp);
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -203,10 +187,6 @@ export const registerVendor = async (
 
   return { user, tokens };
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Tokens & sessions
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const issueTokens = async (userId: string, device: DeviceContext): Promise<TokenPair> => {
   const user = await prisma.user.findUnique({
@@ -268,7 +248,6 @@ export const rotateRefreshToken = async (
     );
   }
 
-  // Refresh token reuse: revoke every token for this user.
   if (record.userId !== payload.sub) {
     await revokeAllTokens(payload.sub);
     throw new AppError(
@@ -334,10 +313,6 @@ export const linkDeviceToUser = async (userId: string, device: DeviceContext): P
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Login
-// ═══════════════════════════════════════════════════════════════════════════
-
 export interface LoginOutcome {
   user: AuthUserWithVendor;
   tokens: TokenPair;
@@ -365,7 +340,6 @@ export const loginWithPassword = async (
     },
   });
 
-  // Generic error — never reveal whether the account exists.
   const invalid = new AppError(
     ERROR.AUTH.INVALID_CREDENTIALS,
     HTTP_STATUS.UNAUTHORIZED,
@@ -410,10 +384,6 @@ export const loginWithPassword = async (
     );
   }
 
-  /**
-   * A password alone proves nothing about the address on the account, so an unverified account
-   * must not get a session.
-   */
   assertVerified(user);
 
   if (user.twoFactorEnabled && security.twoFactorEnabled) {
@@ -530,7 +500,6 @@ export const loginWithOtp = async (
     );
   }
 
-  // An OTP proves control of the identifier, not of the account's other contact.
   assertVerified(user);
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -550,10 +519,6 @@ export const loginWithOtp = async (
   return { user, tokens, twoFactorRequired: false };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  OTP
-// ═══════════════════════════════════════════════════════════════════════════
-
 export interface OtpSendResult {
   expiresIn: number;
   identifier: string;
@@ -566,7 +531,6 @@ export const sendOtp = async (
   req?: any,
 ): Promise<OtpSendResult> => {
   const identifier = normaliseIdentifier(input.identifier);
-  const channel = D.str(input.channel) || 'BOTH';
   const type = input.type;
 
   const isEmail = EMAIL_REGEX.test(identifier);
@@ -578,7 +542,6 @@ export const sendOtp = async (
     );
   }
 
-  // REGISTER / LOGIN flows only proceed for an account that exists (except REGISTER).
   const EXISTING_ACCOUNT_TYPES: OtpType[] = [
     OTP_TYPE.LOGIN,
     OTP_TYPE.FORGOT_PASSWORD,
@@ -614,19 +577,10 @@ export const sendOtp = async (
     }
   }
 
-  /**
-   * With OTP_STATIC_CODE set (local/testing only — the env schema refuses it in production)
-   * every request resolves to the same code. It still goes through hashing, expiry and the
-   * attempt limit, so the real flow is what is tested.
-   */
   const code = OTP.staticCode || randomNumericCode(OTP.LENGTH);
   const otpHash = await bcrypt.hash(code, OTP.BCRYPT_ROUNDS);
   const expiresAt = addMinutes(OTP.EXPIRY_MIN);
 
-  /**
-   * Resend cooldown + daily cap. Counted per channel actually delivered on, so a caller cannot
-   * burn another channel's budget.
-   */
   const redis = getRedis();
   if (redis) {
     const cooldownKey = REDIS_KEYS.OTP_RESEND(identifier, type);
@@ -651,11 +605,6 @@ export const sendOtp = async (
     }
   }
 
-  /**
-   * The record is keyed by the channel the code was actually delivered on, and consumeOtp
-   * filters on the same value, so a code sent by SMS can never be redeemed as if it had arrived
-   * by email.
-   */
   const effectiveChannel = isEmail ? OTP_CHANNEL.EMAIL : OTP_CHANNEL.SMS;
 
   await prisma.otp.upsert({
@@ -677,16 +626,10 @@ export const sendOtp = async (
     update: { otpHash, expiresAt, attempts: 0, isVerified: false, verifiedAt: null },
   });
 
-  // In production the code is delivered out of band and never returned in the body.
   if (!isProduction && isEmail) {
     logger.info({ identifier, type, code }, '[otp] dev code issued');
   }
 
-  /**
-   * Deliver on the channel that matches the identifier. An email code always goes by email; a
-   * phone code goes by SMS when enabled, and otherwise is logged so a developer with no provider
-   * can still complete the flow.
-   */
   if (isEmail) {
     void sendOtpEmail(identifier, code, type).catch(() => undefined);
   } else if (ENV.OTP_SMS_ENABLED) {
@@ -772,25 +715,9 @@ export const consumeOtp = async (
   return true;
 };
 
-/**
- * Verifies the OTP supplied to `/auth/register` and reports which contact it
- * actually proved.
- *
- * A caller may register with a phone, an email, or both. Only the contact that
- * was proven gets its `is*Verified` flag set, so a registration can never claim
- * to own an address nobody checked. The identifier is chosen server-side from
- * what the caller proved, and the OTP type is fixed to REGISTER — the client
- * cannot nominate a different purpose.
- *
- * With `OTP_REQUIRED=false` there is nothing to prove, so registration proceeds
- * and the account is created unverified. The user row is only written after
- * this function returns, so a pending registration never leaves a half-made
- * account behind.
- */
 const consumeOtpForRegistration = async (
   contacts: { email: string; phone: string },
   otp: string,
-  channel?: string,
 ): Promise<{ email: boolean; phone: boolean }> => {
   if (!isOtpEnforceable()) {
     logger.warn({ contacts }, '[auth] registering without OTP verification — OTP_REQUIRED is off');
@@ -810,10 +737,6 @@ const consumeOtpForRegistration = async (
   let lastError: unknown = invalid;
   for (const identifier of candidates) {
     try {
-      /**
-       * No channel argument: the record was written with the channel matching the identifier, and
-       * forcing one here would let a phone code be redeemed as though it had arrived by email.
-       */
       await consumeOtp(identifier, OTP_TYPE.REGISTER, otp);
       return {
         email: EMAIL_REGEX.test(identifier),
@@ -827,14 +750,12 @@ const consumeOtpForRegistration = async (
   throw lastError instanceof AppError ? lastError : invalid;
 };
 
-/** Throws unless the account has proven at least one contact. */
 const assertVerified = (user: {
   email?: string;
   phone?: string;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
 }): void => {
-  // With OTP_REQUIRED=false nothing is ever verified, so it must not gate login.
   if (!isOtpEnforceable()) return;
   if (user.isEmailVerified || user.isPhoneVerified) return;
   throw new AppError(
@@ -913,10 +834,6 @@ export const changePassword = async (
     );
   }
 
-  /**
-   * A stolen session should not be enough to take the account over, so a change also needs a
-   * code sent to the account's own verified contact.
-   */
   if (isOtpEnforceable() && (user.isEmailVerified || user.isPhoneVerified)) {
     const identifier = user.isEmailVerified ? user.email : user.phone;
     if (!otp) {
@@ -943,10 +860,6 @@ export const changePassword = async (
   return true;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Verification
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const verifyContact = async (
   userId: string,
   input: { email?: string; phone?: string; otp: string; channel?: string },
@@ -961,10 +874,6 @@ export const verifyContact = async (
 
   if (!user) throw AppError.unauthorized();
 
-  /**
-   * The OTP must have been sent to a contact this account actually owns. Otherwise proving
-   * control of an unrelated address would flip the flag.
-   */
   const owned = normaliseIdentifier(isEmail ? user.email : user.phone);
   if (!owned || owned !== identifier) {
     throw new AppError(
@@ -987,10 +896,6 @@ export const verifyContact = async (
     phoneVerified: !isEmail || user.isPhoneVerified,
   };
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  2FA
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const enableTwoFactor = async (
   userId: string,
@@ -1087,14 +992,6 @@ export const verifyTwoFactor = async (
   return completeTwoFactorLogin(user.id, otp, device);
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Social
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Placeholder verifier for a social id-token. Replace the body with a real
- * Google/Apple/Facebook tokeninfo call; the contract stays identical.
- */
 const verifySocialToken = async (
   provider: string,
   idToken: string,
@@ -1160,7 +1057,6 @@ export const socialLogin = async (
     return { user, tokens, isNewUser: false };
   }
 
-  // Fall back to linking by verified email, otherwise create a customer.
   const byEmail = profile.email
     ? await prisma.user.findUnique({ where: { email: profile.email }, select: { id: true } })
     : null;
@@ -1199,10 +1095,6 @@ export const socialLogin = async (
     select: AUTH_USER_SELECT,
   });
 
-  /**
-   * The email fallback above can land on a suspended or soft-deleted account, and `authenticate`
-   * refuses those on every other path. Keep social login from being the way around that.
-   */
   if (!user.isActive) {
     throw new AppError(
       ERROR.AUTH.ACCOUNT_SUSPENDED,
@@ -1257,10 +1149,6 @@ export const unlinkSocial = async (userId: string, provider: string): Promise<bo
   }
   return true;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Availability / logout
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const checkAvailability = async (input: {
   email?: string;

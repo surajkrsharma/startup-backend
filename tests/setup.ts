@@ -1,9 +1,3 @@
-/**
- * Vitest global setup.
- *
- * Loads a test-safe environment so `src/config/env.config` passes Zod validation
- * without a real database or Redis. No DB connection is opened at import time.
- */
 process.env.NODE_ENV = 'test';
 process.env.LOG_LEVEL = 'silent';
 process.env.PORT = '5999';
@@ -26,11 +20,6 @@ process.env.TRACKING_ENABLED = 'false';
 process.env.RATE_LIMIT_ENABLED = 'false';
 process.env.SEED_DEMO_DATA = 'false';
 
-/**
- * No provider is configured in tests, so codes are only "deliverable" through the static-code
- * channel. That mirrors a local dev machine and keeps the OTP enforcement paths reachable
- * without a network call.
- */
 process.env.OTP_REQUIRED = 'true';
 process.env.OTP_SMS_ENABLED = 'false';
 process.env.OTP_STATIC_CODE = '111111';

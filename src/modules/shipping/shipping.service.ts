@@ -19,14 +19,12 @@ import {
 import { SETTING_CATEGORY, SETTING_KEY } from '../../config/setting.config';
 import { SETTINGS } from '../../config/setting-defaults';
 
-/** Feature flags for a client to read on boot. */
 export const getFeatureFlagMap = getFeatureFlags;
 
 export const toggleFeatureFlag = toggleFeature;
 
 export const getMaintenanceMode = getMaintenanceStatus;
 
-/** Flushes the caches an admin can poison by editing settings directly in the DB. */
 export const clearAllCaches = async (actorId?: string, req?: any): Promise<boolean> => {
   const { flushCache } = await import('../../services/redis.service');
   const flushed = await flushCache();
@@ -42,7 +40,6 @@ export const clearAllCaches = async (actorId?: string, req?: any): Promise<boole
   return flushed;
 };
 
-/** Cron definitions plus whether each one is currently registered on its queue. */
 export const listCronJobDefinitions = async () => {
   const { listCronJobs } = await import('../../jobs/cron');
   return listCronJobs();
@@ -69,17 +66,6 @@ export const triggerCronJobNow = async (
 };
 import { SHIPMENT_STATUS_TRANSITIONS } from '../../constants/statuses';
 import { COUNTRIES } from '../../constants/countries';
-
-/**
- * Shipping zones / methods / partners, delivery boys, settings, admin surfaces
- * and API keys.
- *
- * Serviceability is zone-driven: a zone can restrict by country, state or an
- * explicit pincode list. When no zone matches, the global shipping settings
- * decide — which is why `checkServiceable` reports *why* rather than just yes/no.
- */
-
-// ═══ Zones ═══════════════════════════════════════════════════════════════════
 
 const ZONE_INCLUDE = { methods: { orderBy: { name: 'asc' } } } satisfies Prisma.ShippingZoneInclude;
 
@@ -177,10 +163,6 @@ export const deleteZone = async (zoneId: string, req?: any): Promise<void> => {
 
   if (!existing) throw AppError.notFound(ERROR.SHIPPING.ZONE_NOT_FOUND);
 
-  /**
-   * Methods are detached rather than deleted, so historical shipments keep a readable method
-   * reference.
-   */
   await prisma.shippingZone.delete({ where: { id: zoneId } });
 
   void writeAuditLog({
@@ -191,8 +173,6 @@ export const deleteZone = async (zoneId: string, req?: any): Promise<void> => {
     description: existing.name,
   });
 };
-
-// ═══ Methods ═════════════════════════════════════════════════════════════════
 
 export const listMethods = async (
   query: Record<string, any>,
@@ -324,10 +304,6 @@ export const deleteMethod = async (methodId: string, req?: any): Promise<void> =
 
   if (!existing) throw AppError.notFound(ERROR.SHIPPING.METHOD_NOT_FOUND);
 
-  /**
-   * A method that has shipped orders is deactivated, not deleted, so past shipments keep a
-   * resolvable reference.
-   */
   const used = await prisma.shipment.count({ where: { methodId } });
 
   if (used > 0) {
@@ -355,8 +331,6 @@ export const deleteMethod = async (methodId: string, req?: any): Promise<void> =
   });
 };
 
-// ═══ Partners ════════════════════════════════════════════════════════════════
-
 export const listPartners = async (
   query: Record<string, any>,
 ): Promise<{ rows: any[]; total: number }> => {
@@ -368,7 +342,7 @@ export const listPartners = async (
   const [rows, total] = await Promise.all([
     prisma.shippingPartner.findMany({
       where,
-      // The API key is a credential, so it is never selected here.
+
       select: { id: true, name: true, code: true, apiUrl: true, isActive: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
       skip: D.num(query.skip),
@@ -452,15 +426,6 @@ export const updatePartner = async (
   return row;
 };
 
-// ═══ Serviceability and rates ═════════════════════════════════════════════════
-
-/**
- * Resolves the zone a destination belongs to.
- *
- * A pincode match is the strongest signal; otherwise a state or country match
- * is enough. An empty list in a zone means "any", so a country-only zone still
- * catches pincodes it never enumerated.
- */
 const resolveZone = async (
   pincode: string,
   country?: string,
@@ -501,10 +466,6 @@ const resolveZone = async (
   return { zone: null, reason: 'no zone matched' };
 };
 
-/**
- * Resolves a country given as either an ISO code ('IN') or a name ('India'),
- * because clients send both while zones store codes.
- */
 const resolveCountryCode = (country?: string): string => {
   const value = D.str(country).trim();
   if (!value) return '';
@@ -539,7 +500,6 @@ export const checkServiceable = async (input: {
     };
   }
 
-  // No zone matched, so the global settings are the fallback.
   const cfg = await getShippingConfig();
 
   if (!cfg.enabled) {
@@ -570,11 +530,6 @@ export const checkServiceable = async (input: {
   };
 };
 
-/**
- * Quotes a rate for a destination.
- * A named method wins; otherwise the cheapest active method in the zone is used,
- * falling back to the global flat charge.
- */
 export const calculateRate = async (input: {
   pincode: string;
   weightKg?: number;
@@ -657,8 +612,6 @@ export const calculateRate = async (input: {
   };
 };
 
-// ═══ Delivery boy ════════════════════════════════════════════════════════════
-
 const BOY_INCLUDE = {
   user: { select: { id: true, name: true, email: true, phone: true, isActive: true } },
 } satisfies Prisma.DeliveryBoyInclude;
@@ -672,7 +625,6 @@ export const listDeliveryBoys = async (
   if (D.str(query.isActive) === 'false') where.isActive = false;
   if (D.str(query.zoneId)) where.zoneId = D.str(query.zoneId);
 
-  // "available" means free right now, which is how dispatch picks a rider.
   if (D.str(query.availableOnly) === 'true') where.currentLoad = { lt: 5 };
 
   if (D.str(query.search)) {
@@ -706,7 +658,6 @@ export const createDeliveryBoy = async (input: Record<string, any>, req?: any): 
 
   if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND);
 
-  // One rider per account.
   const existing = await prisma.deliveryBoy.findUnique({
     where: { userId: user.id },
     select: { id: true },
@@ -797,7 +748,6 @@ export const toggleDeliveryBoy = async (
 
   if (!existing) throw AppError.notFound(ERROR.DELIVERY_BOY.NOT_FOUND);
 
-  // A rider mid-delivery cannot be taken off the road.
   if (!isActive && existing.name) {
     const active = await prisma.delivery.count({
       where: { deliveryBoyId: boyId, status: { notIn: ['DELIVERED', 'FAILED', 'RETURNED'] } },
@@ -848,7 +798,6 @@ export const deleteDeliveryBoy = async (boyId: string, req?: any): Promise<void>
   });
 };
 
-/** The queue a rider is working through. */
 export const listDeliveries = async (
   query: Record<string, any>,
   deliveryBoyId?: string,
@@ -890,8 +839,6 @@ export const listDeliveries = async (
 
   return { rows, total };
 };
-
-// ═══ Shipment status ══════════════════════════════════════════════════════════
 
 export const updateShipmentStatus = async (
   shipmentId: string,
@@ -937,8 +884,6 @@ export const updateShipmentStatus = async (
   return row;
 };
 
-// ═══ Settings ════════════════════════════════════════════════════════════════
-
 export const listSettings = async (
   query: Record<string, any>,
 ): Promise<{ rows: any[]; total: number }> => {
@@ -961,7 +906,6 @@ export const listSettings = async (
   return { rows, total };
 };
 
-/** Only settings flagged public are safe to hand to an unauthenticated client. */
 export const getPublicSettings = async (): Promise<Record<string, any>> => {
   const rows = await prisma.systemSetting.findMany({ where: { isPublic: true } });
 
@@ -1013,7 +957,6 @@ export const updateSetting = async (
   return row;
 };
 
-/** Applies many keys at once; a failure rolls the whole batch back. */
 export const bulkUpdateSettings = async (
   settings: { key: string; value: any; category?: string; isPublic?: boolean }[],
   actorId?: string,
@@ -1059,8 +1002,6 @@ export const bulkUpdateSettings = async (
 
   return count;
 };
-
-// ═══ Admin ═══════════════════════════════════════════════════════════════════
 
 export const getDashboard = async (): Promise<Record<string, any>> => {
   const since = new Date(Date.now() - 30 * 86_400_000);
@@ -1136,11 +1077,6 @@ export const createSubAdmin = async (
       },
     });
 
-    /**
-     * An explicit list defines the role's permissions, it does not extend them. Merging would
-     * leave a "restricted" sub-admin holding every seeded SUB_ADMIN permission, which is the
-     * opposite of what the admin asked for.
-     */
     if (permissions.length) {
       await tx.rolePermission.deleteMany({ where: { role: ROLES.SUB_ADMIN as any } });
 
@@ -1291,12 +1227,6 @@ export const getAuditLogById = async (id: string): Promise<any> => {
   return row;
 };
 
-/**
- * Deletes audit rows older than a cutoff.
- *
- * Audit rows are the record of who did what, so this is deliberately super-admin only and
- * always explicit about the window it removed.
- */
 export const purgeAuditLogs = async (
   beforeDays: number,
   actorId?: string,
@@ -1348,8 +1278,6 @@ export const listActivityLogs = async (
   return { rows, total };
 };
 
-// ═══ API keys ═════════════════════════════════════════════════════════════════
-
 export const getSystemHealth = async (): Promise<Record<string, any>> => {
   const started = Date.now();
 
@@ -1370,14 +1298,6 @@ export const getSystemHealth = async (): Promise<Record<string, any>> => {
   };
 };
 
-// ═══ Shipments ════════════════════════════════════════════════════════════════════
-
-/**
- * Raises a shipment for a sub-order.
- *
- * The vendor is mandatory here: a shipment row carries addresses and a tracking number, so it
- * is never reachable by guessing a sub-order id.
- */
 export const createShipment = async (
   subOrderId: string,
   vendorId: string,
@@ -1403,7 +1323,6 @@ export const createShipment = async (
     select: { id: true },
   });
 
-  // One shipment per sub-order: a second one means the first was never used.
   if (existing) {
     throw AppError.unprocessable('This sub-order already has a shipment.');
   }
@@ -1444,7 +1363,6 @@ export const createShipment = async (
   return row;
 };
 
-/** Public tracking by AWB, so a customer can follow a parcel without an account. */
 export const trackShipment = async (awb: string): Promise<Record<string, any>> => {
   const shipment = await prisma.shipment.findFirst({
     where: { awb: D.str(awb) },
@@ -1473,12 +1391,6 @@ export const trackShipment = async (awb: string): Promise<Record<string, any>> =
   };
 };
 
-/**
- * A rider reports progress on a delivery.
- *
- * The delivery row is what the rider holds, so the shipment it hangs off moves with it and the
- * two can never disagree.
- */
 export const updateDeliveryStatus = async (
   deliveryId: string,
   input: { status: string; latitude?: number; longitude?: number; remarks?: string },
@@ -1492,7 +1404,6 @@ export const updateDeliveryStatus = async (
 
   if (!delivery) throw AppError.notFound(ERROR.SHIPPING.SHIPMENT_NOT_FOUND);
 
-  // A rider may only move their own delivery.
   if (deliveryBoyId && delivery.deliveryBoyId && delivery.deliveryBoyId !== deliveryBoyId) {
     throw AppError.forbidden(ERROR.COMMON.FORBIDDEN);
   }
@@ -1534,17 +1445,9 @@ export const updateDeliveryStatus = async (
   return updated;
 };
 
-// ═══ Settings extras ══════════════════════════════════════════════════════════
-
 export const getSettingsByCategory = async (category: string): Promise<Record<string, any>> =>
   getSettingByCategory(category);
 
-/**
- * Resets every seeded key back to its default.
- *
- * This is deliberately destructive and super-admin only; the response reports how many keys
- * were written so the operator has a record of it.
- */
 export const resetSettings = async (
   actorId?: string,
   req?: any,
@@ -1604,8 +1507,6 @@ export const setMaintenanceMode = async (
 
   return getMaintenanceStatus();
 };
-
-// ═══ Sub-admin lifecycle ═══════════════════════════════════════════════════════
 
 export const updateSubAdmin = async (
   userId: string,
@@ -1668,7 +1569,6 @@ export const toggleSubAdmin = async (
   return row;
 };
 
-/** Hard delete, so every role's permission set can be read in one call. */
 export const deleteSubAdmin = async (
   userId: string,
   actorId?: string,

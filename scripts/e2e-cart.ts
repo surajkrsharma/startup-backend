@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for the cart + wishlist modules against the real database.
- *
- * Covers: cart lifecycle, quantity accumulation, live repricing, stock guards,
- * vendor-approval guard, cart limits, coupon validation (expiry / minimum /
- * usage cap / scope), tax and shipping maths, wallet clamping, guest-cart
- * merge, the full wishlist flow, and the strict envelope contract.
- *
- * Usage: npx tsx scripts/e2e-cart.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -44,14 +30,12 @@ const phoneFor = (tag: string): string => {
 const envelope = (body: any) =>
   JSON.stringify(Object.keys(body ?? {})) === JSON.stringify(['status', 'message', 'result']);
 
-/** Every 200/201 response must obey the 3-key envelope and carry an object result. */
 const strictEnvelope = (body: any) =>
   envelope(body) &&
   body.result !== null &&
   typeof body.result === 'object' &&
   !Array.isArray(body.result);
 
-/** Walks an object and returns the first `null` found at any depth. */
 const findNull = (value: any, depth = 0): string | null => {
   if (depth > 8) return null;
   if (value === null) return 'null at depth ' + depth;
@@ -120,8 +104,6 @@ const main = async (): Promise<void> => {
   const { prisma } = await import('../src/services/prisma.service');
   const { setSetting } = await import('../src/services/settings.service');
 
-  // ── Settings the assertions depend on ─────────────────────────────────────
-  // Shipping is charged a flat 50 with no free threshold, wallet is on.
   await setSetting('shipping.enabled', true, 'shipping', undefined, false);
   await setSetting('shipping.defaultCharge', 50, 'shipping', undefined, false);
   await setSetting('shipping.freeAbove', 0, 'shipping', undefined, false);
@@ -157,11 +139,9 @@ const main = async (): Promise<void> => {
   const vA = api(vendorA.token);
   const vB = api(vendorB.token);
 
-  // ══ Auth is required ═══════════════════════════════════════════════════════
   const anon = await request(app).get('/api/v1/cart/getCart');
   record('GET /cart/getCart without token -> 401', anon.status === 401, `status=${anon.status}`);
 
-  // ══ A pending vendor's product is not purchasable ════════════════════════
   const makeProduct = async (
     token: string,
     body: Record<string, any>,
@@ -174,17 +154,11 @@ const main = async (): Promise<void> => {
     };
   };
 
-  /**
-   * A PENDING vendor cannot publish products at all, so the guard is exercised by suspending an
-   * approved shop and trying to buy from it.
-   */
   for (const v of [vendorA, vendorB]) {
     await api(adminToken).patch(`/api/v1/vendors/approveVendor/${v.vendorId}`, {});
   }
   record('both vendors approved', true);
 
-  // ══ Products ══════════════════════════════════════════════════════════════
-  // taxPercent 10 and 0 respectively, so the tax maths is distinguishable.
   const shirt = await makeProduct(vendorA.token, {
     name: `CT Shirt ${run}`,
     price: 1000,
@@ -230,7 +204,6 @@ const main = async (): Promise<void> => {
   );
   record('zero-stock product lands DRAFT', soldOut.status === 201, `status=${soldOut.status}`);
 
-  // ══ Empty cart ════════════════════════════════════════════════════════════
   const empty = await cu.get('/api/v1/cart/getCart');
   record(
     'GET /cart/getCart on a new account -> 200',
@@ -256,7 +229,6 @@ const main = async (): Promise<void> => {
     `status=${emptyEstimate.status} msg=${emptyEstimate.body?.message}`,
   );
 
-  // ══ addItem ══════════════════════════════════════════════════════════════
   const add1 = await cu.post('/api/v1/cart/addItem', { productId: shirt.id, qty: 2 });
   record(
     'POST /cart/addItem -> 201',
@@ -295,7 +267,6 @@ const main = async (): Promise<void> => {
   );
   record('total = 5000 + 500 + 50 = 5550', cart.total === 5550, `total=${cart.total}`);
 
-  // Live repricing: raising the price must change the cart without any client action.
   await api(vendorA.token).patch(`/api/v1/products/updateProduct/${shirt.id}`, { price: 1200 });
   const repriced = await cu.get('/api/v1/cart/getCart');
   record(
@@ -309,7 +280,6 @@ const main = async (): Promise<void> => {
     `taxAmount=${repriced.body?.result?.taxAmount}`,
   );
 
-  // ══ Stock guards ══════════════════════════════════════════════════════════
   const overSell = await cu.post('/api/v1/cart/addItem', { productId: shirt.id, qty: 999 });
   record(
     'qty beyond stock -> 422 OUT_OF_STOCK',
@@ -324,7 +294,6 @@ const main = async (): Promise<void> => {
     `status=${zeroStock.status} msg=${zeroStock.body?.message}`,
   );
 
-  // Suspending an approved shop must block new purchases from it.
   await prisma.vendorProfile.update({
     where: { id: vendorA.vendorId },
     data: { status: 'SUSPENDED' },
@@ -347,7 +316,6 @@ const main = async (): Promise<void> => {
   const noProduct = await cu.post('/api/v1/cart/addItem', { productId: 'nope123', qty: 1 });
   record('addItem unknown product -> 404', noProduct.status === 404, `status=${noProduct.status}`);
 
-  // ══ Second vendor + variants ══════════════════════════════════════════════
   const addCap = await cu.post('/api/v1/cart/addItem', { productId: cap.id, qty: 2 });
   record('addItem for a second vendor -> 201', addCap.status === 201, `status=${addCap.status}`);
 
@@ -390,7 +358,6 @@ const main = async (): Promise<void> => {
     `lineTotal=${addVariant.body?.result?.lineTotal}`,
   );
 
-  // Now at 3 distinct lines: the configured cart limit.
   const fourth = await cu.post('/api/v1/cart/addItem', { productId: scarce.id, qty: 1 });
   record(
     'fourth distinct line -> 422 CART_MAX_ITEMS',
@@ -403,7 +370,6 @@ const main = async (): Promise<void> => {
     (await cu.post('/api/v1/cart/addItem', { productId: shirt.id, qty: 1 })).status === 201,
   );
 
-  // ══ updateItem ════════════════════════════════════════════════════════════
   const updated = await cu.patch('/api/v1/cart/updateItem', { productId: shirt.id, qty: 2 });
   record('PATCH /cart/updateItem -> 200', updated.status === 200, `status=${updated.status}`);
   record(
@@ -426,7 +392,6 @@ const main = async (): Promise<void> => {
     `status=${updateMissing.status}`,
   );
 
-  // ══ Variants are separate lines from their parent product ═════════════════
   const hasBoth = await cu.get('/api/v1/cart/getCart');
   const ids = (hasBoth.body?.result?.itemList ?? []).map(
     (i: any) => `${i.productId}:${i.variantId}`,
@@ -437,7 +402,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(ids),
   );
 
-  // ══ Coupons ════════════════════════════════════════════════════════════════
   await prisma.coupon.deleteMany({ where: { code: { startsWith: `CT${run}` } } });
 
   const flat = await prisma.coupon.create({
@@ -447,10 +411,7 @@ const main = async (): Promise<void> => {
       type: 'FLAT',
       value: 200,
       maxDiscount: 0,
-      /**
-       * Between the cart subtotal before and after the shrink below, so the "coupon stops applying"
-       * assertion has something to bite on.
-       */
+
       minOrderAmount: 4200,
       maxUsage: 2,
       startsAt: new Date(Date.now() - 86_400_000),
@@ -569,7 +530,6 @@ const main = async (): Promise<void> => {
   const badFormat = await cu.post('/api/v1/cart/applyCoupon', { code: 'lower case code!!' });
   record('malformed coupon code -> 400', badFormat.status === 400, `status=${badFormat.status}`);
 
-  // A rejected coupon must not stick to the cart.
   const afterRejects = await cu.get('/api/v1/cart/getCart');
   record(
     'rejected coupons leave no residue on the cart',
@@ -577,7 +537,6 @@ const main = async (): Promise<void> => {
     `code=${afterRejects.body?.result?.couponCode} disc=${afterRejects.body?.result?.couponDiscount}`,
   );
 
-  // Vendor-scoped coupon: valid for vendor B items, which are in the cart.
   const venOk = await cu.post('/api/v1/cart/applyCoupon', { code: `CT${run}VEN` });
   record(
     'vendor-scoped coupon applies when that vendor is present',
@@ -610,13 +569,13 @@ const main = async (): Promise<void> => {
   );
 
   const pctRes = await cu.post('/api/v1/cart/applyCoupon', { code: `CT${run}PCT` });
-  // Shirt 2 x 1200 = 2400, variant 2 x 800 = 1600, cap 2 x 400 = 800 => 4800; 10% = 480, capped at 150.
+
   record(
     'percent coupon respects maxDiscount cap (150 of 480)',
     pctRes.body?.result?.couponDiscount === 150,
     `couponDiscount=${pctRes.body?.result?.couponDiscount}`,
   );
-  // tax: shirt 2 x 1200 @10% = 240, variant 2 x 800 @5% = 80, cap 2 x 400 @0% = 0
+
   record(
     'tax is per-line (240 + 80 + 0 = 320)',
     pctRes.body?.result?.taxAmount === 320,
@@ -628,7 +587,6 @@ const main = async (): Promise<void> => {
     `total=${pctRes.body?.result?.total}`,
   );
 
-  // A coupon that no longer qualifies after a cart change is dropped by the caller.
   await cu.del('/api/v1/cart/removeCoupon');
   await cu.post('/api/v1/cart/applyCoupon', { code: `CT${run}FLAT` });
   const shrink = await cu.patch('/api/v1/cart/updateItem', { productId: shirt.id, qty: 1 });
@@ -651,13 +609,9 @@ const main = async (): Promise<void> => {
   await cu.del('/api/v1/cart/removeCoupon');
   void vendorScoped;
 
-  // ══ Tax-inclusive pricing ══════════════════════════════════════════════════
   await setSetting('tax.inclusive', true, 'tax', undefined, false);
   const inclusive = await cu.get('/api/v1/cart/getCart');
-  /**
-   * shirt 1 x 1200 @10%, variant 2 x 800 @5%, cap 2 x 400 @0% => subtotal 3600 inclusive tax:
-   * 1200 -> 109.09, 1600 -> 76.19, 800 -> 0 => 185.28
-   */
+
   record(
     'inclusive tax is extracted, not added (185.28)',
     Math.abs(inclusive.body?.result?.taxAmount - 185.28) < 0.02,
@@ -670,7 +624,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting('tax.inclusive', false, 'tax', undefined, false);
 
-  // ══ estimate ══════════════════════════════════════════════════════════════
   const address = await cu.post('/api/v1/users/addAddress', {
     type: 'HOME',
     fullName: 'Cart Tester',
@@ -755,7 +708,6 @@ const main = async (): Promise<void> => {
     `status=${badMethod.status}`,
   );
 
-  // COD ceiling: cart is far below the default 20000 cap, so lower the setting.
   await setSetting('payment.cod.maxAmount', 100, 'payment', undefined, false);
   const codOver = await cu.post('/api/v1/cart/estimate', { paymentMethod: 'COD' });
   record(
@@ -774,7 +726,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting('payment.cod.enabled', true, 'payment', undefined, false);
 
-  // COD surcharge is folded into shipping.
   await setSetting('payment.cod.extraCharge', 25, 'payment', undefined, false);
   const codFee = await cu.post('/api/v1/cart/estimate', { paymentMethod: 'COD' });
   const upiFee = await cu.post('/api/v1/cart/estimate', { paymentMethod: 'UPI' });
@@ -790,7 +741,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting('payment.cod.extraCharge', 0, 'payment', undefined, false);
 
-  // ══ Wallet ════════════════════════════════════════════════════════════════
   const walletOff = await cu.post('/api/v1/cart/estimate', { useWalletBalance: true });
   record(
     'wallet balance reported when enabled',
@@ -818,7 +768,7 @@ const main = async (): Promise<void> => {
     useWalletBalance: true,
     walletAmount: 999_999,
   });
-  // Redeeming more than owed settles the whole payable amount, shipping included.
+
   record(
     'wallet redemption is clamped to the payable amount',
     fullRedeem.body?.result?.total === 0,
@@ -844,7 +794,6 @@ const main = async (): Promise<void> => {
     `wallet=${capped.body?.result?.walletAmount} total=${capped.body?.result?.total}`,
   );
 
-  // ══ removeItem ════════════════════════════════════════════════════════════
   const cartBeforeRemove = await cu.get('/api/v1/cart/getCart');
   const capLine = (cartBeforeRemove.body?.result?.itemList ?? []).find(
     (i: any) => i.productId === cap.id,
@@ -881,7 +830,6 @@ const main = async (): Promise<void> => {
     `status=${remNoArg.status}`,
   );
 
-  // qty 0 on update is a removal.
   const zeroUpdate = await cu.patch('/api/v1/cart/updateItem', { productId: shirt.id, qty: 0 });
   record(
     'updateItem qty 0 removes the line',
@@ -889,7 +837,6 @@ const main = async (): Promise<void> => {
     JSON.stringify((zeroUpdate.body?.result?.itemList ?? []).map((i: any) => i.productId)),
   );
 
-  // ══ clear ═════════════════════════════════════════════════════════════════
   const cleared = await cu.del('/api/v1/cart/clearCart');
   record('POST /cart/clear -> 200', cleared.status === 200, `status=${cleared.status}`);
   record(
@@ -903,7 +850,6 @@ const main = async (): Promise<void> => {
     cleared.body?.result?.cart?.couponCode,
   );
 
-  // ══ Guest cart merge ══════════════════════════════════════════════════════
   const guestCustomer = await register('gm', 'CUSTOMER');
   const g = api(guestCustomer.token);
 
@@ -920,7 +866,7 @@ const main = async (): Promise<void> => {
         price: 400,
         userId: guestCustomer.userId,
       },
-      // More than the remaining stock of 3 — the merge must clamp, not reject.
+
       {
         cartId: sessionCart.id,
         productId: scarce.id,
@@ -951,7 +897,6 @@ const main = async (): Promise<void> => {
     ),
   );
 
-  // Merging the same items again accumulates rather than overwrites.
   const mergedAgain = await g.post('/api/v1/cart/mergeGuestCart', {
     sessionKey,
     items: [{ productId: cap.id, qty: 1 }],
@@ -965,7 +910,6 @@ const main = async (): Promise<void> => {
     ),
   );
 
-  // A guest line whose shop is no longer approved is skipped, not fatal.
   const ghost = await makeProduct(vendorA.token, {
     name: `CT Ghost ${run}`,
     price: 120,
@@ -1002,7 +946,6 @@ const main = async (): Promise<void> => {
     data: { status: 'APPROVED' },
   });
 
-  // ══ Wishlist ══════════════════════════════════════════════════════════════
   const emptyWl = await cu.get('/api/v1/wishlist/getAll');
   record('GET /wishlist/getAll -> 200', emptyWl.status === 200, `status=${emptyWl.status}`);
   record('wishlist envelope is strict', strictEnvelope(emptyWl.body));
@@ -1077,7 +1020,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(checkMiss.body?.result),
   );
 
-  // moveToCart
   const moved = await cu.post(`/api/v1/wishlist/moveToCart/${shirt.id}`, { qty: 1 });
   record(
     'POST /wishlist/moveToCart/:id -> 200',
@@ -1124,7 +1066,6 @@ const main = async (): Promise<void> => {
     `status=${wlRemoveMissing.status}`,
   );
 
-  // Wishlists are per user.
   const otherWl = await api(foreignAddress.token).get('/api/v1/wishlist/getAll');
   record(
     'wishlists are isolated per user',
@@ -1146,7 +1087,6 @@ const main = async (): Promise<void> => {
     String(afterClear.body?.result?.itemCount),
   );
 
-  // ══ Cleanup ═══════════════════════════════════════════════════════════════
   await prisma.cartItem.deleteMany({ where: { cartId: sessionCart.id } });
   await prisma.cart.delete({ where: { id: sessionCart.id } }).catch(() => undefined);
   await prisma.walletTransaction.deleteMany({ where: { userId: customer.userId } });

@@ -7,13 +7,8 @@ import { UPLOAD_KIND } from '../../config/upload.config';
 import * as controller from './analytics.controller';
 import * as schema from './analytics.schema';
 
-// ── Tracking ─────────────────────────────────────────────────────────────────
-// Client-facing, so optionalAuth throughout: an anonymous visitor is still tracked and the
-// session key is what ties their events together.
-
 const track = Router();
 
-/** POST /track/event */
 track.post(
   '/event',
   optionalAuth,
@@ -21,7 +16,6 @@ track.post(
   controller.trackEvent,
 );
 
-/** POST /track/pageView */
 track.post(
   '/pageView',
   optionalAuth,
@@ -29,7 +23,6 @@ track.post(
   controller.trackPageView,
 );
 
-/** POST /track/session/start */
 track.post(
   '/session/start',
   optionalAuth,
@@ -37,7 +30,6 @@ track.post(
   controller.startSession,
 );
 
-/** POST /track/session/end */
 track.post(
   '/session/end',
   optionalAuth,
@@ -45,7 +37,6 @@ track.post(
   controller.endSession,
 );
 
-/** POST /track/device */
 track.post(
   '/device',
   optionalAuth,
@@ -53,7 +44,6 @@ track.post(
   controller.registerDevice,
 );
 
-/** POST /track/appInstall */
 track.post(
   '/appInstall',
   optionalAuth,
@@ -61,7 +51,6 @@ track.post(
   controller.trackAppInstall,
 );
 
-/** POST /track/appOpen */
 track.post(
   '/appOpen',
   optionalAuth,
@@ -69,7 +58,6 @@ track.post(
   controller.trackAppOpen,
 );
 
-/** POST /track/crash */
 track.post(
   '/crash',
   optionalAuth,
@@ -77,7 +65,6 @@ track.post(
   controller.trackCrash,
 );
 
-/** POST /track/performance */
 track.post(
   '/performance',
   optionalAuth,
@@ -85,7 +72,6 @@ track.post(
   controller.trackPerformance,
 );
 
-/** POST /track/error */
 track.post(
   '/error',
   optionalAuth,
@@ -93,7 +79,6 @@ track.post(
   controller.trackError,
 );
 
-/** POST /track/funnel */
 track.post(
   '/funnel',
   optionalAuth,
@@ -101,7 +86,6 @@ track.post(
   controller.trackFunnel,
 );
 
-/** POST /track/conversion */
 track.post(
   '/conversion',
   optionalAuth,
@@ -109,10 +93,8 @@ track.post(
   controller.trackConversion,
 );
 
-/** POST /track/click */
 track.post('/click', optionalAuth, validate({ body: schema.clickSchema }), controller.trackClick);
 
-/** POST /track/scroll */
 track.post(
   '/scroll',
   optionalAuth,
@@ -120,7 +102,6 @@ track.post(
   controller.trackScroll,
 );
 
-/** POST /track/search */
 track.post(
   '/search',
   optionalAuth,
@@ -128,10 +109,8 @@ track.post(
   controller.trackSearch,
 );
 
-/** POST /track/utm */
 track.post('/utm', optionalAuth, validate({ body: schema.utmSchema }), controller.trackUtm);
 
-/** POST /track/referrer */
 track.post(
   '/referrer',
   optionalAuth,
@@ -139,7 +118,6 @@ track.post(
   controller.trackReferrer,
 );
 
-/** POST /track/heartbeat */
 track.post(
   '/heartbeat',
   optionalAuth,
@@ -149,11 +127,8 @@ track.post(
 
 export const trackingRoutes = track;
 
-// ── Devices ─────────────────────────────────────────────────────────────────
-
 const device = Router();
 
-/** GET /devices/getAll */
 device.get(
   '/getAll',
   authenticate,
@@ -162,7 +137,6 @@ device.get(
   controller.listAllDevices,
 );
 
-/** GET /devices/getById/:id */
 device.get(
   '/getById/:id',
   authenticate,
@@ -171,7 +145,6 @@ device.get(
   controller.getDevice,
 );
 
-/** GET /devices/getByUser/:userId */
 device.get(
   '/getByUser/:userId',
   authenticate,
@@ -180,7 +153,6 @@ device.get(
   controller.listUserDevices,
 );
 
-/** PATCH /devices/block/:id */
 device.patch(
   '/block/:id',
   authenticate,
@@ -189,7 +161,6 @@ device.patch(
   controller.blockDevice,
 );
 
-/** PATCH /devices/unblock/:id */
 device.patch(
   '/unblock/:id',
   authenticate,
@@ -198,7 +169,6 @@ device.patch(
   controller.unblockDevice,
 );
 
-/** DELETE /devices/delete/:id */
 device.delete(
   '/delete/:id',
   authenticate,
@@ -207,10 +177,8 @@ device.delete(
   controller.deleteDevice,
 );
 
-/** GET /devices/getTrusted */
 device.get('/getTrusted', authenticate, controller.listTrustedDevices);
 
-/** PATCH /devices/trust/:id */
 device.patch(
   '/trust/:id',
   authenticate,
@@ -218,7 +186,6 @@ device.patch(
   controller.trustDevice,
 );
 
-/** PATCH /devices/untrust/:id */
 device.patch(
   '/untrust/:id',
   authenticate,
@@ -227,8 +194,6 @@ device.patch(
 );
 
 export const deviceRoutes = device;
-
-// ── Analytics (admin) ────────────────────────────────────────────────────────
 
 const analytics = Router();
 
@@ -409,8 +374,6 @@ analytics.get(
   controller.exportAnalytics,
 );
 
-// ── Funnels ──────────────────────────────────────────────────────────────────
-
 analytics.get('/funnels', authenticate, ...controller.guards.admin, controller.listFunnels);
 
 analytics.post(
@@ -431,11 +394,8 @@ analytics.patch(
 
 export const analyticsRoutes = analytics;
 
-// ── Search ──────────────────────────────────────────────────────────────────
-
 const search = Router();
 
-/** GET /search/global — works signed-out */
 search.get(
   '/global',
   optionalAuth,
@@ -477,11 +437,8 @@ search.delete('/recent/clear', authenticate, controller.clearRecent);
 
 export const searchRoutes = search;
 
-// ── Uploads ─────────────────────────────────────────────────────────────────
-
 const upload = Router();
 
-/** POST /uploads/uploadImage */
 upload.post(
   '/uploadImage',
   authenticate,
@@ -498,7 +455,6 @@ upload.post(
   controller.uploadImage,
 );
 
-/** POST /uploads/uploadVideo */
 upload.post(
   '/uploadVideo',
   authenticate,
@@ -507,7 +463,6 @@ upload.post(
   controller.uploadVideo,
 );
 
-/** POST /uploads/uploadDocument */
 upload.post(
   '/uploadDocument',
   authenticate,
@@ -516,7 +471,6 @@ upload.post(
   controller.uploadDocument,
 );
 
-/** POST /uploads/uploadMultiple */
 upload.post(
   '/uploadMultiple',
   authenticate,
@@ -525,7 +479,6 @@ upload.post(
   controller.uploadMultiple,
 );
 
-/** POST /uploads/deleteFile */
 upload.post(
   '/deleteFile',
   authenticate,
@@ -533,7 +486,6 @@ upload.post(
   controller.removeFile,
 );
 
-/** GET /uploads/getSignedUrl */
 upload.get(
   '/getSignedUrl',
   authenticate,

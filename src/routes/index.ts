@@ -69,13 +69,11 @@ import { docsRouter, getSpec } from '../docs/swagger.routes';
 
 const apiRoutes = Router();
 
-// ── Always available (bypass maintenance mode, no auth) ─────────────────────
 apiRoutes.use('/health', healthRoutes);
 apiRoutes.use('/version', systemRoutes);
 apiRoutes.use('/docs', docsRouter);
 apiRoutes.get('/docs.json', (req, res) => res.json(getSpec(req.app)));
 
-// ── Module routes (auth module is public; guards live inside each route) ────
 apiRoutes.use('/auth', authRoutes);
 apiRoutes.use('/users', userRoutes);
 apiRoutes.use('/vendors', vendorRoutes);

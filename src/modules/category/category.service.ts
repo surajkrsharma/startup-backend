@@ -43,7 +43,6 @@ const CATEGORY_SELECT = {
   _count: { select: { products: true } },
 } satisfies Prisma.CategorySelect;
 
-/** Rejects a parent that would create a cycle. */
 const assertNoCycle = async (categoryId: string, parentId: string): Promise<void> => {
   if (!parentId) return;
 
@@ -51,7 +50,6 @@ const assertNoCycle = async (categoryId: string, parentId: string): Promise<void
     throw AppError.badRequest('A category cannot be its own parent.', ERROR_CODE.VALIDATION_ERROR);
   }
 
-  // Walk up from the proposed parent; if we meet the category itself, it is a cycle.
   let cursor: string | null = parentId;
   const seen = new Set<string>();
   let depth = 0;
@@ -75,24 +73,17 @@ const assertNoCycle = async (categoryId: string, parentId: string): Promise<void
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Read
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const listCategories = async (
   query: any,
 ): Promise<{ rows: any[]; total: number; tree: boolean }> => {
-  const { page, limit, skip } = getPagination(query);
+  const { limit, skip } = getPagination(query);
   const wantsTree = query?.tree === true;
   const withCounts = query?.withCounts !== false;
 
   const where: Prisma.CategoryWhereInput = {
     deletedAt: null,
     ...(query?.parentId ? { parentId: D.str(query.parentId) } : {}),
-    /**
-     * "rootsOnly=true" -> parentId IS NULL. The generic flagQuery also accepts an explicit id,
-     * which must not be read as a boolean.
-     */
+
     ...(query?.parentId === 'null' || query?.rootsOnly === 'true' || query?.rootsOnly === true
       ? { parentId: null }
       : {}),
@@ -108,7 +99,6 @@ export const listCategories = async (
   };
 
   if (wantsTree) {
-    // A tree ignores paging: return every root with its full subtree.
     const rows = await prisma.category.findMany({
       where: { ...where, parentId: where.parentId ?? null },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
@@ -170,10 +160,6 @@ export const getCategoryBySlug = async (slug: string): Promise<any> => {
   return category;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Write
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const createCategory = async (input: any, req?: any): Promise<any> => {
   const parentId = D.str(input.parentId);
 
@@ -187,7 +173,6 @@ export const createCategory = async (input: any, req?: any): Promise<any> => {
 
   const slug = await uniqueCategorySlug(D.str(input.slug) || D.str(input.name));
 
-  // New categories go after their siblings unless an order is given.
   let sortOrder = D.num(input.sortOrder);
   if (!input.sortOrder) {
     const last = await prisma.category.findFirst({
@@ -225,7 +210,7 @@ export const createCategory = async (input: any, req?: any): Promise<any> => {
 };
 
 export const updateCategory = async (categoryId: string, input: any, req?: any): Promise<any> => {
-  const before = await getCategoryById(categoryId);
+  await getCategoryById(categoryId);
 
   const data: Prisma.CategoryUpdateInput = {};
 
@@ -276,7 +261,6 @@ export const updateCategory = async (categoryId: string, input: any, req?: any):
 export const deleteCategory = async (categoryId: string, req?: any): Promise<any> => {
   const category = await getCategoryById(categoryId);
 
-  // Refuse rather than silently orphan or cascade user-visible data.
   const [productCount, childCount] = await Promise.all([
     prisma.product.count({ where: { categoryId, deletedAt: null } }),
     prisma.category.count({ where: { parentId: categoryId, deletedAt: null } }),
@@ -290,7 +274,6 @@ export const deleteCategory = async (categoryId: string, req?: any): Promise<any
     throw AppError.conflict(ERROR.CATEGORY.HAS_PRODUCTS, ERROR_CODE.DUPLICATE);
   }
 
-  // Soft delete so any historical reference still resolves.
   await prisma.category.update({
     where: { id: categoryId },
     data: { deletedAt: new Date(), isActive: false },
@@ -308,7 +291,6 @@ export const deleteCategory = async (categoryId: string, req?: any): Promise<any
   return { id: categoryId, name: category.name };
 };
 
-/** Applies the given order by writing sortOrder = index. */
 export const reorderCategories = async (
   categoryIds: string[],
   parentId: string,
@@ -363,7 +345,6 @@ export const bulkCreate = async (
 
   for (const [index, item] of input.categories.entries()) {
     try {
-      // Business rules are checked per row so one bad entry does not abort the batch.
       const itemName = D.str(item.name);
       if (itemName.length < 2) {
         throw AppError.badRequest(VALIDATION.MIN_LENGTH('name', 2), ERROR_CODE.VALIDATION_ERROR);

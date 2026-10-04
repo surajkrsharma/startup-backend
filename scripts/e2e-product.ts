@@ -1,21 +1,8 @@
-/**
- * Live HTTP tests for the product module against the real database.
- *
- * Covers: vendor create/update/soft-delete, slug auto-suffix, stock updates,
- * status toggles, vendor ownership isolation, public listing with filters and
- * facets, slug/id lookups, recommendations, and every bulk operation.
- *
- * Usage: npx tsx scripts/e2e-product.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -92,7 +79,6 @@ const main = async (): Promise<void> => {
 
   record('bootstrap tokens', Boolean(adminToken && vendorA.token && vendorB.token));
 
-  // ══ Product creation requires an APPROVED vendor ══════════════════════════
   const earlyCreate = await request(app)
     .post('/api/v1/products/createProduct')
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -104,7 +90,6 @@ const main = async (): Promise<void> => {
     `status=${earlyCreate.status} msg=${earlyCreate.body?.message}`,
   );
 
-  // Approve both shops through the admin API.
   for (const v of [vendorA, vendorB]) {
     await request(app)
       .patch(`/api/v1/vendors/approveVendor/${v.vendorId}`)
@@ -113,7 +98,6 @@ const main = async (): Promise<void> => {
   }
   record('both vendors approved', true);
 
-  // ══ Create ═════════════════════════════════════════════════════════════════
   const created = await request(app)
     .post('/api/v1/products/createProduct')
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -150,7 +134,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(Object.keys(created.body ?? {})) === '["status","message","result"]',
   );
 
-  // Out-of-stock product must land as DRAFT, not ACTIVE.
   const draft = await request(app)
     .post('/api/v1/products/createProduct')
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -162,11 +145,6 @@ const main = async (): Promise<void> => {
   );
   const draftId = draft.body?.result?.productId ?? '';
 
-  /**
-   * Second vendor, same shop name -> slug auto-suffix. Asserted loosely: the suffix number
-   * depends on how many earlier test runs already used this base, and `uniqueSlug` correctly
-   * keeps incrementing.
-   */
   const dup = await request(app)
     .post('/api/v1/products/createProduct')
     .set('Authorization', `Bearer ${vendorB.token}`)
@@ -188,7 +166,6 @@ const main = async (): Promise<void> => {
   );
   const dupId = dup.body?.result?.productId ?? '';
 
-  // Validation
   const badPrice = await request(app)
     .post('/api/v1/products/createProduct')
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -222,7 +199,6 @@ const main = async (): Promise<void> => {
     .send({ name: 'Nope', price: 100 });
   record('anonymous create -> 401', anonCreate.status === 401, `status=${anonCreate.status}`);
 
-  // ══ Read: public visibility ═══════════════════════════════════════════════
   const byId = await request(app).get(`/api/v1/products/getById/${productId}`);
   record('GET /products/getById/:id -> 200', byId.status === 200, `status=${byId.status}`);
   record(
@@ -242,7 +218,6 @@ const main = async (): Promise<void> => {
   const badSlug = await request(app).get('/api/v1/products/getBySlug/no-such-slug-xyz');
   record('unknown slug -> 404', badSlug.status === 404, `status=${badSlug.status}`);
 
-  // ══ Public listing hides DRAFT from anonymous callers ═════════════════════
   const publicList = await request(app).get('/api/v1/products/getAll?limit=50');
   record('GET /products/getAll -> 200', publicList.status === 200, `status=${publicList.status}`);
   record(
@@ -261,7 +236,6 @@ const main = async (): Promise<void> => {
     (publicList.body?.result?.productList ?? []).some((p: any) => p.productId === productId),
   );
 
-  // The vendor must see their own draft.
   const vendorList = await request(app)
     .get('/api/v1/products/getAll?limit=50')
     .set('Authorization', `Bearer ${vendorA.token}`);
@@ -279,7 +253,6 @@ const main = async (): Promise<void> => {
     !(vendorListB.body?.result?.productList ?? []).some((p: any) => p.productId === productId),
   );
 
-  // Filters
   const searchList = await request(app).get(
     `/api/v1/products/getAll?search=Cotton%20Shirt&limit=20`,
   );
@@ -307,7 +280,6 @@ const main = async (): Promise<void> => {
     `found=${(vendorFilter.body?.result?.productList ?? []).length}`,
   );
 
-  // ══ Filters / facets ══════════════════════════════════════════════════════
   const facets = await request(app).get('/api/v1/products/getFilters');
   record('GET /products/getFilters -> 200', facets.status === 200, `status=${facets.status}`);
   record(
@@ -324,7 +296,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(facets.body?.result?.priceRange ?? {}),
   );
 
-  // ══ Update ════════════════════════════════════════════════════════════════
   const updated = await request(app)
     .patch(`/api/v1/products/updateProduct/${productId}`)
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -343,7 +314,6 @@ const main = async (): Promise<void> => {
     .send({});
   record('empty update -> 400', emptyUpdate.status === 400, `status=${emptyUpdate.status}`);
 
-  // Ownership isolation: vendor B must not edit vendor A's product.
   const foreignUpdate = await request(app)
     .patch(`/api/v1/products/updateProduct/${productId}`)
     .set('Authorization', `Bearer ${vendorB.token}`)
@@ -354,14 +324,12 @@ const main = async (): Promise<void> => {
     `status=${foreignUpdate.status}`,
   );
 
-  // Admin may edit any product.
   const adminUpdate = await request(app)
     .patch(`/api/v1/products/updateProduct/${productId}`)
     .set('Authorization', `Bearer ${adminToken}`)
     .send({ isFeatured: true });
   record('admin can edit any product', adminUpdate.status === 200, `status=${adminUpdate.status}`);
 
-  // ══ Stock ════════════════════════════════════════════════════════════════
   const stock = await request(app)
     .patch(`/api/v1/products/updateStock/${productId}`)
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -389,7 +357,6 @@ const main = async (): Promise<void> => {
     `status=${badStockUpdate.status}`,
   );
 
-  // ══ Status toggle ═════════════════════════════════════════════════════════
   const toggled = await request(app)
     .patch(`/api/v1/products/toggleStatus/${productId}`)
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -412,13 +379,11 @@ const main = async (): Promise<void> => {
     .send({ status: 'NOT_A_STATUS' });
   record('invalid status -> 400', badStatus.status === 400, `status=${badStatus.status}`);
 
-  // Restore for the remaining checks.
   await request(app)
     .patch(`/api/v1/products/toggleStatus/${productId}`)
     .set('Authorization', `Bearer ${vendorA.token}`)
     .send({ status: 'ACTIVE' });
 
-  // ══ Recommendations ═══════════════════════════════════════════════════════
   const related = await request(app).get(`/api/v1/products/getRelated/${productId}?limit=10`);
   record('GET /products/getRelated/:id -> 200', related.status === 200, `status=${related.status}`);
   record(
@@ -456,7 +421,6 @@ const main = async (): Promise<void> => {
     `status=${trackMissing.status}`,
   );
 
-  // ══ Bulk operations ══════════════════════════════════════════════════════
   const bulkCreated = await request(app)
     .post('/api/v1/products/bulkCreate')
     .set('Authorization', `Bearer ${vendorA.token}`)
@@ -498,7 +462,6 @@ const main = async (): Promise<void> => {
     `status=${bulkUpdated.status} ok=${bulkUpdated.body?.result?.successCount}`,
   );
 
-  // Vendor B must not be able to bulk-update vendor A's products.
   const bulkForeign = await request(app)
     .patch('/api/v1/products/bulkUpdate')
     .set('Authorization', `Bearer ${vendorB.token}`)
@@ -551,7 +514,6 @@ const main = async (): Promise<void> => {
     `ok=${bulkDeleted.body?.result?.successCount}`,
   );
 
-  // ══ Soft delete ═══════════════════════════════════════════════════════════
   const deleted = await request(app)
     .del(`/api/v1/products/deleteProduct/${dupId}`)
     .set('Authorization', `Bearer ${vendorB.token}`);
@@ -578,7 +540,6 @@ const main = async (): Promise<void> => {
     `status=${deleteForeign.status}`,
   );
 
-  // ══ Summary ═══════════════════════════════════════════════════════════════
   const failedChecks = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failedChecks.length}/${checks.length} checks passed`);
   if (failedChecks.length) {

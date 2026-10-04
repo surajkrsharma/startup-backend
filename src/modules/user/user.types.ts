@@ -1,6 +1,5 @@
 import { Role } from '../../constants/roles';
 
-/** Filters accepted by the admin user list. */
 export interface ListUsersFilters {
   page: number;
   limit: number;
@@ -45,7 +44,6 @@ export interface ImpersonationResult {
   targetUser: Record<string, any>;
 }
 
-/** Shape returned by admin list queries, before serialization. */
 export interface UserRow {
   id: string;
   name: string;

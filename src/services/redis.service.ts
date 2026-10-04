@@ -8,10 +8,6 @@ let client: Redis | null = null;
 let subscriber: Redis | null = null;
 let connecting = false;
 
-/**
- * Redis is optional. When REDIS_URL is missing every helper below degrades to a
- * no-op so the API keeps serving (cache miss, no rate-limit sharing, etc).
- */
 export const getRedis = (): Redis | null => {
   if (!isRedisConfigured) return null;
   if (client) return client;
@@ -58,8 +54,8 @@ export const cacheSet = async (key: string, value: unknown, ttlSec = 300): Promi
   if (!redis) return;
   try {
     await redis.set(key, JSON.stringify(value), 'EX', ttlSec);
-  } catch {
-    /* cache write failures must never break a request */
+  } catch (err) {
+    logger.warn({ err: (err as Error)?.message, key }, '[redis] cache set failed');
   }
 };
 
@@ -68,8 +64,8 @@ export const cacheDel = async (...keys: string[]): Promise<void> => {
   if (!redis || keys.length === 0) return;
   try {
     await redis.del(...keys);
-  } catch {
-    /* ignore */
+  } catch (err) {
+    logger.warn({ err: (err as Error)?.message, keys }, '[redis] cache del failed');
   }
 };
 
@@ -89,7 +85,6 @@ export const cacheDelByPattern = async (pattern: string): Promise<void> => {
   }
 };
 
-/** Read-through cache helper. */
 export const cacheWrap = async <T>(
   key: string,
   ttlSec: number,
@@ -136,10 +131,9 @@ export const expire = async (key: string, ttlSec: number): Promise<void> => {
   }
 };
 
-/** SETNX-based lock used by cron jobs and idempotency guards. */
 export const acquireLock = async (key: string, ttlSec: number): Promise<boolean> => {
   const redis = getRedis();
-  if (!redis) return true; // no redis -> do not block cron work
+  if (!redis) return true;
   try {
     const result = await redis.set(key, '1', 'EX', ttlSec, 'NX');
     return result === 'OK';
@@ -301,5 +295,4 @@ export const disconnectRedis = async (): Promise<void> => {
   }
 };
 
-/** True when REDIS_URL is present. Redis is optional: callers degrade gracefully. */
 export const isRedisAvailable = isRedisConfigured;

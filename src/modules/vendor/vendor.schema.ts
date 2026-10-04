@@ -2,13 +2,7 @@ import { z } from 'zod';
 import { VENDOR_STATUS } from '../../constants/roles';
 import { NAME } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
-import {
-  GSTIN_REGEX,
-  PAN_REGEX,
-  IFSC_REGEX,
-  UPI_REGEX,
-  COUNTRY_CODE,
-} from '../../constants/countries';
+import { GSTIN_REGEX, PAN_REGEX, IFSC_REGEX, UPI_REGEX } from '../../constants/countries';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 import { UPLOAD_KIND } from '../../config/upload.config';
 
@@ -50,7 +44,6 @@ const bankDetails = z
     message: 'Provide bank account with IFSC, or a UPI ID.',
   });
 
-/** PATCH /vendors/updateProfile — self-service, no approval fields. */
 export const updateProfileSchema = z
   .object({
     shopName: shopName.optional(),
@@ -77,10 +70,8 @@ export const updateProfileSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
 
-/** PATCH /vendors/updateBankDetails/:id */
 export const updateBankDetailsSchema = bankDetails;
 
-/** PATCH /vendors/approveVendor/:id */
 export const approveSchema = z
   .object({
     commissionRate: z.coerce.number().min(0).max(100).optional(),
@@ -88,21 +79,18 @@ export const approveSchema = z
   })
   .strict();
 
-/** PATCH /vendors/rejectVendor/:id */
 export const rejectSchema = z
   .object({
     reason: z.string().trim().min(1, VALIDATION.REQUIRED('reason')).max(NAME.COMMENT_MAX_LENGTH),
   })
   .strict();
 
-/** PATCH /vendors/suspendVendor/:id */
 export const suspendSchema = z
   .object({
     reason: z.string().trim().min(1, VALIDATION.REQUIRED('reason')).max(NAME.COMMENT_MAX_LENGTH),
   })
   .strict();
 
-/** PATCH /vendors/updateCommission/:id */
 export const updateCommissionSchema = z
   .object({
     commissionRate: z.coerce
@@ -112,7 +100,6 @@ export const updateCommissionSchema = z
   })
   .strict();
 
-/** PATCH /vendors/verifyDocuments/:id */
 export const verifyDocumentsSchema = z
   .object({
     isVerified: z.boolean(),
@@ -120,7 +107,6 @@ export const verifyDocumentsSchema = z
   })
   .strict();
 
-/** POST /vendors/requestPayout */
 export const requestPayoutSchema = z
   .object({
     amount: z.coerce.number().positive(VALIDATION.INVALID_NUMBER),
@@ -129,7 +115,6 @@ export const requestPayoutSchema = z
   })
   .strict();
 
-/** GET /vendors/getAll — admin list */
 export const listVendorsSchema = paginationSchema.extend({
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'INACTIVE', 'all']).optional(),
   search: z.string().trim().max(120).optional(),
@@ -143,7 +128,6 @@ export const getVendorsSchema = paginationSchema.extend({
 
 export const vendorIdParamSchema = z.object({ id: common.cuid });
 
-/** POST /vendors/uploadDocuments — multipart fields alongside files. */
 export const uploadDocumentsMetaSchema = z
   .object({
     docType: z

@@ -1,12 +1,3 @@
-/**
- * Cross-checks every route's path params against the params its controller reads.
- *
- * A route declares `/foo/:subOrderId` but a handler that reads `req.params.id` gets
- * `undefined`, because `validate({ params })` replaces `req.params` with the parsed
- * object — so the id never arrives and the lookup 404s. This prints every mismatch.
- *
- * Usage: npx tsx scripts/route-param-audit.ts
- */
 import fs from 'fs';
 import path from 'path';
 
@@ -17,7 +8,6 @@ const readParamsUsed = (file: string, fnName: string): string[] => {
   const start = src.search(new RegExp(`export const ${fnName}\\s*=`));
   if (start === -1) return [];
 
-  // Take the handler body up to the next top-level `export const`.
   const rest = src.slice(start);
   const next = rest.slice(1).search(/\nexport const /);
   const body = next === -1 ? rest : rest.slice(0, next + 1);
@@ -27,7 +17,6 @@ const readParamsUsed = (file: string, fnName: string): string[] => {
 
 let mismatches = 0;
 
-/** Middleware and route decorators are not controller handlers. */
 const NOT_HANDLERS = new Set([
   'authenticate',
   'requireRole',
@@ -59,7 +48,6 @@ for (const mod of fs.readdirSync(modulesDir)) {
     const declared = [...routeMatch[1].matchAll(/:([A-Za-z_]\w*)/g)].map((m) => m[1]);
     if (declared.length === 0) continue;
 
-    // The handler is the next reference that is actually an exported controller fn.
     let fnName: string | undefined;
     for (let j = i + 1; j < Math.min(i + 14, lines.length); j++) {
       const m = lines[j].match(/^\s*(?:controller\.)?([A-Za-z_]\w*),?\s*$/);

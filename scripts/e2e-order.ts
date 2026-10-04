@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for the order module against the real database.
- *
- * Covers: multi-vendor splitting, commission maths, stock decrement, the cart
- * being emptied, coupon consumption, wallet redemption, the order state
- * machine (including illegal transitions), cancellation with stock restore,
- * vendor isolation, timeline, tracking, and reorder.
- *
- * Usage: npx tsx scripts/e2e-order.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -44,7 +30,6 @@ const phoneFor = (tag: string): string => {
 const envelope = (body: any) =>
   JSON.stringify(Object.keys(body ?? {})) === JSON.stringify(['status', 'message', 'result']);
 
-/** Walks an object and returns the first `null` found at any depth. */
 const findNull = (value: any, depth = 0): string | null => {
   if (depth > 9) return null;
   if (value === null) return 'null';
@@ -113,10 +98,6 @@ const main = async (): Promise<void> => {
   const { prisma } = await import('../src/services/prisma.service');
   const { setSetting } = await import('../src/services/settings.service');
 
-  /**
-   * A flat 50 shipping charge and no free-shipping threshold keeps the maths predictable; tokens
-   * are off so orders land in CONFIRMED.
-   */
   await setSetting('shipping.enabled', true, 'shipping', undefined, false);
   await setSetting('shipping.defaultCharge', 50, 'shipping', undefined, false);
   await setSetting('shipping.freeAbove', 0, 'shipping', undefined, false);
@@ -155,7 +136,7 @@ const main = async (): Promise<void> => {
   for (const v of [vendorA, vendorB]) {
     await admin.patch(`/api/v1/vendors/approveVendor/${v.vendorId}`, {});
   }
-  // A 10% commission on vendor A makes the split maths checkable.
+
   await prisma.vendorProfile.update({
     where: { id: vendorA.vendorId },
     data: { commissionRate: 10 },
@@ -213,7 +194,6 @@ const main = async (): Promise<void> => {
   const addressId = address.body?.result?.addressId ?? '';
   record('delivery address created', address.status === 201 && Boolean(addressId));
 
-  // ══ Guards ════════════════════════════════════════════════════════════════
   const anonList = await request(app).get('/api/v1/orders/getAll');
   record(
     'GET /orders/getAll without token -> 401',
@@ -239,7 +219,6 @@ const main = async (): Promise<void> => {
     `status=${(noAddress as any)?.status}`,
   );
 
-  // ══ Multi-vendor placement ════════════════════════════════════════════════
   await cu.post('/api/v1/cart/addItem', { productId: pA1.id, qty: 2 });
   await cu.post('/api/v1/cart/addItem', { productId: pA2.id, qty: 1 });
   await cu.post('/api/v1/cart/addItem', { productId: pB1.id, qty: 3 });
@@ -265,7 +244,6 @@ const main = async (): Promise<void> => {
     'cancelled for cleanup',
   );
 
-  // That order consumed the cart, so refill before the main placement.
   await cu.post('/api/v1/cart/addItem', { productId: pA1.id, qty: 2 });
   await cu.post('/api/v1/cart/addItem', { productId: pA2.id, qty: 1 });
   await cu.post('/api/v1/cart/addItem', { productId: pB1.id, qty: 3 });
@@ -311,7 +289,6 @@ const main = async (): Promise<void> => {
     `items=${(order.itemList ?? []).length}`,
   );
 
-  // A: 2000 + 500 = 2500, B: 900. Tax is 0, shipping 50.
   record('subtotal = 2500 + 900 = 3400', order.subtotal === 3400, `subtotal=${order.subtotal}`);
   record('taxAmount is 0 at 0% tax', order.taxAmount === 0, `taxAmount=${order.taxAmount}`);
   record(
@@ -355,7 +332,6 @@ const main = async (): Promise<void> => {
     `${subA?.total} + ${subB?.total} = ${D_num(subA?.total) + D_num(subB?.total)} vs ${order.total}`,
   );
 
-  // ══ Stock moved ═══════════════════════════════════════════════════════════
   const afterStock = await request(app).get(`/api/v1/products/getById/${pA1.id}`);
   record(
     'product stock decremented (10 - 2 = 8)',
@@ -372,7 +348,6 @@ const main = async (): Promise<void> => {
   const soldCount = afterStock.body?.result?.soldCount;
   record('soldCount incremented', soldCount >= 2, `soldCount=${soldCount}`);
 
-  // ══ Cart emptied ══════════════════════════════════════════════════════════
   const cartAfter = await cu.get('/api/v1/cart/getCart');
   record(
     'cart is emptied after checkout',
@@ -385,7 +360,6 @@ const main = async (): Promise<void> => {
     cartAfter.body?.result?.couponCode,
   );
 
-  // ══ Ownership ═════════════════════════════════════════════════════════════
   const foreignOrder = await api(other.token).get(`/api/v1/orders/getById/${orderId}`);
   record(
     'another customer cannot read the order -> 404',
@@ -410,10 +384,9 @@ const main = async (): Promise<void> => {
   const missing = await cu.get('/api/v1/orders/getById/nope123');
   record('unknown order -> 404', missing.status === 404, `status=${missing.status}`);
 
-  // ══ Listing and pagination ════════════════════════════════════════════════
   const list = await cu.get('/api/v1/orders/getAll');
   record('GET /orders/getAll -> 200', list.status === 200, `status=${list.status}`);
-  // Two orders exist by now: the unconfirmed one above and the main one.
+
   record(
     'list is paginated with numbers first',
     D_num(list.body?.result?.totalRecord) === 2,
@@ -454,7 +427,6 @@ const main = async (): Promise<void> => {
     `totalRecord=${searched.body?.result?.totalRecord}`,
   );
 
-  // ══ Timeline ══════════════════════════════════════════════════════════════
   const timeline = await cu.get(`/api/v1/orders/getTimeline/${orderId}`);
   record('GET /orders/getTimeline -> 200', timeline.status === 200, `status=${timeline.status}`);
   record(
@@ -468,7 +440,6 @@ const main = async (): Promise<void> => {
     findNull(timeline.body?.result) ?? 'clean',
   );
 
-  // ══ Public tracking ═══════════════════════════════════════════════════════
   const track = await request(app).get(`/api/v1/orders/track/${orderNumber}`);
   record(
     'GET /orders/track/:orderNumber works without auth',
@@ -498,7 +469,6 @@ const main = async (): Promise<void> => {
     `status=${trackMissing.status}`,
   );
 
-  // ══ Vendor view ═══════════════════════════════════════════════════════════
   const vOrders = await api(vendorA.token).get('/api/v1/orders/getVendorOrders');
   record('GET /orders/vendorOrders -> 200', vOrders.status === 200, `status=${vOrders.status}`);
   record(
@@ -535,7 +505,6 @@ const main = async (): Promise<void> => {
   const subIdA = subA?.subOrderId ?? '';
   const subIdB = subB?.subOrderId ?? '';
 
-  // A vendor must not be able to move the other vendor's sub-order.
   const crossVendor = await api(vendorA.token).patch(
     `/api/v1/orders/updateVendorStatus/${subIdB}`,
     { status: 'SHIPPED' },
@@ -555,7 +524,6 @@ const main = async (): Promise<void> => {
     `status=${vStatus.status} result=${vStatus.body?.result?.status}`,
   );
 
-  // ══ State machine ═════════════════════════════════════════════════════════
   const illegal = await admin.patch(`/api/v1/orders/updateStatus/${orderId}`, {
     status: 'DELIVERED',
   });
@@ -630,7 +598,6 @@ const main = async (): Promise<void> => {
     `status=${customerCancel.status} msg=${customerCancel.body?.message}`,
   );
 
-  // ══ Cancellation restores stock ═══════════════════════════════════════════
   await cu.post('/api/v1/cart/addItem', { productId: pA1.id, qty: 2 });
   const beforeCancel = await request(app).get(`/api/v1/products/getById/${pA1.id}`);
   const stockBefore = beforeCancel.body?.result?.stock;
@@ -686,7 +653,6 @@ const main = async (): Promise<void> => {
   const noReason = await cu.post(`/api/v1/orders/cancelOrder/${secondId}`, {});
   record('cancel without a reason -> 400', noReason.status === 400, `status=${noReason.status}`);
 
-  // ══ Partial (single sub-order) cancellation ═══════════════════════════════
   await cu.post('/api/v1/cart/addItem', { productId: pA1.id, qty: 1 });
   await cu.post('/api/v1/cart/addItem', { productId: pB1.id, qty: 1 });
 
@@ -726,7 +692,6 @@ const main = async (): Promise<void> => {
       ?.status !== 'CANCELLED',
   );
 
-  // ══ Insufficient stock is refused ═════════════════════════════════════════
   await cu.del('/api/v1/cart/clearCart');
   await cu.post('/api/v1/cart/addItem', { productId: scarce.id, qty: 2 });
   const overOrder = await cu.post('/api/v1/orders/placeOrder', { addressId, paymentMethod: 'COD' });
@@ -752,7 +717,6 @@ const main = async (): Promise<void> => {
     `status=${draftAdd.status} msg=${draftAdd.body?.message}`,
   );
 
-  // ══ Coupon at checkout ════════════════════════════════════════════════════
   await cu.del('/api/v1/cart/clearCart');
   await prisma.coupon.deleteMany({ where: { code: { startsWith: `OR${run}` } } });
 
@@ -780,7 +744,7 @@ const main = async (): Promise<void> => {
     withCoupon.status === 201,
     `status=${withCoupon.status} msg=${withCoupon.body?.message}`,
   );
-  // 500 x 2 = 1000, minus 100 coupon, plus 50 shipping.
+
   record(
     'coupon discount is deducted (1000 - 100 + 50 = 950)',
     withCoupon.body?.result?.total === 950,
@@ -793,7 +757,6 @@ const main = async (): Promise<void> => {
   });
   record('coupon usage is recorded', D_num(used?.usedCount) === 1, `usedCount=${used?.usedCount}`);
 
-  // ══ Minimum order amount ══════════════════════════════════════════════════
   await setSetting('order.minAmount', 100000, 'order', undefined, false);
   await cu.post('/api/v1/cart/addItem', { productId: pA2.id, qty: 1 });
   const tooSmall = await cu.post('/api/v1/orders/placeOrder', { addressId, paymentMethod: 'COD' });
@@ -804,7 +767,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting('order.minAmount', 0, 'order', undefined, false);
 
-  // ══ Token / advance payment ════════════════════════════════════════════════
   await setSetting('payment.token.enabled', true, 'payment', undefined, false);
   await setSetting('payment.token.mode', 'percent', 'payment', undefined, false);
   await setSetting('payment.token.percent', 20, 'payment', undefined, false);
@@ -830,7 +792,7 @@ const main = async (): Promise<void> => {
     tokenOrder.body?.result?.status === 'PENDING_TOKEN',
     tokenOrder.body?.result?.status,
   );
-  // 1000 + 50 = 1050 total, 20% token = 210.
+
   record(
     'token is 20% of the total (210)',
     tokenOrder.body?.result?.tokenAmount === 210,
@@ -857,7 +819,6 @@ const main = async (): Promise<void> => {
 
   await setSetting('payment.token.enabled', false, 'payment', undefined, false);
 
-  // ══ Wallet redemption ═════════════════════════════════════════════════════
   await setSetting('wallet.enabled', true, 'wallet', undefined, false);
   await cu.post('/api/v1/cart/addItem', { productId: pA2.id, qty: 2 });
   await prisma.walletTransaction.create({
@@ -881,7 +842,7 @@ const main = async (): Promise<void> => {
     walletOrder.status === 201,
     `status=${walletOrder.status} msg=${walletOrder.body?.message}`,
   );
-  // 1000 + 50 = 1050, minus the 200 wallet credit = 850.
+
   record(
     'wallet amount is deducted from the total',
     walletOrder.body?.result?.walletAmount === 200 && walletOrder.body?.result?.total === 850,
@@ -902,7 +863,6 @@ const main = async (): Promise<void> => {
     `${walletTx?.type} ${walletTx?.amount}`,
   );
 
-  // Cancelling refunds the wallet.
   await cu.post(`/api/v1/orders/cancelOrder/${walletOrder.body?.result?.orderId}`, {
     reason: 'changed mind',
   });
@@ -914,7 +874,6 @@ const main = async (): Promise<void> => {
 
   await setSetting('wallet.enabled', false, 'wallet', undefined, false);
 
-  // ══ Disabled payment method ═══════════════════════════════════════════════
   await setSetting('payment.cod.enabled', false, 'payment', undefined, false);
   await cu.post('/api/v1/cart/addItem', { productId: pA2.id, qty: 1 });
   const codOff = await cu.post('/api/v1/orders/placeOrder', { addressId, paymentMethod: 'COD' });
@@ -925,7 +884,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting('payment.cod.enabled', true, 'payment', undefined, false);
 
-  // ══ Reorder ═══════════════════════════════════════════════════════════════
   await cu.del('/api/v1/cart/clearCart');
   const reordered = await cu.post(`/api/v1/orders/reorder/${walletOrder.body?.result?.orderId}`);
   record(
@@ -953,7 +911,6 @@ const main = async (): Promise<void> => {
     `status=${foreignReorder.status}`,
   );
 
-  // ══ Delivery boy assignment ═══════════════════════════════════════════════
   const deliveryUser = await register('db', 'CUSTOMER');
   const boy = await prisma.deliveryBoy.create({
     data: {
@@ -1002,7 +959,6 @@ const main = async (): Promise<void> => {
   });
   record('assigning an unknown rider -> 404', badBoy.status === 404, `status=${badBoy.status}`);
 
-  // ══ Delivery confirmation settles COD ═════════════════════════════════════
   const jump = await admin.post(`/api/v1/orders/verifyDeliveryOtp/${fourthSub?.subOrderId}`, {});
   record(
     'confirming straight from CONFIRMED is rejected',
@@ -1056,9 +1012,6 @@ const main = async (): Promise<void> => {
     `status=${twice.status} msg=${twice.body?.message}`,
   );
 
-  // ══ Order reads are owner-only, for staff too ═════════════════════════════
-  // There is no admin read-order route, and getOrderById deliberately 404s for
-  // anyone who is not the owner — so staff cannot use this route to bypass that.
   const staffRead = await admin.get(`/api/v1/orders/getById/${orderId}`);
   record(
     'staff cannot read a customer order through getById -> 404',
@@ -1066,7 +1019,6 @@ const main = async (): Promise<void> => {
     `status=${staffRead.status}`,
   );
 
-  // A customer is refused on a genuinely admin-only surface.
   const customerTriesAdmin = await cu.get('/api/v1/admin/getDashboardStats');
   record(
     'a customer cannot use an admin-only route -> 403',
@@ -1074,7 +1026,6 @@ const main = async (): Promise<void> => {
     `status=${customerTriesAdmin.status}`,
   );
 
-  // ══ Invoice ═══════════════════════════════════════════════════════════════
   const invoice = await cu.get(`/api/v1/orders/getInvoice/${orderId}?format=json`);
   record(
     'GET /orders/getInvoice?format=json -> 200',
@@ -1094,8 +1045,6 @@ const main = async (): Promise<void> => {
     `status=${pdf.status} type=${pdf.headers['content-type']}`,
   );
 
-  // ══ Cleanup ═══════════════════════════════════════════════════════════════
-  // Every order this run created, not just the ones referenced by a variable.
   const orderIds = (
     await prisma.order.findMany({
       where: { userId: customer.userId },
@@ -1113,10 +1062,6 @@ const main = async (): Promise<void> => {
   await prisma.walletTransaction.deleteMany({ where: { orderId: { in: orderIds } } });
   await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
 
-  /**
-   * OrderItem.productId is a RESTRICT relation, so every order item has to be gone before the
-   * products can be deleted.
-   */
   await prisma.cartItem.deleteMany({
     where: { productId: { in: [pA1.id, pA2.id, pB1.id, scarce.id] } },
   });

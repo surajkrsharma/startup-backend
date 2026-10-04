@@ -1,22 +1,8 @@
-/**
- * Live HTTP tests for loyalty points, referrals, gift cards and the message
- * templates.
- *
- * The three features are gated behind settings, so the suite pins the baseline
- * at the start and restores it in the cleanup, otherwise it would leave the
- * shared database with the features switched on.
- *
- * Usage: npx tsx scripts/e2e-engagement.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -114,7 +100,6 @@ const api = (token: string) => ({
   del: (p: string) => request(app).del(p).set('Authorization', `Bearer ${token}`),
 });
 
-/** Settings that gate the features under test, and their seeded defaults. */
 const FEATURE_KEYS = {
   loyaltyEnabled: 'loyalty.enabled',
   pointsPerRupee: 'loyalty.pointsPerRupee',
@@ -147,10 +132,6 @@ const main = async (): Promise<void> => {
 
   record('bootstrap tokens', Boolean(adminToken && alice.token && bob.token && carol.token));
 
-  /**
-   * The shared database can be reset out from under us; `npm run seed` restores the SUPER_ADMIN
-   * account.
-   */
   if (!adminToken) {
     throw new Error(
       'SUPER_ADMIN login failed. If the shared database was reset, run `npm run seed` before this suite.',
@@ -159,7 +140,6 @@ const main = async (): Promise<void> => {
 
   const admin = api(adminToken);
 
-  // Capture the baseline so the cleanup can put it back exactly.
   const baseline: Record<string, any> = {};
   for (const key of Object.values(FEATURE_KEYS)) {
     const row = await prisma.systemSetting.findUnique({ where: { key }, select: { value: true } });
@@ -191,8 +171,6 @@ const main = async (): Promise<void> => {
   await turnOn(FEATURE_KEYS.giftCardEnabled, true, 'giftCard.enabled');
   await turnOn(FEATURE_KEYS.minAmount, 100, 'giftCard.minAmount');
   await turnOn(FEATURE_KEYS.maxAmount, 50000, 'giftCard.maxAmount');
-
-  // ── Loyalty ─────────────────────────────────────────────────────────────────
 
   const al = api(alice.token);
 
@@ -229,7 +207,6 @@ const main = async (): Promise<void> => {
     `status=${noAuth.status}`,
   );
 
-  // Admin grants points, which is what an order would do on delivery.
   const grant = await admin.post(`/api/v1/loyalty/adjust/${alice.userId}`, {
     points: 1200,
     description: 'Test grant',
@@ -267,7 +244,6 @@ const main = async (): Promise<void> => {
     String(D_num(afterGrant.body?.result?.redeemableAmount)),
   );
 
-  // A jump past two thresholds lands on the highest one cleared.
   const bigGrant = await admin.post(`/api/v1/loyalty/adjust/${alice.userId}`, {
     points: 10000,
     description: 'Big grant',
@@ -306,7 +282,6 @@ const main = async (): Promise<void> => {
     `status=${overdraw.status} msg=${overdraw.body?.message}`,
   );
 
-  // Restore the balance the rest of the section works from.
   await admin.post(`/api/v1/loyalty/adjust/${alice.userId}`, {
     points: 1200,
     description: 'Test grant',
@@ -408,7 +383,6 @@ const main = async (): Promise<void> => {
   const badType = await al.get('/api/v1/loyalty/getHistory?type=NOPE');
   record('an unknown ledger type -> 400', badType.status === 400, `status=${badType.status}`);
 
-  // With loyalty off the whole feature must refuse, not silently no-op.
   await setSetting(FEATURE_KEYS.loyaltyEnabled, false);
   const redeemOff = await al.post('/api/v1/loyalty/redeem', { points: 100 });
   record(
@@ -417,8 +391,6 @@ const main = async (): Promise<void> => {
     `status=${redeemOff.status} msg=${redeemOff.body?.message}`,
   );
   await setSetting(FEATURE_KEYS.loyaltyEnabled, true);
-
-  // ── Referrals ───────────────────────────────────────────────────────────────
 
   const alSummary = await al.get('/api/v1/referral/getMyCode');
   record(
@@ -529,7 +501,6 @@ const main = async (): Promise<void> => {
     'all rows have a referee',
   );
 
-  // Bob referred Carol earlier, so he has exactly that one row and not Alice's.
   const bobRefs = await api(bob.token).get('/api/v1/referral/getRewards');
   record(
     'a user sees only the referrals they made',
@@ -649,11 +620,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting(FEATURE_KEYS.referralEnabled, true);
 
-  // ── Gift cards ──────────────────────────────────────────────────────────────
-
-  // The referral settlement above already credited the referrer's wallet reward, so
-  // the balance is that reward rather than zero. Capture it before the gift card
-  // section so the redemption delta below is measurable.
   const alBalance = await al.get('/api/v1/wallet/getBalance');
   record('GET /wallet/getBalance -> 200', alBalance.status === 200, `status=${alBalance.status}`);
   envelope(alBalance, 'GET /wallet/getBalance');
@@ -734,8 +700,6 @@ const main = async (): Promise<void> => {
     `status=${issueAsCustomer.status}`,
   );
 
-  // getAll is the admin listing per the contract; there is no "my cards" route, so
-  // ownership is asserted from the admin side plus the per-code public lookup.
   const mine = await admin.get('/api/v1/giftCards/getAll');
   record('GET /giftCards/getAll -> 200 (admin)', mine.status === 200, `status=${mine.status}`);
   envelope(mine, 'GET /giftCards/getAll');
@@ -777,7 +741,6 @@ const main = async (): Promise<void> => {
   const checkBad = await al.get('/api/v1/giftCards/checkBalance/GCDOESNOTEXIST');
   record('an unknown gift card code -> 404', checkBad.status === 404, `status=${checkBad.status}`);
 
-  // Partial redemption keeps the card alive with the remainder.
   const partial = await al.post('/api/v1/giftCards/redeem', { code: cardCode, amount: 400 });
   record(
     'POST /gift-cards/redeem with a partial amount -> 200',
@@ -815,8 +778,6 @@ const main = async (): Promise<void> => {
     `status=${spentTwice.status} msg=${spentTwice.body?.message}`,
   );
 
-  // The redemption lands in the wallet, so the balance is the referral reward plus
-  // everything redeemed here — assert the delta, not an absolute.
   const balanceAfter = await al.get('/api/v1/wallet/getBalance');
   record(
     'the balance reflects the redemption',
@@ -913,8 +874,6 @@ const main = async (): Promise<void> => {
   );
   await setSetting(FEATURE_KEYS.giftCardEnabled, true);
 
-  // ── Templates ───────────────────────────────────────────────────────────────
-
   const emailUpsert = await admin.post('/api/v1/templates/email/upsert', {
     key: `order.shipped.${run}`,
     name: 'Order shipped',
@@ -931,7 +890,6 @@ const main = async (): Promise<void> => {
   envelope(emailUpsert, 'POST /templates/email/upsert');
   const emailKey = D_str(emailUpsert.body?.result?.key);
 
-  // Render before the update, so the assertions describe the first version.
   const render = await admin.post(`/api/v1/templates/email/${emailKey}/render`, {
     values: { name: 'Ayesha', orderNumber: 'ORD-1' },
   });
@@ -1147,8 +1105,6 @@ const main = async (): Promise<void> => {
     `status=${emailDelete.status}`,
   );
 
-  // ── Cleanup ─────────────────────────────────────────────────────────────────
-
   await prisma.walletTransaction.deleteMany({ where: { reference: { startsWith: 'referral_' } } });
   await prisma.referral.deleteMany({ where: { referralCode: { in: [alCode, boCode] } } });
   await prisma.giftCard.deleteMany({
@@ -1164,12 +1120,9 @@ const main = async (): Promise<void> => {
     where: { id: { in: [alice.userId, bob.userId, carol.userId] } },
     data: { referredById: null },
   });
-  // Scoped by the run id: Prisma compiles `contains` to a LIKE without escaping `_`,
-  // so a prefix pattern like `eg_` is really `%eg_%` and would match
-  // "superadmin@projectname.com" too. Digits are not LIKE metacharacters.
+
   await prisma.user.deleteMany({ where: { email: { contains: run } } });
 
-  // Put the shared settings back exactly as they were.
   for (const [key, value] of Object.entries(baseline)) {
     if (value === undefined || value === null) {
       await prisma.systemSetting.deleteMany({ where: { key } });

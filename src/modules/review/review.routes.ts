@@ -5,11 +5,8 @@ import * as controller from './review.controller';
 import * as schema from './review.schema';
 import * as cartSchema from '../cart/cart.schema';
 
-// ── Reviews ──────────────────────────────────────────────────────────────────
-
 const review = Router();
 
-/** GET /reviews/getAll */
 review.get(
   '/getAll',
   optionalAuth,
@@ -17,7 +14,6 @@ review.get(
   controller.getAll,
 );
 
-/** GET /reviews/getSummary/:productId */
 review.get(
   '/getSummary/:productId',
   optionalAuth,
@@ -25,7 +21,6 @@ review.get(
   controller.getSummary,
 );
 
-/** POST /reviews/addReview */
 review.post(
   '/addReview',
   authenticate,
@@ -33,7 +28,6 @@ review.post(
   controller.addReview,
 );
 
-/** PATCH /reviews/updateReview/:id */
 review.patch(
   '/updateReview/:id',
   authenticate,
@@ -41,7 +35,6 @@ review.patch(
   controller.updateReview,
 );
 
-/** DELETE /reviews/deleteReview/:id */
 review.delete(
   '/deleteReview/:id',
   authenticate,
@@ -49,7 +42,6 @@ review.delete(
   controller.deleteReview,
 );
 
-/** PATCH /reviews/approve/:id — admin */
 review.patch(
   '/approve/:id',
   authenticate,
@@ -58,7 +50,6 @@ review.patch(
   controller.approveReview,
 );
 
-/** PATCH /reviews/reject/:id — admin */
 review.patch(
   '/reject/:id',
   authenticate,
@@ -67,7 +58,6 @@ review.patch(
   controller.rejectReview,
 );
 
-/** POST /reviews/voteHelpful/:id */
 review.post(
   '/voteHelpful/:id',
   authenticate,
@@ -75,7 +65,6 @@ review.post(
   controller.markHelpful,
 );
 
-/** POST /reviews/reply/:id — the selling shop */
 review.post(
   '/reply/:id',
   authenticate,
@@ -86,11 +75,8 @@ review.post(
 
 export const reviewRoutes = review;
 
-// ── Questions ────────────────────────────────────────────────────────────────
-
 const question = Router();
 
-/** GET /questions/getAll/:productId */
 question.get(
   '/getAll/:productId',
   optionalAuth,
@@ -98,10 +84,8 @@ question.get(
   controller.listQuestions,
 );
 
-/** POST /questions/ask */
 question.post('/ask', authenticate, validate({ body: schema.askQuestionSchema }), controller.ask);
 
-/** POST /questions/answer/:id — the selling shop */
 question.post(
   '/answer/:id',
   authenticate,
@@ -110,7 +94,6 @@ question.post(
   controller.answer,
 );
 
-/** PATCH /questions/approve/:id — admin */
 question.patch(
   '/approve/:id',
   authenticate,
@@ -119,7 +102,6 @@ question.patch(
   controller.approveQuestion,
 );
 
-/** DELETE /questions/delete/:id — own question, or any as admin */
 question.delete(
   '/delete/:id',
   authenticate,
@@ -129,11 +111,8 @@ question.delete(
 
 export const questionRoutes = question;
 
-// ── Coupons ──────────────────────────────────────────────────────────────────
-
 const coupon = Router();
 
-/** GET /coupons/getAll — admin */
 coupon.get(
   '/getAll',
   authenticate,
@@ -142,8 +121,6 @@ coupon.get(
   controller.couponList,
 );
 
-/** POST /coupons/createCoupon — admin */
-/** GET /coupons/getById/:id - admin */
 coupon.get(
   '/getById/:id',
   authenticate,
@@ -152,7 +129,6 @@ coupon.get(
   controller.couponDetail,
 );
 
-/** POST /coupons/applyCoupon - customer, applies to the caller's cart */
 coupon.post(
   '/applyCoupon',
   authenticate,
@@ -161,7 +137,6 @@ coupon.post(
   controller.couponApply,
 );
 
-/** POST /coupons/createCoupon - admin */
 coupon.post(
   '/createCoupon',
   authenticate,
@@ -170,7 +145,6 @@ coupon.post(
   controller.couponCreate,
 );
 
-/** PATCH /coupons/updateCoupon/:id — admin */
 coupon.patch(
   '/updateCoupon/:id',
   authenticate,
@@ -179,7 +153,6 @@ coupon.patch(
   controller.couponUpdate,
 );
 
-/** DELETE /coupons/deleteCoupon/:id — admin */
 coupon.delete(
   '/deleteCoupon/:id',
   authenticate,
@@ -188,7 +161,6 @@ coupon.delete(
   controller.couponDelete,
 );
 
-/** POST /coupons/validateCoupon */
 coupon.post(
   '/validateCoupon',
   authenticate,
@@ -196,7 +168,6 @@ coupon.post(
   controller.couponValidate,
 );
 
-/** GET /coupons/getUsages/:id — admin */
 coupon.get(
   '/getUsages/:id',
   authenticate,
@@ -205,7 +176,6 @@ coupon.get(
   controller.couponUsages,
 );
 
-/** PATCH /coupons/toggleStatus/:id — admin */
 coupon.patch(
   '/toggleStatus/:id',
   authenticate,
@@ -216,11 +186,8 @@ coupon.patch(
 
 export const couponRoutes = coupon;
 
-// ── Flash sales ──────────────────────────────────────────────────────────────
-
 const flash = Router();
 
-/** GET /flashSales/getActive */
 flash.get(
   '/getActive',
   optionalAuth,
@@ -228,7 +195,6 @@ flash.get(
   controller.flashLive,
 );
 
-/** GET /flashSales/getAll — admin */
 flash.get(
   '/getAll',
   authenticate,
@@ -237,7 +203,6 @@ flash.get(
   controller.flashList,
 );
 
-/** GET /flashSales/getBySlug/:slug */
 flash.get(
   '/getBySlug/:slug',
   optionalAuth,
@@ -245,7 +210,6 @@ flash.get(
   controller.flashBySlug,
 );
 
-/** POST /flashSales/create — admin */
 flash.post(
   '/create',
   authenticate,
@@ -254,7 +218,6 @@ flash.post(
   controller.flashCreate,
 );
 
-/** PATCH /flashSales/update/:id — admin */
 flash.patch(
   '/update/:id',
   authenticate,
@@ -263,7 +226,6 @@ flash.patch(
   controller.flashUpdate,
 );
 
-/** DELETE /flashSales/delete/:id — admin */
 flash.delete(
   '/delete/:id',
   authenticate,

@@ -106,7 +106,6 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   }
 };
 
-/** Simple spec-compliant TOTP — avoids an extra native dependency. */
 export const generateTotpSecret = (): string => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const bytes = crypto.randomBytes(TWO_FA.BACKUP_CODE_COUNT * 2);
@@ -167,7 +166,6 @@ export const buildOtpAuthUri = (secret: string, account: string): string => {
 export const generateBackupCodes = (count = TWO_FA.BACKUP_CODE_COUNT): string[] =>
   Array.from({ length: count }, () => randomNumericCode(8));
 
-/** Verifies a Razorpay-style HMAC SHA256 signature over `body`. */
 export const verifyGatewaySignature = (
   body: string,
   signature: string,

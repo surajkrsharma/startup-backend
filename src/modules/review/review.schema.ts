@@ -9,9 +9,6 @@ import { D } from '../../utils/defaults';
 
 const id = common.cuid;
 
-// ─── Review ───────────────────────────────────────────────────────────────────
-
-/** GET /reviews/getAll */
 export const listReviewsSchema = z
   .object({
     productId: id.optional(),
@@ -25,7 +22,6 @@ export const listReviewsSchema = z
   .merge(paginationSchema)
   .strict();
 
-/** POST /reviews/addReview */
 export const addReviewSchema = z
   .object({
     productId: id,
@@ -40,7 +36,6 @@ export const addReviewSchema = z
   })
   .strict();
 
-/** PATCH /reviews/updateReview/:id */
 export const updateReviewSchema = z
   .object({
     rating: z.coerce
@@ -56,29 +51,22 @@ export const updateReviewSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
 
-/** PATCH /reviews/moderate/:id — approve or reject */
 export const moderateReviewSchema = z
   .object({
     status: z.nativeEnum(ReviewStatus),
   })
   .strict();
 
-/** POST /reviews/reply/:id */
 export const replyReviewSchema = z
   .object({
     reply: z.string().trim().min(2, VALIDATION.MIN_LENGTH('reply', 2)).max(NAME.COMMENT_MAX_LENGTH),
   })
   .strict();
 
-/** GET /reviews/summary/:productId */
 export const reviewSummaryParamSchema = z.object({ productId: id });
 
-/** GET /reviews/distribution/:productId */
 export const reviewDistributionParamSchema = z.object({ productId: id });
 
-// ─── Question / Answer ────────────────────────────────────────────────────────
-
-/** GET /reviews/questions/getAll */
 export const listQuestionsSchema = z
   .object({
     productId: id.optional(),
@@ -88,7 +76,6 @@ export const listQuestionsSchema = z
   .merge(paginationSchema)
   .strict();
 
-/** POST /reviews/questions/ask */
 export const askQuestionSchema = z
   .object({
     productId: id,
@@ -101,7 +88,6 @@ export const askQuestionSchema = z
   })
   .strict();
 
-/** POST /reviews/questions/:id/answer */
 export const answerQuestionSchema = z
   .object({
     answer: z
@@ -112,7 +98,6 @@ export const answerQuestionSchema = z
   })
   .strict();
 
-/** PATCH /reviews/questions/:id/moderate */
 export const moderateQuestionSchema = z
   .object({
     isApproved: z.boolean(),
@@ -121,9 +106,6 @@ export const moderateQuestionSchema = z
 
 export const questionIdParamSchema = z.object({ id });
 
-// ─── Coupon (admin) ───────────────────────────────────────────────────────────
-
-/** GET /coupons/getAll */
 export const listCouponsSchema = z
   .object({
     type: z.nativeEnum(CouponType).optional(),
@@ -173,14 +155,12 @@ const couponRules = [
   },
 ];
 
-/** POST /coupons/createCoupon */
 export const createCouponSchema = couponBody.superRefine((v, ctx) => {
   for (const rule of couponRules) {
     if (!rule.check(v as any)) ctx.addIssue({ code: 'custom', message: rule.message });
   }
 });
 
-/** PATCH /coupons/updateCoupon/:id */
 export const updateCouponSchema = couponBody.partial().superRefine((v, ctx) => {
   if (Object.keys(v).length === 0) {
     ctx.addIssue({ code: 'custom', message: VALIDATION.INVALID_JSON });
@@ -190,14 +170,12 @@ export const updateCouponSchema = couponBody.partial().superRefine((v, ctx) => {
   }
 });
 
-/** PATCH /coupons/toggleStatus/:id */
 export const toggleCouponSchema = z
   .object({
     isActive: z.boolean(),
   })
   .strict();
 
-/** POST /coupons/validate */
 export const validateCouponSchema = z
   .object({
     code: z
@@ -211,19 +189,15 @@ export const validateCouponSchema = z
 
 export const couponIdParamSchema = z.object({ id });
 
-// ─── Flash sale ───────────────────────────────────────────────────────────────
-
-/** GET /flash-sales/getAll */
 export const listFlashSalesSchema = z
   .object({
     isActive: z.enum(['true', 'false']).optional(),
-    /** `live` restricts to sales inside their time window. */
+
     scope: z.enum(['all', 'live', 'upcoming', 'ended']).optional(),
   })
   .merge(paginationSchema)
   .strict();
 
-/** POST /flash-sales/create */
 export const createFlashSaleSchema = z
   .object({
     name: z.string().trim().min(2, VALIDATION.MIN_LENGTH('name', 2)).max(NAME.TITLE_MAX_LENGTH),
@@ -238,7 +212,7 @@ export const createFlashSaleSchema = z
           .object({
             productId: id,
             saleStock: z.coerce.number().int().min(0).optional().default(0),
-            /** Overrides the computed sale price when given. */
+
             salePrice: z.coerce.number().min(0).optional(),
           })
           .strict(),
@@ -251,7 +225,6 @@ export const createFlashSaleSchema = z
     message: 'End time must be after start time.',
   });
 
-/** PATCH /flash-sales/update/:id */
 export const updateFlashSaleSchema = z
   .object({
     name: z.string().trim().min(2).max(NAME.TITLE_MAX_LENGTH).optional(),

@@ -1,7 +1,3 @@
-/**
- * Verifies the seed output against a live database.
- * Usage: npx tsx scripts/seed-check.ts
- */
 import { PGlite } from '@electric-sql/pglite';
 
 const DATA_DIR = process.env.PGLITE_DATA_DIR ?? 'pglite-data';

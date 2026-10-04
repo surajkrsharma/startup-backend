@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { ApiResponse } from '../../utils/ApiResponse';
 import { SUCCESS } from '../../messages/success';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -41,8 +41,6 @@ export const guards = {
 
 const q = (req: Request, key: string): string => D.str((req.query as any)?.[key] as string);
 
-// ══ Brand ════════════════════════════════════════════════════════════════════
-
 export const listBrands = asyncHandler(async (req, res) => {
   const { rows, total } = await service.listBrands(req.query);
   const { page, limit } = getPagination(req.query);
@@ -81,7 +79,7 @@ export const createBrand = asyncHandler(async (req, res) => {
 });
 
 export const updateBrand = asyncHandler(async (req, res) => {
-  const brand = await service.updateBrand(req.params.id, req.body, req);
+  const brand = await service.updateBrand(req.params.id, req.body);
   return ApiResponse.success(res, {
     message: SUCCESS.BRAND.UPDATED,
     result: serializeBrand(brand),
@@ -111,8 +109,6 @@ export const deleteBrand = asyncHandler(async (req, res) => {
   });
 });
 
-// ══ Tag ══════════════════════════════════════════════════════════════════════
-
 export const listTags = asyncHandler(async (req, res) => {
   const { rows, total } = await service.listTags(req.query);
   const { page, limit } = getPagination(req.query);
@@ -130,7 +126,7 @@ export const listTags = asyncHandler(async (req, res) => {
 });
 
 export const createTag = asyncHandler(async (req, res) => {
-  const tag = await service.createTag(req.body, req);
+  const tag = await service.createTag(req.body);
   return ApiResponse.created(res, SUCCESS.TAG.CREATED, serializeTag(tag));
 });
 
@@ -146,8 +142,6 @@ export const deleteTag = asyncHandler(async (req, res) => {
     result: { tagId: result.id, name: result.name, isDeleted: true, isSoftDelete: true },
   });
 });
-
-// ══ Attribute ════════════════════════════════════════════════════════════════
 
 export const listAttributes = asyncHandler(async (req, res) => {
   const { rows, total } = await service.listAttributes(req.query);
@@ -179,7 +173,7 @@ export const createAttribute = asyncHandler(async (req, res) => {
 });
 
 export const updateAttribute = asyncHandler(async (req, res) => {
-  const attribute = await service.updateAttribute(req.params.id, req.body, req);
+  const attribute = await service.updateAttribute(req.params.id, req.body);
   return ApiResponse.success(res, {
     message: SUCCESS.ATTRIBUTE.UPDATED,
     result: serializeAttribute(attribute),
@@ -198,8 +192,6 @@ export const deleteAttribute = asyncHandler(async (req, res) => {
     },
   });
 });
-
-// ══ Collection ════════════════════════════════════════════════════════════════
 
 export const listCollections = asyncHandler(async (req, res) => {
   const { rows, total } = await service.listCollections(req.query);
@@ -245,7 +237,7 @@ export const createCollection = asyncHandler(async (req, res) => {
 });
 
 export const updateCollection = asyncHandler(async (req, res) => {
-  const collection = await service.updateCollection(req.params.id, req.body, req);
+  const collection = await service.updateCollection(req.params.id, req.body);
   return ApiResponse.success(res, {
     message: SUCCESS.COLLECTION.UPDATED,
     result: serializeCollection(collection),

@@ -23,9 +23,6 @@ import {
 import { toSlug, generateOrderNumber } from '../src/utils/slug';
 import { isEmailLooking, normalisePhone } from '../src/utils/validate';
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  No-null defaults
-// ─────────────────────────────────────────────────────────────────────────────
 describe('D defaults (no-null contract)', () => {
   it('substitutes type-appropriate defaults for null and undefined', () => {
     expect(D.str(null)).toBe('');
@@ -69,9 +66,6 @@ describe('D defaults (no-null contract)', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Response envelope
-// ─────────────────────────────────────────────────────────────────────────────
 describe('ApiResponse envelope', () => {
   const capture = () => {
     let payload: any = null;
@@ -178,9 +172,6 @@ describe('ApiResponse envelope', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Pagination helpers
-// ─────────────────────────────────────────────────────────────────────────────
 describe('getPagination', () => {
   it('defaults to page 1 / limit 20', () => {
     expect(getPagination({})).toEqual({ page: 1, limit: 20, skip: 0, take: 20 });
@@ -228,9 +219,6 @@ describe('getSort', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Token amount (spec 7.14)
-// ─────────────────────────────────────────────────────────────────────────────
 describe('calcTokenAmount', () => {
   const percentConfig = {
     enabled: true,
@@ -263,7 +251,6 @@ describe('calcTokenAmount', () => {
   });
 
   it('never exceeds the order total', () => {
-    // minAmount 500 clamps above a 2000 order, but the token can never be > total.
     expect(calcTokenAmount(2000, { ...percentConfig, minAmount: 5000, maxAmount: 9000 })).toBe(
       2000,
     );
@@ -274,9 +261,6 @@ describe('calcTokenAmount', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Commission & totals
-// ─────────────────────────────────────────────────────────────────────────────
 describe('calcCommission', () => {
   it('splits earnings as subtotal minus commission minus platform fee', () => {
     const result = calcCommission({ subtotal: 799, commissionRate: 10, platformFee: 20 });
@@ -365,7 +349,7 @@ describe('calcCartTotals', () => {
       freeShippingAbove: 999,
     });
     expect(result.taxAmount).toBe(180);
-    expect(result.shippingAmount).toBe(0); // free above 999
+    expect(result.shippingAmount).toBe(0);
     expect(result.total).toBe(1180);
   });
 
@@ -411,9 +395,6 @@ describe('calcShippingCharge', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  State machines
-// ─────────────────────────────────────────────────────────────────────────────
 describe('order state machine', () => {
   it('allows the documented forward transitions', () => {
     expect(canTransitionOrder(ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED)).toBe(true);
@@ -454,9 +435,6 @@ describe('return and ticket state machines', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Slugs & identifiers
-// ─────────────────────────────────────────────────────────────────────────────
 describe('slugs and identifiers', () => {
   it('slugifies names to URL-safe form', () => {
     expect(toSlug('Classic Cotton Shirt')).toBe('classic-cotton-shirt');
@@ -481,9 +459,6 @@ describe('slugs and identifiers', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Errors & validation messages
-// ─────────────────────────────────────────────────────────────────────────────
 describe('AppError', () => {
   it('carries status, code and defaults', () => {
     const err = AppError.notFound('Product not found.', 'NOT_FOUND');
@@ -526,9 +501,6 @@ describe('validation messages', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Error handler integration
-// ─────────────────────────────────────────────────────────────────────────────
 describe('error handler integration', () => {
   it('renders a Zod failure as 400 VALIDATION_ERROR with an empty result', async () => {
     const { errorHandler } = await import('../src/middlewares/error.middleware');

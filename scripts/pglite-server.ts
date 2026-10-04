@@ -1,21 +1,3 @@
-/**
- * PGlite-backed PostgreSQL for local development and integration tests.
- *
- * PGlite is real PostgreSQL (17) compiled to WASM. `pglite-socket` exposes it over
- * a TCP socket speaking the Postgres wire protocol, so Prisma and any standard
- * client connect to it exactly like a real server.
- *
- * Why not a normal Postgres? On machines where antivirus blocks child-process
- * creation (every backend dies with STATUS_DLL_INIT_FAILED / 0xC0000142) the
- * forked server mode is unusable. PGlite runs in-process, so it sidesteps that
- * while still exercising real SQL, real migrations and real constraints.
- *
- * Usage:
- *   npx tsx scripts/pglite-server.ts          # listens on 5432
- *   PORT=5544 npx tsx scripts/pglite-server.ts
- *
- * Then point DATABASE_URL at postgresql://postgres:postgres@127.0.0.1:5432/projectname
- */
 import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 

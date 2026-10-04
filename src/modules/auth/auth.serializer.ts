@@ -3,10 +3,6 @@ import { ACCESS_TOKEN_TTL_SEC } from '../../config/jwt.config';
 import { OTP } from '../../config/otp.config';
 import { AuthUserWithVendor } from './auth.types';
 
-/**
- * Auth serializers.
- * Key order: singles -> objects -> arrays. No nulls anywhere.
- */
 export const serializeAuthUser = (u: any): Record<string, any> => ({
   userId: D.str(u?.id),
   name: D.str(u?.name),
@@ -32,10 +28,6 @@ export const serializeVendorLite = (v: any): Record<string, any> => ({
   commissionRate: D.float(v?.commissionRate),
 });
 
-/**
- * Login / register / refresh response shape.
- * Note the 2FA case: when `twoFactorRequired` is true no tokens are issued.
- */
 export const serializeSession = (
   user: AuthUserWithVendor | any,
   tokens?: { accessToken: string; expiresIn?: number },

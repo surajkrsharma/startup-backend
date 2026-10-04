@@ -6,13 +6,8 @@ import {
   serializeFlashSale,
 } from '../../utils/serialize';
 
-/**
- * Review / coupon / flash-sale serializers.
- */
-
 export { serializeReview, serializeQuestion, serializeCoupon, serializeFlashSale };
 
-/** Review row with the moderation state a shop's inbox needs. */
 export const serializeReviewDetail = (r: any) => {
   const base = serializeReview(r);
 
@@ -42,7 +37,6 @@ export const serializeReviewDetail = (r: any) => {
   };
 };
 
-/** A flash sale with its computed sale prices and live counters. */
 export const serializeFlashSaleDetail = (s: any) => {
   const base = serializeFlashSale(s);
   const now = new Date();
@@ -66,7 +60,7 @@ export const serializeFlashSaleDetail = (s: any) => {
       const product = i?.product;
       const stock = D.num(i?.saleStock);
       const sold = D.num(i?.soldCount);
-      // A sold-out item is either flagged explicitly or simply out of sale stock.
+
       const soldOut = D.bool(i?.isSoldOut) || stock <= 0;
 
       return {
@@ -110,7 +104,6 @@ export const serializeFlashSaleDetail = (s: any) => {
   };
 };
 
-/** Coupon usage row. */
 export const serializeCouponUsage = (u: any) => ({
   usageId: D.str(u?.id),
   couponId: D.str(u?.couponId),

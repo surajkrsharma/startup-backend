@@ -1,16 +1,3 @@
-/**
- * Drops and recreates the local development database, then applies the single
- * initial migration and re-seeds it.
- *
- * Safe to run repeatedly and safe to abandon: the development database is
- * reproducible from one migration file, which is the whole point of keeping
- * exactly one. A production database must never be touched by this script.
- *
- * Refuses to run when NODE_ENV=production or when DATABASE_URL does not look
- * like a local/dev instance, so a stray call cannot wipe a real database.
- *
- * Usage: npm run db:reset
- */
 import { execFileSync } from 'child_process';
 import dotenv from 'dotenv';
 
@@ -22,7 +9,6 @@ const ADMIN_URL =
 
 const DB_NAME = process.env.PGLITE_RESET_DB ?? 'projectname_test';
 
-/** Refuses anything that is not unmistakably a local database. */
 const assertSafe = (): void => {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to reset: NODE_ENV=production.');
@@ -39,10 +25,6 @@ const assertSafe = (): void => {
     throw new Error(`Refusing to reset a remote host: ${url.replace(/:[^:@/]+@/, ':***@')}`);
   }
 
-  /**
-   * A bare dpg-* hostname is Render's *internal* Postgres. It has no dot, so the check above
-   * misses it — but it is production, not local.
-   */
   if (/^postgresql?:\/\/[^@/]*@dpg-/i.test(url)) {
     throw new Error(
       `Refusing to reset Render's internal database: ${url.replace(/:[^:@/]+@/, ':***@')}`,

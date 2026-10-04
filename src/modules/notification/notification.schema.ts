@@ -8,8 +8,6 @@ import { D } from '../../utils/defaults';
 
 const id = common.cuid;
 
-// ─── Notification ─────────────────────────────────────────────────────────────
-
 export const listNotificationsSchema = z
   .object({
     type: z
@@ -29,7 +27,6 @@ export const markReadSchema = z
   })
   .strict();
 
-/** PATCH /notifications/preferences */
 export const preferencesSchema = z
   .object({
     preferences: z
@@ -47,8 +44,6 @@ export const preferencesSchema = z
   })
   .strict();
 
-// ─── Chat ─────────────────────────────────────────────────────────────────────
-
 export const listConversationsSchema = z
   .object({
     isArchived: z.enum(['true', 'false']).optional(),
@@ -56,7 +51,6 @@ export const listConversationsSchema = z
   .merge(paginationSchema)
   .strict();
 
-/** POST /chat/startConversation — a customer opens a thread with a shop. */
 export const startConversationSchema = z
   .object({
     vendorId: id,
@@ -65,7 +59,6 @@ export const startConversationSchema = z
   })
   .strict();
 
-/** POST /chat/sendMessage — the thread is named in the body, there is no path param. */
 export const sendMessageSchema = z
   .object({
     conversationId: id,
@@ -74,7 +67,6 @@ export const sendMessageSchema = z
   })
   .strict();
 
-/** PATCH /chat/markRead/:conversationId */
 export const readConversationSchema = z
   .object({
     lastReadAt: common.dateString.optional(),
@@ -83,13 +75,8 @@ export const readConversationSchema = z
 
 export const conversationIdParamSchema = z.object({ conversationId: id });
 
-/** POST /chat/unblock/:id */
 export const unblockIdParamSchema = z.object({ id });
 
-/**
- * POST /chat/blockUser/:userId — the target is the path param, so the body only
- * carries the optional reason.
- */
 export const blockUserSchema = z
   .object({
     reason: z.string().trim().max(500).optional(),
@@ -97,8 +84,6 @@ export const blockUserSchema = z
   .strict();
 
 export const blockIdParamSchema = z.object({ userId: id });
-
-// ─── Ticket ───────────────────────────────────────────────────────────────────
 
 export const listTicketsSchema = z
   .object({
@@ -111,7 +96,6 @@ export const listTicketsSchema = z
   .merge(paginationSchema)
   .strict();
 
-/** POST /tickets/createTicket */
 export const createTicketSchema = z
   .object({
     subject: z
@@ -126,16 +110,14 @@ export const createTicketSchema = z
   })
   .strict();
 
-/** POST /tickets/:id/reply */
 export const replyTicketSchema = z
   .object({
     message: z.string().trim().min(1, ERROR.TICKET.MESSAGE_REQUIRED).max(NAME.COMMENT_MAX_LENGTH),
-    /** Staff-only note, hidden from the customer. */
+
     isInternal: z.boolean().optional().default(false),
   })
   .strict();
 
-/** PATCH /tickets/:id/status */
 export const ticketStatusSchema = z
   .object({
     status: z.nativeEnum(TicketStatus),
@@ -143,14 +125,12 @@ export const ticketStatusSchema = z
   })
   .strict();
 
-/** PATCH /tickets/:id/assign — admin */
 export const assignTicketSchema = z
   .object({
     assignedToId: id.optional(),
   })
   .strict();
 
-/** POST /tickets/categories — admin */
 export const ticketCategorySchema = z
   .object({
     name: z.string().trim().min(2, VALIDATION.MIN_LENGTH('name', 2)).max(NAME.TITLE_MAX_LENGTH),
@@ -161,7 +141,6 @@ export const ticketCategorySchema = z
 
 export const ticketIdParamSchema = z.object({ id });
 
-/** POST /admin/notifications/broadcast — admin */
 export const broadcastSchema = z
   .object({
     userIds: z.array(id).max(5000).optional(),
@@ -172,7 +151,7 @@ export const broadcastSchema = z
     title: z.string().trim().min(2, VALIDATION.MIN_LENGTH('title', 2)).max(120),
     body: z.string().trim().max(1000).optional(),
     data: z.record(z.unknown()).optional(),
-    /** Send to every active user when no explicit list is given. */
+
     toAll: z.boolean().optional().default(false),
   })
   .strict()
@@ -180,7 +159,6 @@ export const broadcastSchema = z
     message: 'Provide userIds or set toAll.',
   });
 
-/** POST /notifications/registerDevice and /notifications/unregisterDevice */
 export const deviceTokenSchema = z
   .object({
     deviceId: z.string().trim().min(4, VALIDATION.REQUIRED('deviceId')).max(120),
@@ -189,7 +167,6 @@ export const deviceTokenSchema = z
   })
   .strict();
 
-/** Notification template create / update. */
 export const templateSchema = z
   .object({
     key: z.string().trim().min(2, VALIDATION.REQUIRED('key')).max(80),

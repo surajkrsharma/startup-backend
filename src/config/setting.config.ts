@@ -1,6 +1,4 @@
-/** Every `SystemSetting.key` the code reads by name. */
 export const SETTING_KEY = {
-  // general
   SITE_NAME: 'site.name',
   SITE_LOGO: 'site.logo',
   SITE_TAGLINE: 'site.tagline',
@@ -11,7 +9,6 @@ export const SETTING_KEY = {
   SITE_ADDRESS_LINE: 'site.addressLine',
   SITE_MAINTENANCE_IMAGE: 'site.maintenanceImage',
 
-  // locale / currency
   CURRENCY_CODE: 'currency.code',
   CURRENCY_SYMBOL: 'currency.symbol',
   CURRENCY_DECIMALS: 'currency.decimals',
@@ -21,14 +18,12 @@ export const SETTING_KEY = {
   DATE_FORMAT: 'date.format',
   TIME_FORMAT: 'time.format',
 
-  // business
   COMMISSION_DEFAULT: 'commission.default',
   COMMISSION_MIN_PERCENT: 'commission.minPercent',
   COMMISSION_MAX_PERCENT: 'commission.maxPercent',
   TAX_DEFAULT_GST_PERCENT: 'tax.defaultGstPercent',
   TAX_INCLUSIVE: 'tax.inclusive',
 
-  // order
   ORDER_MIN_AMOUNT: 'order.minAmount',
   ORDER_MAX_ITEMS: 'order.maxItems',
   ORDER_CANCEL_WINDOW_MIN: 'order.cancelWindowMin',
@@ -38,7 +33,6 @@ export const SETTING_KEY = {
   ORDER_MAX_PER_CUSTOMER_PER_DAY: 'order.maxPerCustomerPerDay',
   ORDER_SHOW_VENDOR_SPLIT: 'order.showVendorSplit',
 
-  // payment — cod / upi / bank
   PAYMENT_COD_ENABLED: 'payment.cod.enabled',
   PAYMENT_UPI_ENABLED: 'payment.upi.enabled',
   PAYMENT_BANK_ENABLED: 'payment.bank.enabled',
@@ -53,7 +47,6 @@ export const SETTING_KEY = {
   PAYMENT_RAZORPAY_KEY_ID: 'payment.razorpay.keyId',
   PAYMENT_RAZORPAY_WEBHOOK_SECRET: 'payment.razorpay.webhookSecret',
 
-  // payment — token / advance
   PAYMENT_TOKEN_ENABLED: 'payment.token.enabled',
   PAYMENT_TOKEN_MODE: 'payment.token.mode',
   PAYMENT_TOKEN_PERCENT: 'payment.token.percent',
@@ -70,7 +63,6 @@ export const SETTING_KEY = {
   PAYMENT_TOKEN_FORFEIT_ON_NO_PAY: 'payment.token.forfeitOnNoPay',
   PAYMENT_TOKEN_AUTO_CANCEL_AFTER_DUE: 'payment.token.autoCancelAfterDue',
 
-  // shipping
   SHIPPING_ENABLED: 'shipping.enabled',
   SHIPPING_DEFAULT_CHARGE: 'shipping.defaultCharge',
   SHIPPING_FREE_ABOVE: 'shipping.freeAbove',
@@ -79,7 +71,6 @@ export const SETTING_KEY = {
   SHIPPING_MAX_DISTANCE_KM: 'shipping.maxDistanceKm',
   SHIPPING_SERVICEABLE_PINCODES: 'shipping.serviceablePincodes',
 
-  // return / refund
   RETURN_ENABLED: 'return.enabled',
   RETURN_WINDOW_DAYS: 'return.windowDays',
   RETURN_REASON_REQUIRED: 'return.reasonRequired',
@@ -88,7 +79,6 @@ export const SETTING_KEY = {
   REFUND_PROCESSING_DAYS: 'refund.processingDays',
   REFUND_MODE: 'refund.mode',
 
-  // wallet / loyalty
   WALLET_ENABLED: 'wallet.enabled',
   WALLET_MAX_BALANCE: 'wallet.maxBalance',
   WALLET_MIN_REDEEM: 'wallet.minRedeem',
@@ -98,13 +88,11 @@ export const SETTING_KEY = {
   LOYALTY_POINT_VALUE: 'loyalty.pointValue',
   LOYALTY_MIN_REDEEM_POINTS: 'loyalty.minRedeemPoints',
 
-  // coupon
   COUPON_MAX_PER_ORDER: 'coupon.maxPerOrder',
   COUPON_STACKABLE: 'coupon.stackable',
   COUPON_MIN_ORDER_AMOUNT: 'coupon.minOrderAmount',
   COUPON_MAX_DISCOUNT: 'coupon.maxDiscount',
 
-  // features
   FEATURE_REVIEWS: 'feature.reviews',
   FEATURE_WISHLIST: 'feature.wishlist',
   FEATURE_COUPONS: 'feature.coupons',
@@ -125,19 +113,16 @@ export const SETTING_KEY = {
   FEATURE_ANALYTICS: 'feature.analytics',
   FEATURE_TRACKING: 'feature.tracking',
 
-  // catalog
   CATALOG_PRODUCTS_PER_PAGE: 'catalog.productsPerPage',
   CATALOG_SHOW_OUT_OF_STOCK: 'catalog.showOutOfStock',
   CATALOG_ALLOW_BACKORDER: 'catalog.allowBackorder',
   CATALOG_DEFAULT_SORT: 'catalog.defaultSort',
   CATALOG_MAX_IMAGES_PER_PRODUCT: 'catalog.maxImagesPerProduct',
 
-  // cart
   CART_MAX_ITEMS: 'cart.maxItems',
   CART_HOLD_MINUTES: 'cart.holdMinutes',
   CART_PERSIST_ACROSS_DEVICES: 'cart.persistAcrossDevices',
 
-  // vendor / payout
   VENDOR_AUTO_APPROVE: 'vendor.autoApprove',
   VENDOR_MAX_PRODUCTS: 'vendor.maxProducts',
   VENDOR_MIN_PAYOUT_AMOUNT: 'vendor.minPayoutAmount',
@@ -145,7 +130,6 @@ export const SETTING_KEY = {
   VENDOR_PAYOUT_HOLD_DAYS: 'vendor.payoutHoldDays',
   VENDOR_COMMISSION_OVERRIDE_ALLOWED: 'vendor.commissionOverrideAllowed',
 
-  // notification
   NOTIFICATION_EMAIL_ENABLED: 'notification.email.enabled',
   NOTIFICATION_SMS_ENABLED: 'notification.sms.enabled',
   NOTIFICATION_PUSH_ENABLED: 'notification.push.enabled',
@@ -153,7 +137,6 @@ export const SETTING_KEY = {
   NOTIFICATION_ORDER_EVENTS: 'notification.orderEvents',
   NOTIFICATION_TOKEN_BALANCE_REMINDER: 'notification.tokenBalanceReminder',
 
-  // security
   SECURITY_OTP_LOGIN_ENABLED: 'security.otpLoginEnabled',
   SECURITY_TWO_FACTOR_ENABLED: 'security.twoFactorEnabled',
   SECURITY_MAX_LOGIN_ATTEMPTS: 'security.maxLoginAttempts',
@@ -163,14 +146,12 @@ export const SETTING_KEY = {
   SECURITY_REQUIRE_PHONE_VERIFY: 'security.requirePhoneVerify',
   SECURITY_SESSION_DAYS: 'security.sessionDays',
 
-  // system / maintenance
   MAINTENANCE_ENABLED: 'maintenance.enabled',
   MAINTENANCE_MESSAGE: 'maintenance.message',
   MAINTENANCE_ALLOWED_IPS: 'maintenance.allowedIps',
   SYSTEM_ENCRYPTION_ENABLED: 'system.encryptionEnabled',
   SYSTEM_API_RATE_LIMIT_PER_MIN: 'system.apiRateLimitPerMin',
 
-  // app
   APP_MIN_ANDROID_VERSION: 'app.minAndroidVersion',
   APP_FORCE_UPDATE_ANDROID: 'app.forceUpdateAndroid',
   APP_LATEST_ANDROID_VERSION: 'app.latestAndroidVersion',
@@ -179,7 +160,6 @@ export const SETTING_KEY = {
   APP_LATEST_IOS_VERSION: 'app.latestIosVersion',
   APP_UPDATE_MESSAGE: 'app.updateMessage',
 
-  // tracking
   TRACKING_ENABLED: 'tracking.enabled',
   TRACKING_SESSION_TIMEOUT_MIN: 'tracking.sessionTimeoutMin',
   TRACKING_GEO_LOOKUP_ENABLED: 'tracking.geoLookupEnabled',
@@ -189,7 +169,6 @@ export const SETTING_KEY = {
   ANALYTICS_AGGREGATION_CRON: 'analytics.aggregationCron',
   ANALYTICS_EXPORT_MAX_ROWS: 'analytics.exportMaxRows',
 
-  // referral / gift card
   REFERRAL_ENABLED: 'referral.enabled',
   REFERRAL_REFERRER_REWARD: 'referral.referrerReward',
   REFERRAL_REFEREE_REWARD: 'referral.refereeReward',
@@ -199,7 +178,6 @@ export const SETTING_KEY = {
   GIFT_CARD_MAX_AMOUNT: 'giftCard.maxAmount',
   GIFT_CARD_EXPIRY_DAYS: 'giftCard.expiryDays',
 
-  // support
   SUPPORT_TICKET_ENABLED: 'support.ticket.enabled',
   SUPPORT_CHAT_ENABLED: 'support.chat.enabled',
   SUPPORT_CHAT_AUTO_REPLY: 'support.chatAutoReply',

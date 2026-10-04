@@ -1,13 +1,3 @@
-/**
- * Generates a Postman collection (v2.1) plus Local/Live environments from the
- * OpenAPI spec this app already serves.
- *
- * Reading the spec rather than re-deriving from the router is deliberate: the spec is
- * what `/api/v1/docs.json` publishes, so the collection can never drift from the docs,
- * and it inherits the Zod-derived examples without a second converter to maintain.
- *
- * Run: npx tsx scripts/generate-postman.ts [outputDir]
- */
 import 'dotenv/config';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +12,6 @@ const LOCAL_URL = 'http://localhost:5000/api/v1';
 
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 
-/** Folders first: everything else is easier to reach once a session exists. */
 const TAG_ORDER = ['Auth', 'Users', 'Vendors', 'Products', 'Categories', 'Cart', 'Orders'];
 
 type Json = Record<string, any>;
@@ -33,29 +22,17 @@ const uuid = (): string =>
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 
-/**
- * Resolves a local `#/components/schemas/...` pointer against the spec.
- *
- * Walks the pointer segment by segment from the document root. Rewriting the pointer
- * into a bare name and indexing `spec.components` looks equivalent and is not: the
- * schemas live one level deeper, under `components.schemas`, so every `$ref` silently
- * resolved to `undefined` and the request lost its body.
- */
 const resolveRef = (ref: string, spec: Json): Json =>
   ref
     .replace(/^#\//, '')
     .split('/')
     .reduce<any>((node, key) => (node == null ? node : node[key]), spec) ?? {};
 
-/** Collapses `oneOf`/`allOf` so a union request body still produces one usable object. */
 const flatten = (schema: any, spec: Json, depth = 0): Json => {
   if (!schema || depth > 8) return {};
   if (schema.$ref) return flatten(resolveRef(schema.$ref, spec), spec, depth + 1);
 
   if (Array.isArray(schema.oneOf) || Array.isArray(schema.anyOf)) {
-    // First branch: for `/auth/register` that is the CUSTOMER shape, which is the
-    // simplest valid body. Picking a later branch would send shopName to a
-    // CUSTOMER-only endpoint and earn a 400.
     return flatten(schema.oneOf?.[0] ?? schema.anyOf?.[0], spec, depth + 1);
   }
 
@@ -70,12 +47,6 @@ const flatten = (schema: any, spec: Json, depth = 0): Json => {
   return schema;
 };
 
-/**
- * Turns a JSON Schema into a concrete request body.
- *
- * Includes optional properties too, matching what Swagger's own example pane shows,
- * so the collection doubles as a field reference.
- */
 const exampleFor = (schema: any, spec: Json, depth = 0): any => {
   const s = flatten(schema, spec, depth);
   if (!s || depth > 10) return null;
@@ -153,7 +124,6 @@ const bodyFor = (op: Json, spec: Json): Json | undefined => {
   };
 };
 
-/** Renders a schema example as a query-string value. */
 const queryValue = (param: Json): string => {
   const raw = param.example ?? param.schema?.example ?? param.schema?.default;
   if (raw === undefined || raw === null) return '';
@@ -181,12 +151,6 @@ const urlFor = (path: string, op: Json): Json => {
     }
   }
 
-  /*
-   * A documented query param is not automatically a required one. Params the schema
-   * gave no usable value for are kept in the list for discoverability but shipped
-   * disabled, so the generated URL stays clean and a run does not fail on a literal
-   * `sort=string` that no server would accept.
-   */
   const allQuery = (op.parameters ?? []).filter((p: Json) => p.in === 'query');
   const query = allQuery.map((p: Json) => {
     const value = queryValue(p);
@@ -214,13 +178,6 @@ const urlFor = (path: string, op: Json): Json => {
   return url;
 };
 
-/**
- * One collection-level test script instead of 492 copies.
- *
- * It captures whatever a response happens to return, so `{{accessToken}}`,
- * `{{refreshToken}}` and the id-style variables fill themselves in as soon as
- * register/login/refresh has been run once - no per-request wiring to maintain.
- */
 const COLLECTION_TESTS = [
   'const j = pm.response.json();',
   'const r = (j && j.result) || {};',
@@ -273,8 +230,7 @@ const main = (): void => {
         url: urlFor(path, op),
       };
       if (body) request.body = body;
-      // `security: []` is how the spec marks a public endpoint, so it must not inherit
-      // the collection's bearer token.
+
       if (Array.isArray(op.security) && op.security.length === 0) {
         request.auth = { type: 'noauth' };
       }

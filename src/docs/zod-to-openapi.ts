@@ -16,7 +16,6 @@
 
 type Json = Record<string, any>;
 
-/** Zod string check kind -> OpenAPI format. */
 const STRING_FORMATS: Record<string, string> = {
   email: 'email',
   uuid: 'uuid',
@@ -32,16 +31,6 @@ const STRING_FORMATS: Record<string, string> = {
   base64: 'byte',
 };
 
-/**
- * Copies Zod's constraints onto the JSON Schema.
- *
- * `def.checks` is an array of plain records like `{ kind: 'min', value: 2 }` - not
- * ZodCheck instances - so each kind is read directly. Getting this wrong fails
- * silently: the documented field degrades to a bare `{ type: 'string' }` with no
- * bounds, no pattern and no format, and nothing anywhere reports a problem.
- *
- * Returns whether the value is a whole number, so callers can pick integer vs number.
- */
 const describeChecks = (checks: any, json: Json): boolean => {
   if (!Array.isArray(checks)) return false;
 
@@ -56,8 +45,6 @@ const describeChecks = (checks: any, json: Json): boolean => {
     } else if (kind === 'multipleOf') {
       json.multipleOf = value;
     } else if ((kind === 'min' || kind === 'max') && typeof value === 'number') {
-      // Exclusive bounds need the JSON Schema `exclusive*` keywords, otherwise
-      // `positive()` would be documented as "minimum: 0" and admit zero.
       if (check.inclusive === false) {
         if (kind === 'min') json.exclusiveMinimum = value;
         else json.exclusiveMaximum = value;
@@ -79,28 +66,17 @@ const describeChecks = (checks: any, json: Json): boolean => {
   return isInteger;
 };
 
-/**
- * Whether a schema accepts `undefined`, looking through the wrappers that hide it.
- *
- * A bare `typeName === 'ZodOptional'` test is not enough, because the codebase writes
- * `phone = z.string().optional().or(z.literal(''))`. That `.or()` wraps the optional in
- * a ZodUnion, so the field reads as required - and the docs then told callers they had
- * to send a `phone` the server was happy without. Any branch being optional makes the
- * whole schema optional.
- */
 const isOptionalSchema = (schema: any, depth = 0): boolean => {
   const def = schema?._def;
-  // Bounded so a cyclic or self-referential schema cannot spin here.
+
   if (!def || depth > 10) return false;
 
   if (def.typeName === 'ZodOptional' || def.typeName === 'ZodDefault') return true;
 
-  // ZodUnion / ZodDiscriminatedUnion.
   if (Array.isArray(def.options)) {
     return def.options.some((option: any) => isOptionalSchema(option, depth + 1));
   }
 
-  // ZodNullable / ZodReadonly / ZodBranded / ZodEffects.
   if (def.innerType) return isOptionalSchema(def.innerType, depth + 1);
 
   return false;
@@ -141,7 +117,6 @@ const convert = (input: any): Json => {
       return { type: 'string', enum: [...(def.values ?? [])] };
 
     case 'ZodNativeEnum': {
-      // Prisma enums come through as a value -> name map.
       const values = Object.values(def.values ?? {}).filter((v) => typeof v !== 'number');
       return { type: 'string', enum: values };
     }
@@ -164,7 +139,7 @@ const convert = (input: any): Json => {
 
       const json: Json = { type: 'object', properties };
       if (required.length) json.required = required;
-      // `.strict()` means an unknown key is a 400, which is worth documenting.
+
       if (def.unknownKeys === 'strict') json.additionalProperties = false;
       return json;
     }
@@ -186,8 +161,7 @@ const convert = (input: any): Json => {
     case 'ZodOptional':
     case 'ZodNullable': {
       const inner = convert(def.innerType);
-      // OpenAPI 3.0 has no `type: null`, so a nullable field becomes nullable via an
-      // explicit empty enum alongside the real type.
+
       if (typeName === 'ZodNullable') return { ...inner, nullable: true };
       return inner;
     }
@@ -199,17 +173,10 @@ const convert = (input: any): Json => {
       return convert(def.innerType);
 
     case 'ZodEffects':
-      // refine/transform carry no JSON Schema, but the inner type still documents the shape.
       return convert(def.schema);
 
     case 'ZodAny':
     case 'ZodUnknown':
-      /*
-       * Deliberately typeless. `z.any()` is what a hand-written `superRefine` validator
-       * wraps, so the real shape is invisible from here and lives in the hand-written
-       * block. An empty schema marks that as "nothing to say", letting the merge keep
-       * the documented body instead of overwriting it with an invented string type.
-       */
       return {};
 
     case 'ZodNull':
@@ -223,14 +190,6 @@ const convert = (input: any): Json => {
   }
 };
 
-/**
- * A plausible example for a field, chosen from its name.
- *
- * A documented body that says every string is "string" tells a caller nothing about
- * what to send. Matching on the field name gets `email` -> a real address,
- * `pincode` -> six digits, `password` -> something that satisfies the password rules,
- * which is the difference between usable docs and a schema dump.
- */
 const exampleFor = (name: string, schema: any): any => {
   const n = name.toLowerCase();
 
@@ -274,7 +233,6 @@ const exampleFor = (name: string, schema: any): any => {
   if (/city/.test(n)) return 'Mumbai';
   if (/address|city|state|country/.test(n)) return 'Mumbai';
 
-  // Anything named `*id` that looks like a cuid.
   if (/id$/i.test(n) && (schema.maxLength ?? 0) <= 40) return 'clx0000000000000000000000';
   if (/number$/.test(n) && (schema.maxLength ?? 0) <= 40) return 'ORD12345678ABCDEF';
 
@@ -282,12 +240,9 @@ const exampleFor = (name: string, schema: any): any => {
   return 'string';
 };
 
-/** Converts a Zod object schema into an OpenAPI request-body schema, with examples. */
 export const zodToRequestSchema = (schema: any): Json => {
   const json = convert(schema);
 
-  // Walk the tree so nested objects and array items get examples too, not just the
-  // top level fields.
   const decorate = (node: any): void => {
     if (!node || typeof node !== 'object') return;
 
@@ -310,7 +265,6 @@ export const zodToRequestSchema = (schema: any): Json => {
   return json;
 };
 
-/** Converts a Zod object schema into a flat list of OpenAPI parameters. */
 export const zodToParameters = (schema: any, location: 'path' | 'query' | 'header'): Json[] => {
   const json = convert(schema);
   const properties = json.properties ?? {};

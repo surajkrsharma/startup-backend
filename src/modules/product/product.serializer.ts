@@ -5,11 +5,6 @@ import {
   serializeProductList,
 } from '../../utils/serialize';
 
-/**
- * Product serializers.
- * Re-exports the shared catalog serializers so the module has a single import
- * surface, and adds the product-specific shapes used by bulk/stock responses.
- */
 export { serializeProduct, serializeProductSummary, serializeProductList };
 
 export const serializeProductWriteResult = (p: any) => ({

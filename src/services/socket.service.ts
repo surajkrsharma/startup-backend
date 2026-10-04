@@ -1,6 +1,5 @@
 import type { Server as HttpServer } from 'http';
 import { Server as SocketServer, Socket } from 'socket.io';
-import jwt from 'jsonwebtoken';
 import { SOCKET } from '../config/socket.config';
 import { ENV, isProduction } from '../config/env.config';
 import { logger } from './logger.service';
@@ -23,12 +22,6 @@ let io: SocketServer | null = null;
 const socketOrigins = (): string[] =>
   ENV.SOCKET_CORS_ORIGINS.length ? ENV.SOCKET_CORS_ORIGINS : ENV.CORS_ORIGINS;
 
-/**
- * Socket.io realtime layer.
- *
- * Auth is verified on the handshake (JWT), connections join a private
- * `user:<id>` room plus role/vendor rooms, and every broadcast is room-scoped.
- */
 export const initSocket = (server: HttpServer): SocketServer => {
   io = new SocketServer(server, {
     path: '/socket.io',
@@ -49,10 +42,6 @@ export const initSocket = (server: HttpServer): SocketServer => {
       (socket.handshake.headers?.authorization as string)?.replace(/^Bearer\s+/i, '') ||
       (socket.handshake.query?.token as string);
 
-    /**
-     * Socket.IO hands the reason to the client verbatim, so it comes from the message catalogue
-     * rather than an inline literal.
-     */
     if (!token) return next(new Error(ERROR.AUTH.UNAUTHORIZED));
 
     try {
@@ -78,7 +67,6 @@ export const initSocket = (server: HttpServer): SocketServer => {
 
     logger.debug({ userId, socketId: socket.id }, '[socket] connected');
 
-    // ── Order tracking ──────────────────────────────────────────────────────
     socket.on(SOCKET.EMIT.ORDER_JOIN, async (payload: any, ack?: (r: any) => void) => {
       const orderId = String(payload?.orderId ?? '');
       if (!orderId) return ack?.({ success: false });
@@ -95,16 +83,10 @@ export const initSocket = (server: HttpServer): SocketServer => {
       if (orderId) socket.leave(SOCKET.ROOMS.ORDER(orderId));
     });
 
-    // ── Chat ────────────────────────────────────────────────────────────────
     socket.on(SOCKET.EMIT.CHAT_SEND, (payload: any, ack?: (r: any) => void) => {
       const conversationId = String(payload?.conversationId ?? '');
       if (!conversationId) return ack?.({ success: false });
 
-      /**
-       * Routed through the same service the HTTP endpoint uses, so the message is persisted and the
-       * block check runs. Imported lazily because notification.service imports this module for its
-       * emit helpers.
-       */
       void (async () => {
         try {
           const { sendMessage } = await import('../modules/notification/notification.service');
@@ -147,7 +129,6 @@ export const initSocket = (server: HttpServer): SocketServer => {
       });
     });
 
-    // ── Live analytics dashboard ────────────────────────────────────────────
     socket.on(SOCKET.EMIT.ANALYTICS_JOIN, (ack?: (r: any) => void) => {
       if (role === ROLES.SUPER_ADMIN || role === ROLES.SUB_ADMIN) {
         socket.join(SOCKET.ROOMS.ADMIN);
@@ -187,12 +168,10 @@ const canJoinOrder = async (userId: string, role: string, orderId: string): Prom
   return Boolean(order);
 };
 
-/** Sends to one user across all their devices. */
 export const emitToUser = (userId: string, event: string, payload: any): void => {
   io?.to(SOCKET.ROOMS.USER(userId)).emit(event, payload);
 };
 
-/** Sends to every device of a vendor's staff. */
 export const emitToVendor = (vendorId: string, event: string, payload: any): void => {
   io?.to(SOCKET.ROOMS.VENDOR(vendorId)).emit(event, payload);
 };

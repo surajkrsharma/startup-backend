@@ -12,22 +12,11 @@ import { writeActivityLog } from '../../services/audit.service';
 import { isFuture, isPast } from '../../utils/dates';
 import { uniqueFlashSaleSlug } from '../../utils/slug';
 
-/**
- * Reviews, product questions, coupons (admin CRUD) and flash sales.
- *
- * A review is only accepted against a delivered order line, which is what makes
- * the "verified purchase" badge trustworthy. Product aggregates are recomputed
- * from APPROVED reviews only, so moderation is reflected immediately.
- */
-
-// ═══ Review ═══════════════════════════════════════════════════════════════════
-
 const REVIEW_INCLUDE = {
   user: { select: { id: true, name: true, avatarUrl: true } },
   vendor: { select: { id: true, shopName: true, slug: true } },
 } satisfies Prisma.ReviewInclude;
 
-/** A delivered order line proves the reviewer actually bought the product. */
 const findDeliveredOrderItem = async (
   userId: string,
   productId: string,
@@ -61,7 +50,6 @@ export const addReview = async (
 
   if (!product) throw AppError.notFound(ERROR.PRODUCT.NOT_FOUND);
 
-  // A shop rating its own product makes the aggregate meaningless.
   if (product.vendor?.userId === userId) {
     throw AppError.unprocessable(ERROR.REVIEW.OWN_PRODUCT);
   }
@@ -92,10 +80,7 @@ export const addReview = async (
       comment: D.str(input.comment),
       images: D.arr(input.images).map(String),
       isVerified: true,
-      /**
-       * Public listings show APPROVED reviews only, so a new one waits for moderation unless the
-       * shop has no other reviews yet.
-       */
+
       status: ReviewStatus.PENDING,
     },
     include: REVIEW_INCLUDE,
@@ -135,7 +120,7 @@ export const updateReview = async (
       ...(input.title === undefined ? {} : { title: D.str(input.title) }),
       ...(input.comment === undefined ? {} : { comment: D.str(input.comment) }),
       ...(input.images === undefined ? {} : { images: D.arr(input.images).map(String) }),
-      // Edited text needs to clear moderation again.
+
       status: ReviewStatus.PENDING,
     },
     include: REVIEW_INCLUDE,
@@ -195,7 +180,6 @@ export const listReviews = async (
     };
   }
 
-  // "has images" is a post-filter: Prisma cannot express a non-empty array.
   const withImages = D.str(query.withImages) === 'true';
 
   const [all, total] = await Promise.all([
@@ -216,7 +200,6 @@ export const listReviews = async (
   return { rows, total: withImages ? filtered.length : total };
 };
 
-/** Rating breakdown plus the counters a product page shows. */
 export const getReviewSummary = async (productId: string): Promise<Record<string, any>> => {
   const grouped = await prisma.review.groupBy({
     by: ['rating'],
@@ -257,7 +240,6 @@ export const getReviewSummary = async (productId: string): Promise<Record<string
   };
 };
 
-/** Recomputes the denormalised rating on the product row. */
 const recalcProductRating = async (productId: string): Promise<void> => {
   const grouped = await prisma.review.groupBy({
     by: ['rating'],
@@ -282,7 +264,6 @@ const recalcProductRating = async (productId: string): Promise<void> => {
   });
 };
 
-/** Shop-level rating, used on the vendor card. */
 const recalcVendorRating = async (vendorId: string): Promise<void> => {
   const grouped = await prisma.review.groupBy({
     by: ['rating'],
@@ -308,7 +289,6 @@ const recalcVendorRating = async (vendorId: string): Promise<void> => {
   });
 };
 
-/** Approve or reject a pending review. */
 export const moderateReview = async (
   reviewId: string,
   status: string,
@@ -343,7 +323,6 @@ export const moderateReview = async (
   return updated;
 };
 
-/** The selling shop answers a review once. */
 export const replyReview = async (
   vendorId: string,
   reviewId: string,
@@ -375,7 +354,6 @@ export const replyReview = async (
   return updated;
 };
 
-/** Customers mark a review helpful. */
 export const markHelpful = async (reviewId: string, userId: string): Promise<any> => {
   const review = await prisma.review.findUnique({
     where: { id: reviewId },
@@ -392,8 +370,6 @@ export const markHelpful = async (reviewId: string, userId: string): Promise<any
 
   void userId;
 };
-
-// ═══ Question / Answer ════════════════════════════════════════════════════════
 
 const QUESTION_INCLUDE = {
   user: { select: { id: true, name: true } },
@@ -415,10 +391,6 @@ export const askQuestion = async (
 
   if (!product) throw AppError.notFound(ERROR.PRODUCT.NOT_FOUND);
 
-  /**
-   * Questions auto-approve so a shopper is not left waiting; the shop can hide anything it does
-   * not want public.
-   */
   const isApproved = product.vendor?.status === 'APPROVED';
 
   const row = await prisma.question.create({
@@ -457,7 +429,6 @@ export const listQuestions = async (
   if (D.str(query.userId)) where.userId = D.str(query.userId);
   if (D.str(query.vendorId)) where.vendorId = D.str(query.vendorId);
 
-  // A public list only shows approved questions.
   if (!userId && !vendorId) where.isApproved = true;
 
   const [rows, total] = await Promise.all([
@@ -491,7 +462,6 @@ export const answerQuestion = async (
 
   if (!question) throw AppError.notFound(ERROR.QUESTION.NOT_FOUND);
 
-  // The shop that sells the product answers for it; so does any admin.
   const isSeller = question.product?.vendor?.userId === userId;
   if (!isSeller && !req?.auth?.role?.includes('ADMIN')) {
     throw AppError.forbidden(ERROR.PERMISSION.NOT_GRANTED);
@@ -565,8 +535,6 @@ export const deleteQuestion = async (
   });
 };
 
-// ═══ Coupon (admin) ═══════════════════════════════════════════════════════════
-
 export const listCoupons = async (
   query: Record<string, any>,
 ): Promise<{ rows: any[]; total: number }> => {
@@ -619,7 +587,6 @@ export const createCoupon = async (
     throw AppError.conflict('This coupon code already exists.', ERROR_CODE.DUPLICATE);
   }
 
-  // Referenced ids must exist, or the coupon silently never matches.
   const [vendor, products, categories] = await Promise.all([
     D.str(input.vendorId)
       ? prisma.vendorProfile.findUnique({
@@ -690,7 +657,6 @@ export const updateCoupon = async (
 
   if (!existing) throw AppError.notFound(ERROR.COUPON.NOT_FOUND);
 
-  // A code already in use elsewhere cannot be taken over.
   if (input.code && D.str(input.code).toUpperCase() !== existing.code) {
     const clash = await prisma.coupon.findFirst({
       where: { code: D.str(input.code).toUpperCase(), id: { not: couponId } },
@@ -742,7 +708,6 @@ export const updateCoupon = async (
   return row;
 };
 
-/** Coupons are soft-deleted so historical usage stays traceable. */
 export const deleteCoupon = async (
   couponId: string,
   actorId?: string,
@@ -795,7 +760,6 @@ export const toggleCoupon = async (
   return row;
 };
 
-/** Dry-run a coupon against an order value without touching the cart. */
 export const validateCouponOnly = async (
   code: string,
   orderValue: number,
@@ -880,8 +844,6 @@ export const listCouponUsages = async (
   return { rows, total };
 };
 
-// ═══ Flash sale ═══════════════════════════════════════════════════════════════
-
 const SALE_INCLUDE = {
   items: {
     include: {
@@ -902,7 +864,6 @@ const SALE_INCLUDE = {
   },
 } satisfies Prisma.FlashSaleInclude;
 
-/** Sale price from the sale's own rule, capped by an explicit override. */
 const salePriceFor = (product: any, discountType: string, discountValue: number): number => {
   const price = D.float(product?.price);
   const computed =
@@ -1004,7 +965,7 @@ export const createFlashSale = async (
 
           return {
             productId,
-            // Sale stock never exceeds what the shop actually holds.
+
             saleStock: Math.min(D.num(i.saleStock), D.num(priceMap.get(productId))),
             salePrice: computed,
             createdById: D.str(actorId),
@@ -1064,7 +1025,6 @@ export const updateFlashSale = async (
     const discountType = D.str(input.discountType) || sale.discountType;
     const discountValue = D.num(input.discountValue) || sale.discountValue;
 
-    // Items are replaced wholesale so a removed product really leaves the sale.
     await prisma.flashSaleItem.deleteMany({ where: { flashSaleId: saleId } });
 
     await prisma.flashSaleItem.createMany({

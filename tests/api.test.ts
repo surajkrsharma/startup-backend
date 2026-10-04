@@ -3,10 +3,6 @@ import request from 'supertest';
 import express from 'express';
 import { createApp } from '../src/app';
 
-/**
- * Contract tests for the public surface: the health probe, version info,
- * the OpenAPI spec and the 404 envelope. No database is required.
- */
 describe('public API surface', () => {
   let app: express.Application;
 

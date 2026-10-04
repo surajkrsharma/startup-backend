@@ -16,13 +16,6 @@ import { ERROR_CODE, HTTP_STATUS } from '../constants/http';
 import { ERROR } from '../messages/error';
 import { AppError } from '../utils/AppError';
 
-/**
- * Captures device fingerprint, geo and analytics session on every request.
- *
- * The resolved values are attached to `req` (`device`, `geo`, `deviceId`,
- * `sessionKey`, `ip`, `utm`) and the session row is upserted without blocking the
- * response path. Blocked devices are rejected with 403.
- */
 export const tracking: RequestHandler = asyncHandler(async (req, res, next) => {
   const userAgent = String(req.headers['user-agent'] ?? '');
   const parsed: ParsedDevice = parseUserAgent(userAgent);
@@ -47,16 +40,11 @@ export const tracking: RequestHandler = asyncHandler(async (req, res, next) => {
 
   if (!ENV.TRACKING_ENABLED) return next();
 
-  /**
-   * Infra probes (Render health checks) must stay answerable even while Postgres is unreachable,
-   * so they skip the two per-request queries entirely.
-   */
   const probePath = String(req.originalUrl ?? '').split('?')[0];
   if (probePath === `${APP.API_PREFIX}/health` || probePath === `${APP.API_PREFIX}/version`) {
     return next();
   }
 
-  // ── Blocked device enforcement (checked on every request) ──────────────────
   try {
     const device = await prisma.device.findUnique({
       where: { deviceId: req.deviceId },
@@ -67,7 +55,6 @@ export const tracking: RequestHandler = asyncHandler(async (req, res, next) => {
       throw new AppError(ERROR.AUTH.UNAUTHORIZED, HTTP_STATUS.FORBIDDEN, ERROR_CODE.DEVICE_BLOCKED);
     }
 
-    // Fire-and-forget: update lastSeenAt, do not await the response path.
     void prisma.device
       .updateMany({ where: { deviceId: req.deviceId }, data: { lastSeenAt: new Date() } })
       .catch(() => undefined);
@@ -76,7 +63,6 @@ export const tracking: RequestHandler = asyncHandler(async (req, res, next) => {
     /* device lookup failure must not break the request */
   }
 
-  // ── Analytics session resolution ──────────────────────────────────────────
   try {
     req.sessionKey = await resolveSessionKey(req, parsed, ip);
   } catch {
@@ -153,7 +139,6 @@ const resolveSessionKey = async (req: any, parsed: ParsedDevice, ip: string): Pr
   return created.id;
 };
 
-/** Ends the analytics session (explicit `POST /track/session/end`). */
 export const endSession = async (sessionId: string): Promise<boolean> => {
   const updated = await prisma.session.updateMany({
     where: { id: sessionId, isActive: true },

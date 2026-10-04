@@ -14,10 +14,6 @@ import {
 } from '../../utils/slug';
 import { writeAuditLog } from '../../services/audit.service';
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Brand
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const listBrands = async (query: any): Promise<{ rows: any[]; total: number }> => {
   const { limit, skip } = getPagination(query);
   const withCounts = query?.withCounts !== false;
@@ -132,7 +128,7 @@ export const createBrand = async (input: any, req?: any): Promise<any> => {
   return brand;
 };
 
-export const updateBrand = async (id: string, input: any, req?: any): Promise<any> => {
+export const updateBrand = async (id: string, input: any): Promise<any> => {
   await getBrandById(id);
 
   const data: Prisma.BrandUpdateInput = {};
@@ -174,7 +170,6 @@ export const updateBrand = async (id: string, input: any, req?: any): Promise<an
 export const deleteBrand = async (id: string, req?: any): Promise<any> => {
   const brand = await getBrandById(id);
 
-  // Refused while products still reference it.
   if (brand._count.products > 0) {
     throw new AppError(ERROR.BRAND.IN_USE, 409, ERROR_CODE.BRAND_IN_USE);
   }
@@ -195,10 +190,6 @@ export const deleteBrand = async (id: string, req?: any): Promise<any> => {
 
   return { id, name: brand.name };
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Tag
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const listTags = async (query: any): Promise<{ rows: any[]; total: number }> => {
   const { limit, skip } = getPagination(query);
@@ -237,7 +228,7 @@ export const listTags = async (query: any): Promise<{ rows: any[]; total: number
   return { rows, total };
 };
 
-export const createTag = async (input: any, req?: any): Promise<any> =>
+export const createTag = async (input: any): Promise<any> =>
   prisma.tag.create({
     data: {
       name: D.str(input.name),
@@ -305,10 +296,6 @@ export const deleteTag = async (id: string, req?: any): Promise<any> => {
 
   return { id, name: tag.name };
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Attribute
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const listAttributes = async (query: any): Promise<{ rows: any[]; total: number }> => {
   const { limit, skip } = getPagination(query);
@@ -422,7 +409,7 @@ export const createAttribute = async (input: any, req?: any): Promise<any> => {
   return attribute;
 };
 
-export const updateAttribute = async (id: string, input: any, req?: any): Promise<any> => {
+export const updateAttribute = async (id: string, input: any): Promise<any> => {
   await getAttributeById(id);
 
   const data: Prisma.AttributeUpdateInput = {};
@@ -490,10 +477,6 @@ export const deleteAttribute = async (id: string, req?: any): Promise<any> => {
   return { id, name: attribute.name };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Collection
-// ═══════════════════════════════════════════════════════════════════════════
-
 const COLLECTION_SELECT = {
   id: true,
   name: true,
@@ -558,7 +541,6 @@ export const listCollections = async (query: any): Promise<{ rows: any[]; total:
     prisma.collection.count({ where }),
   ]);
 
-  // `products` here is the join table, so flatten it for the serializer.
   return {
     rows: rows.map((row: any) => ({
       ...row,
@@ -682,7 +664,7 @@ export const createCollection = async (input: any, req?: any): Promise<any> => {
   return collection;
 };
 
-export const updateCollection = async (id: string, input: any, req?: any): Promise<any> => {
+export const updateCollection = async (id: string, input: any): Promise<any> => {
   await getCollectionById(id, false);
 
   const data: Prisma.CollectionUpdateInput = {};
@@ -713,7 +695,6 @@ export const updateCollection = async (id: string, input: any, req?: any): Promi
 export const deleteCollection = async (id: string, req?: any): Promise<any> => {
   const collection = await getCollectionById(id, false);
 
-  // Soft delete: the product membership rows are removed so listings stay clean.
   await prisma.$transaction([
     prisma.collectionProduct.deleteMany({ where: { collectionId: id } }),
     prisma.collection.update({
@@ -733,7 +714,6 @@ export const deleteCollection = async (id: string, req?: any): Promise<any> => {
   return { id, name: collection.name };
 };
 
-/** Replaces or appends the membership of a manual collection. */
 export const setCollectionProducts = async (
   id: string,
   productIds: string[],
@@ -749,7 +729,6 @@ export const setCollectionProducts = async (
     );
   }
 
-  // Reject ids that are not live products rather than silently dropping them.
   const valid = await prisma.product.findMany({
     where: { id: { in: productIds }, deletedAt: null },
     select: { id: true },
@@ -794,10 +773,6 @@ export const setCollectionProducts = async (
   return { collectionId: id, productCount: validIds.length };
 };
 
-/**
- * Resolves the products in a collection.
- * MANUAL uses the explicit membership table; DYNAMIC evaluates `rules`.
- */
 export const getCollectionProducts = async (
   id: string,
   query: any,

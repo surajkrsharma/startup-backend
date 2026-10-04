@@ -9,11 +9,6 @@ import {
   serializeWalletTransaction,
 } from '../../utils/serialize';
 
-/**
- * Payment / payout / wallet / return serializers.
- * Re-exports the shared shapes and adds the module-specific projections.
- */
-
 export {
   serializePayment,
   serializeRefund,
@@ -24,7 +19,6 @@ export {
   serializeWalletTransaction,
 };
 
-/** Compact payment row for a list. */
 export const serializePaymentSummary = (p: any) => {
   const base = serializePayment(p);
 
@@ -55,7 +49,6 @@ export const serializePaymentSummary = (p: any) => {
   void base;
 };
 
-/** Payout row with the vendor's settlement details the admin needs. */
 export const serializePayoutDetail = (p: any) => {
   const base = serializePayout(p);
 
@@ -78,7 +71,6 @@ export const serializePayoutDetail = (p: any) => {
   };
 };
 
-/** Wallet ledger entry. */
 export const serializeWalletEntry = (t: any) => ({
   transactionId: D.str(t?.id),
   type: D.str(t?.type),
@@ -91,7 +83,6 @@ export const serializeWalletEntry = (t: any) => ({
   createdAt: D.date(t?.createdAt),
 });
 
-/** Return request enriched with its processing window. */
 export const serializeReturnDetail = (r: any, settlementDays = 0) => {
   const base = serializeReturnRequest(r);
 

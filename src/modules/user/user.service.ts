@@ -4,9 +4,8 @@ import { AppError } from '../../utils/AppError';
 import { D } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE } from '../../constants/http';
-import { ROLES, Role, ADMIN_ACTION, ADDRESS_TYPE } from '../../constants/roles';
+import { Role, ADMIN_ACTION, ADDRESS_TYPE } from '../../constants/roles';
 import { signAccessToken } from '../../utils/crypto';
-import { ACCESS_TOKEN_TTL_SEC } from '../../config/jwt.config';
 import { getPagination } from '../../utils/pagination';
 import { diffChanges, writeActivityLog, writeAuditLog } from '../../services/audit.service';
 import { COUNTRY_CODE, EMAIL_REGEX } from '../../constants/countries';
@@ -37,10 +36,6 @@ const PROFILE_SELECT = {
   createdAt: true,
   updatedAt: true,
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Self profile
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const getProfile = async (userId: string): Promise<any> => {
   const user = await prisma.user.findUnique({
@@ -81,7 +76,7 @@ export const updateProfile = async (
     });
     if (clash) throw AppError.conflict(ERROR.AUTH.EMAIL_EXISTS, ERROR_CODE.EMAIL_EXISTS);
     data.email = email;
-    // Changing the address invalidates the previous verification.
+
     data.isEmailVerified = false;
   }
 
@@ -163,12 +158,10 @@ export const deleteAccount = async (
 
   if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
-  // Vendors must hand their shop over rather than orphan customer orders.
   if (user.vendorProfile) {
     throw AppError.conflict(ERROR.VENDOR.PROFILE_EXISTS, ERROR_CODE.FORBIDDEN);
   }
 
-  // Soft delete keeps order history intact and recoverable.
   const now = new Date();
 
   await prisma.$transaction([
@@ -208,10 +201,6 @@ export const deleteAccount = async (
   return true;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Addresses
-// ═══════════════════════════════════════════════════════════════════════════
-
 const toAddressData = (
   input: AddressWrite,
 ): Omit<Prisma.AddressUncheckedCreateInput, 'userId'> => ({
@@ -247,7 +236,6 @@ export const addAddress = async (userId: string, input: AddressWrite, req?: any)
   const isFirst = existingCount === 0;
 
   const address = await prisma.$transaction(async (tx) => {
-    // Exactly one default: clear the old one, then set the new.
     if (input.isDefault || isFirst) {
       await tx.address.updateMany({ where: { userId }, data: { isDefault: false } });
     }
@@ -315,7 +303,6 @@ export const deleteAddress = async (
 
   if (!existing) throw AppError.notFound(ERROR.ADDRESS.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
-  // An order already points at this address, so refuse rather than break history.
   const usedByOrders = await prisma.order.count({ where: { addressId } });
   if (usedByOrders > 0) {
     throw AppError.conflict(
@@ -326,7 +313,6 @@ export const deleteAddress = async (
 
   await prisma.address.delete({ where: { id: addressId } });
 
-  // Promote another address when the default was removed.
   if (existing.isDefault) {
     const next = await prisma.address.findFirst({
       where: { userId },
@@ -349,11 +335,7 @@ export const deleteAddress = async (
   return true;
 };
 
-export const setDefaultAddress = async (
-  userId: string,
-  addressId: string,
-  req?: any,
-): Promise<any> => {
+export const setDefaultAddress = async (userId: string, addressId: string): Promise<any> => {
   const existing = await prisma.address.findFirst({ where: { id: addressId, userId } });
   if (!existing) throw AppError.notFound(ERROR.ADDRESS.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
@@ -362,10 +344,6 @@ export const setDefaultAddress = async (
     return tx.address.update({ where: { id: addressId }, data: { isDefault: true } });
   });
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Admin — list / read / update / suspend
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const listUsers = async (
   query: any,
@@ -516,7 +494,6 @@ export const toggleUserStatus = async (
 
   if (!before) throw AppError.notFound(ERROR.USER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
-  // Never let an admin lock themselves out.
   if (!input.isActive && req?.auth?.userId === targetUserId) {
     throw AppError.forbidden(ERROR.USER.NOT_ALLOWED, ERROR_CODE.FORBIDDEN);
   }
@@ -556,7 +533,6 @@ export const toggleUserStatus = async (
   return updated;
 };
 
-/** Hard delete, SUPER_ADMIN only — use the soft routes unless this is legally required. */
 export const hardDeleteUser = async (targetUserId: string, req?: any): Promise<boolean> => {
   const user = await prisma.user.findUnique({
     where: { id: targetUserId },
@@ -597,10 +573,6 @@ export const hardDeleteUser = async (targetUserId: string, req?: any): Promise<b
 
   return true;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Activity / orders / impersonation
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const getUserActivity = async (
   targetUserId: string,
@@ -701,10 +673,6 @@ export const getUserOrders = async (
   return { rows, total };
 };
 
-/**
- * Issues a short-lived access token for another user.
- * The impersonation itself is written to the audit trail, including for SUPER_ADMIN.
- */
 export const impersonateUser = async (
   targetUserId: string,
   input: { reason: string; durationMin?: number },

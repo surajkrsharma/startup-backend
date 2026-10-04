@@ -1,22 +1,8 @@
-/**
- * End-to-end HTTP test against a live server + live database.
- *
- * Exercises the real auth flow: register a vendor, log in, refresh the token,
- * read the current user, and verify that admin-only routes reject a vendor.
- *
- * Usage:
- *   npm run db:up      # start PGlite on 5432
- *   npx tsx scripts/e2e-smoke.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 const sendOtp = (identifier: string) =>
@@ -53,17 +39,13 @@ const assertEnvelope = (body: any, expected: boolean): string => {
   return ok ? '' : `keys=${keys.join(',')}`;
 };
 
-/**
- * Unique per run so re-runs never collide on the email/phone unique indexes. E.164 caps a
- * phone at 15 characters: "+7" + runId(9) + 2 digits = 12.
- */
 const runId = Date.now().toString().slice(-9);
 const uniqueEmail = `e2e_${runId}@projectname.com`;
 const uniquePhone = `+7${runId}11`;
 
 const main = async (): Promise<void> => {
   /* eslint-disable no-console */
-  // ── Health ───────────────────────────────────────────────────────────────
+
   const health = await request(app).get('/api/v1/health');
   record(
     'GET /health returns 200 envelope',
@@ -72,7 +54,6 @@ const main = async (): Promise<void> => {
   );
   record('health echoes X-Request-Id', Boolean(health.headers['x-request-id']));
 
-  // ── Database reachable through the app ────────────────────────────────────
   const db = await request(app).get('/api/v1/health/db');
   record(
     'GET /health/db reports database UP',
@@ -80,7 +61,6 @@ const main = async (): Promise<void> => {
     `status=${db.body?.result?.database}`,
   );
 
-  // ── Register a vendor (type: VENDOR) ─────────────────────────────────────
   await sendOtp(uniqueEmail);
 
   const register = await request(app)
@@ -127,7 +107,6 @@ const main = async (): Promise<void> => {
       setCookie.some((c) => c.includes('refreshToken') && /HttpOnly/i.test(c)),
   );
 
-  // ── Login ────────────────────────────────────────────────────────────────
   const login = await request(app)
     .post('/api/v1/auth/login')
     .send({ email: uniqueEmail, password: 'Secret@123' });
@@ -137,7 +116,6 @@ const main = async (): Promise<void> => {
 
   const loginToken = login.body?.result?.accessToken;
 
-  // ── Wrong password must be generic ────────────────────────────────────────
   const badLogin = await request(app)
     .post('/api/v1/auth/login')
     .send({ email: uniqueEmail, password: 'WrongPass@123' });
@@ -149,7 +127,6 @@ const main = async (): Promise<void> => {
   );
   record('failed login returns empty result', JSON.stringify(badLogin.body?.result) === '{}');
 
-  // ── Refresh token rotation ───────────────────────────────────────────────
   const refresh = await request(app)
     .post('/api/v1/auth/refreshToken')
     .send({ refreshToken: extractRefreshCookie(login.headers['set-cookie']) });
@@ -161,7 +138,6 @@ const main = async (): Promise<void> => {
   );
   record('refresh rotates the access token', Boolean(refresh.body?.result?.accessToken));
 
-  // ── Authenticated route ──────────────────────────────────────────────────
   const me = await request(app)
     .get('/api/v1/auth/getMe')
     .set('Authorization', `Bearer ${loginToken}`);
@@ -173,7 +149,6 @@ const main = async (): Promise<void> => {
     me.body?.result?.userData?.email,
   );
 
-  // ── Unauthenticated route ─────────────────────────────────────────────────
   const noAuth = await request(app).get('/api/v1/auth/getMe');
   record(
     'GET /auth/getMe without token -> 401',
@@ -181,7 +156,6 @@ const main = async (): Promise<void> => {
     `status=${noAuth.status}`,
   );
 
-  // ── RBAC: a vendor must not reach admin routes ────────────────────────────
   const adminRoute = await request(app)
     .get('/api/v1/admin/getDashboardStats')
     .set('Authorization', `Bearer ${loginToken}`);
@@ -192,10 +166,6 @@ const main = async (): Promise<void> => {
     `status=${adminRoute.status}`,
   );
 
-  // ── Validation: strict object rejects unknown fields ──────────────────────
-  // Every payload below is otherwise valid, so the ONLY reason it can be rejected is the
-  // extra key. A second problem in the body (a one-character name, say) would make the
-  // 400 pass while testing nothing.
   const unknownField = await request(app)
     .post('/api/v1/auth/register')
     .send({
@@ -214,7 +184,6 @@ const main = async (): Promise<void> => {
     `status=${unknownField.status} msg=${unknownField.body?.message}`,
   );
 
-  // ── Validation: bad email ─────────────────────────────────────────────────
   const badEmail = await request(app).post('/api/v1/auth/register').send({
     type: 'CUSTOMER',
     name: 'Valid Name',
@@ -229,7 +198,6 @@ const main = async (): Promise<void> => {
     `status=${badEmail.status} msg=${badEmail.body?.message}`,
   );
 
-  // ── Validation: invalid register type ─────────────────────────────────────
   const badType = await request(app)
     .post('/api/v1/auth/register')
     .send({
@@ -239,17 +207,12 @@ const main = async (): Promise<void> => {
       password: 'Secret@123',
     });
 
-  /**
-   * The message text is the contract (the code suffix is appended by the error handler), so
-   * assert on the human text rather than the code string.
-   */
   record(
     'invalid type -> 400 "Invalid register type."',
     badType.status === 400 && String(badType.body?.message).startsWith('Invalid register type.'),
     `status=${badType.status} msg=${badType.body?.message}`,
   );
 
-  // ── Validation: vendor without shopName ───────────────────────────────────
   const noShop = await request(app)
     .post('/api/v1/auth/register')
     .send({
@@ -265,7 +228,6 @@ const main = async (): Promise<void> => {
     `status=${noShop.status} msg=${noShop.body?.message}`,
   );
 
-  // ── Validation: a weak password is refused on its own account of the error ──
   const weakPassword = await request(app)
     .post('/api/v1/auth/register')
     .send({
@@ -281,8 +243,6 @@ const main = async (): Promise<void> => {
     `status=${weakPassword.status} msg=${weakPassword.body?.message}`,
   );
 
-  // ── Validation: a smuggled role is refused ─────────────────────────────────
-  // A caller must not be able to make itself an admin by sending an extra key.
   const smuggledEmail = `r_${runId}@projectname.com`;
   await sendOtp(smuggledEmail);
 
@@ -301,7 +261,6 @@ const main = async (): Promise<void> => {
     `status=${smuggledRole.status} msg=${smuggledRole.body?.message}`,
   );
 
-  // ── Duplicate email → 409 ─────────────────────────────────────────────────
   await sendOtp(uniqueEmail);
 
   const dupe = await request(app).post('/api/v1/auth/register').send({
@@ -319,7 +278,6 @@ const main = async (): Promise<void> => {
     `status=${dupe.status} msg=${dupe.body?.message}`,
   );
 
-  // ── Slug collision auto-suffix ────────────────────────────────────────────
   await sendOtp(`e2e2_${runId}@projectname.com`);
 
   const secondVendor = await request(app)
@@ -340,7 +298,6 @@ const main = async (): Promise<void> => {
     `got=${secondVendor.body?.result?.vendorData?.slug} want=${expectedSlug}`,
   );
 
-  // ── Availability check ────────────────────────────────────────────────────
   const availability = await request(app)
     .post('/api/v1/auth/checkAvailability')
     .send({ email: uniqueEmail });
@@ -351,7 +308,6 @@ const main = async (): Promise<void> => {
     `status=${availability.status}`,
   );
 
-  // ── Sessions ─────────────────────────────────────────────────────────────
   const sessions = await request(app)
     .get('/api/v1/auth/sessions')
     .set('Authorization', `Bearer ${loginToken}`);
@@ -362,14 +318,12 @@ const main = async (): Promise<void> => {
     `status=${sessions.status}`,
   );
 
-  // ── Logout ───────────────────────────────────────────────────────────────
   const logout = await request(app)
     .post('/api/v1/auth/logout')
     .set('Authorization', `Bearer ${loginToken}`);
 
   record('POST /auth/logout -> 200', logout.status === 200, `status=${logout.status}`);
 
-  // ── Summary ──────────────────────────────────────────────────────────────
   const failed = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
   if (failed.length) {
@@ -380,7 +334,6 @@ const main = async (): Promise<void> => {
   /* eslint-enable no-console */
 };
 
-// supertest types `set-cookie` as a bare string, but the real header is a list.
 const extractRefreshCookie = (setCookie?: string | string[]): string => {
   if (!setCookie) return '';
   const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];

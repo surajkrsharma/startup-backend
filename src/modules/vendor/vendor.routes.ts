@@ -58,7 +58,6 @@ router.patch(
   controller.updateBankDetails,
 );
 
-/** GET /vendors/getStats — dashboard counters for the vendor's own shop. */
 router.get('/getStats', authenticate, ...controller.guards.own, controller.getStats);
 
 /**
@@ -81,7 +80,6 @@ router.post(
   controller.requestPayout,
 );
 
-/** GET /vendors/getPayoutHistory */
 router.get(
   '/getPayoutHistory',
   authenticate,
@@ -165,7 +163,6 @@ router.get(
   controller.getAll,
 );
 
-/** GET /vendors/getById/:id */
 router.get(
   '/getById/:id',
   authenticate,
@@ -191,7 +188,6 @@ router.patch(
   controller.approveVendor,
 );
 
-/** PATCH /vendors/rejectVendor/:id — `reason` is mandatory. */
 router.patch(
   '/rejectVendor/:id',
   authenticate,
@@ -219,7 +215,6 @@ router.patch(
   controller.suspendVendor,
 );
 
-/** PATCH /vendors/updateCommission/:id — override the default commission rate. */
 router.patch(
   '/updateCommission/:id',
   authenticate,
@@ -228,7 +223,6 @@ router.patch(
   controller.updateCommission,
 );
 
-/** GET /vendors/getDocuments — admin KYC review queue. */
 router.get(
   '/getDocuments',
   authenticate,
@@ -237,7 +231,6 @@ router.get(
   controller.getDocuments,
 );
 
-/** PATCH /vendors/verifyDocuments/:id */
 router.patch(
   '/verifyDocuments/:id',
   authenticate,

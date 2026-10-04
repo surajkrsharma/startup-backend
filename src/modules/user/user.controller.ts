@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { ApiResponse } from '../../utils/ApiResponse';
 import { SUCCESS } from '../../messages/success';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -23,9 +23,6 @@ import {
 const userId = (req: Request): string => req.auth!.userId;
 const adminOnly = requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN);
 
-// ── Self ─────────────────────────────────────────────────────────────────────
-
-/** GET /users/getProfile */
 export const getProfile = asyncHandler(async (req, res) => {
   const user = await service.getProfile(userId(req));
   return ApiResponse.success(res, {
@@ -34,7 +31,6 @@ export const getProfile = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /users/updateProfile */
 export const updateProfile = asyncHandler(async (req, res) => {
   const user = await service.updateProfile(userId(req), req.body, req);
   return ApiResponse.success(res, {
@@ -43,7 +39,6 @@ export const updateProfile = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /users/updateAvatar */
 export const updateAvatar = asyncHandler(async (req, res) => {
   const user = await service.updateAvatar(userId(req), req.body.avatarUrl, req);
   return ApiResponse.success(res, {
@@ -52,7 +47,6 @@ export const updateAvatar = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /users/deleteAccount — soft delete, order history preserved. */
 export const deleteAccount = asyncHandler(async (req, res) => {
   await service.deleteAccount(userId(req), req.body ?? {}, req);
   return ApiResponse.success(res, {
@@ -61,9 +55,6 @@ export const deleteAccount = asyncHandler(async (req, res) => {
   });
 });
 
-// ── Addresses ────────────────────────────────────────────────────────────────
-
-/** GET /users/getAddresses */
 export const getAddresses = asyncHandler(async (req, res) => {
   const rows = await service.listAddresses(userId(req));
   return ApiResponse.paginated(res, {
@@ -75,13 +66,11 @@ export const getAddresses = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /users/addAddress */
 export const addAddress = asyncHandler(async (req, res) => {
   const address = await service.addAddress(userId(req), req.body, req);
   return ApiResponse.created(res, SUCCESS.ADDRESS.ADDED, serializeAddress(address));
 });
 
-/** PATCH /users/updateAddress/:id */
 export const updateAddress = asyncHandler(async (req, res) => {
   const address = await service.updateAddress(userId(req), req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -90,7 +79,6 @@ export const updateAddress = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /users/deleteAddress/:id — soft-scoped, so another user's id simply 404s. */
 export const deleteAddress = asyncHandler(async (req, res) => {
   await service.deleteAddress(userId(req), req.params.id, req);
   return ApiResponse.success(res, {
@@ -99,18 +87,14 @@ export const deleteAddress = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /users/setDefaultAddress/:id */
 export const setDefaultAddress = asyncHandler(async (req, res) => {
-  const address = await service.setDefaultAddress(userId(req), req.params.id, req);
+  const address = await service.setDefaultAddress(userId(req), req.params.id);
   return ApiResponse.success(res, {
     message: SUCCESS.ADDRESS.DEFAULT_SET,
     result: serializeAddress(address),
   });
 });
 
-// ── Admin ────────────────────────────────────────────────────────────────────
-
-/** GET /users/getAll */
 export const getAll = asyncHandler(async (req, res) => {
   const { rows, total, filters } = await service.listUsers(req.query);
   const { limit } = getPagination(req.query);
@@ -132,7 +116,6 @@ export const getAll = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /users/getById/:id */
 export const getById = asyncHandler(async (req, res) => {
   const user = await service.getUserById(req.params.id);
   return ApiResponse.success(res, {
@@ -147,7 +130,6 @@ export const getById = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /users/updateUser/:id */
 export const updateUser = asyncHandler(async (req, res) => {
   const user = await service.updateUser(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -156,7 +138,6 @@ export const updateUser = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /users/toggleStatus/:id */
 export const toggleStatus = asyncHandler(async (req, res) => {
   const user = await service.toggleUserStatus(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -169,7 +150,6 @@ export const toggleStatus = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /users/deleteUser/:id — SUPER_ADMIN only. */
 export const deleteUser = asyncHandler(async (req, res) => {
   await service.hardDeleteUser(req.params.id, req);
   return ApiResponse.success(res, {
@@ -178,7 +158,6 @@ export const deleteUser = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /users/getActivity/:id */
 export const getActivity = asyncHandler(async (req, res) => {
   const { rows, total, filters } = await service.getUserActivity(req.params.id, req.query);
   const { limit } = getPagination(req.query);
@@ -195,7 +174,6 @@ export const getActivity = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /users/getOrders/:id */
 export const getOrders = asyncHandler(async (req, res) => {
   const { rows, total } = await service.getUserOrders(req.params.id, req.query);
   const { limit, page } = getPagination(req.query);
@@ -212,7 +190,6 @@ export const getOrders = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /users/impersonate/:id — SUPER_ADMIN only, always audited. */
 export const impersonate = asyncHandler(async (req, res) => {
   const result = await service.impersonateUser(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -220,8 +197,6 @@ export const impersonate = asyncHandler(async (req, res) => {
     result: serializeImpersonation(result),
   });
 });
-
-// ── Route middleware chains, exported for the router ─────────────────────────
 
 export const guards = {
   self: [],

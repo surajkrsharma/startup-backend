@@ -1,21 +1,8 @@
-/**
- * Live HTTP tests for the user and vendor modules against a real database.
- *
- * Covers: self profile, address CRUD + default promotion, admin user list and
- * status toggle, vendor self profile, KYC upload, admin approve/reject/suspend,
- * commission bounds, and payout validation.
- *
- * Usage: npm run db:restart && npx tsx scripts/e2e-user-vendor.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 interface Check {
@@ -51,15 +38,13 @@ const assertEnvelope = (body: any, expected: boolean): boolean => {
 const run = Date.now().toString().slice(-9);
 const email = (tag: string) => `uv_${tag}_${run}@projectname.com`;
 
-/** Unique per tag *and* per run, so repeated runs never trip the phone unique index. */
 const phoneFor = (tag: string): string => {
   let hash = 0;
   for (let i = 0; i < tag.length; i += 1) hash = (hash * 31 + tag.charCodeAt(i)) % 100;
-  // E.164 caps a phone number at 15 characters: "+7" + run(9) + 2 hash digits = 12.
+
   return `+7${run}${String(hash).padStart(2, '0')}`;
 };
 
-/** Creates a user and returns a live access token. */
 const register = async (
   tag: string,
   type: 'CUSTOMER' | 'VENDOR',
@@ -94,11 +79,6 @@ const main = async (): Promise<void> => {
   const customer = await register('cu', 'CUSTOMER');
   const vendor = await register('ve', 'VENDOR');
 
-  /**
-   * The seed already creates a SUPER_ADMIN; reuse it instead of writing through Prisma here —
-   * the PGlite bridge serves a single connection, so a direct write after HTTP traffic would be
-   * rejected.
-   */
   const adminLogin = await request(app)
     .post('/api/v1/auth/login')
     .send({
@@ -115,7 +95,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(adminLogin.body?.result?.rolesList ?? []),
   );
 
-  // ══ USER: self profile ════════════════════════════════════════════════════
   const profile = await request(app)
     .get('/api/v1/users/getProfile')
     .set('Authorization', `Bearer ${customer.token}`);
@@ -137,7 +116,6 @@ const main = async (): Promise<void> => {
     `status=${noAuthProfile.status}`,
   );
 
-  // ══ USER: update profile ══════════════════════════════════════════════════
   const update = await request(app)
     .patch('/api/v1/users/updateProfile')
     .set('Authorization', `Bearer ${customer.token}`)
@@ -170,7 +148,6 @@ const main = async (): Promise<void> => {
     `status=${unknownField.status} msg=${unknownField.body?.message}`,
   );
 
-  // ══ USER: addresses ═══════════════════════════════════════════════════════
   const addr1 = await request(app)
     .post('/api/v1/users/addAddress')
     .set('Authorization', `Bearer ${customer.token}`)
@@ -277,7 +254,6 @@ const main = async (): Promise<void> => {
     .set('Authorization', `Bearer ${customer.token}`);
   record('DELETE address -> 200', deleteAddr.status === 200, `status=${deleteAddr.status}`);
 
-  // A different customer must not see or touch this customer's address.
   const otherCustomer = await register('ot', 'CUSTOMER');
   const foreignDelete = await request(app)
     .del(`/api/v1/users/deleteAddress/${addressId}`)
@@ -297,7 +273,6 @@ const main = async (): Promise<void> => {
     `len=${(foreignList.body?.result?.addressList ?? []).length}`,
   );
 
-  // ══ USER: admin list ══════════════════════════════════════════════════════
   const listUsers = await request(app)
     .get('/api/v1/users/getAll?page=1&limit=5')
     .set('Authorization', `Bearer ${adminToken}`);
@@ -354,7 +329,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(getById.body?.result?.statsData ?? {}),
   );
 
-  // ══ USER: toggle status ═══════════════════════════════════════════════════
   const suspend = await request(app)
     .patch(`/api/v1/users/toggleStatus/${customer.userId}`)
     .set('Authorization', `Bearer ${adminToken}`)
@@ -390,7 +364,6 @@ const main = async (): Promise<void> => {
     .set('Authorization', `Bearer ${adminToken}`)
     .send({ isActive: true, reason: 'reinstated' });
 
-  // ══ USER: impersonation ═══════════════════════════════════════════════════
   const impersonate = await request(app)
     .post(`/api/v1/users/impersonate/${customer.userId}`)
     .set('Authorization', `Bearer ${adminToken}`)
@@ -432,7 +405,6 @@ const main = async (): Promise<void> => {
     `status=${impersonateNoReason.status}`,
   );
 
-  // ══ VENDOR: own profile ═══════════════════════════════════════════════════
   const vProfile = await request(app)
     .get('/api/v1/vendors/getProfile')
     .set('Authorization', `Bearer ${vendor.token}`);
@@ -455,7 +427,6 @@ const main = async (): Promise<void> => {
     `status=${vByCustomer.status}`,
   );
 
-  // ══ VENDOR: unapproved shop is hidden publicly ════════════════════════════
   const pendingProducts = await request(app).get(`/api/v1/vendors/getProducts/${vendor.vendorId}`);
   record(
     'unapproved vendor products -> 403 VENDOR_NOT_APPROVED',
@@ -464,7 +435,6 @@ const main = async (): Promise<void> => {
     `status=${pendingProducts.status} msg=${pendingProducts.body?.message}`,
   );
 
-  // ══ VENDOR: bank details ═══════════════════════════════════════════════════
   const bankWrongId = await request(app)
     .patch('/api/v1/vendors/updateBankDetails/some-other-vendor')
     .set('Authorization', `Bearer ${vendor.token}`)
@@ -493,7 +463,6 @@ const main = async (): Promise<void> => {
     .send({ bankAccountNo: '000111222333', bankIfsc: 'BAD' });
   record('invalid IFSC -> 400', badIfsc.status === 400, `status=${badIfsc.status}`);
 
-  // ══ VENDOR: payout without approval / earnings ════════════════════════════
   const payoutPending = await request(app)
     .post('/api/v1/vendors/requestPayout')
     .set('Authorization', `Bearer ${vendor.token}`)
@@ -505,7 +474,6 @@ const main = async (): Promise<void> => {
     `status=${payoutPending.status} msg=${payoutPending.body?.message}`,
   );
 
-  // ══ VENDOR: admin approval flow ═══════════════════════════════════════════
   const approveNoDocs = await request(app)
     .patch(`/api/v1/vendors/approveVendor/${vendor.vendorId}`)
     .set('Authorization', `Bearer ${adminToken}`)
@@ -533,7 +501,6 @@ const main = async (): Promise<void> => {
     `status=${reApprove.status} msg=${reApprove.body?.message}`,
   );
 
-  // ══ VENDOR: commission bounds ═════════════════════════════════════════════
   const badCommission = await request(app)
     .patch(`/api/v1/vendors/updateCommission/${vendor.vendorId}`)
     .set('Authorization', `Bearer ${adminToken}`)
@@ -554,7 +521,6 @@ const main = async (): Promise<void> => {
     `status=${goodCommission.status} rate=${goodCommission.body?.result?.commissionRate}`,
   );
 
-  // ══ VENDOR: public endpoints now open ══════════════════════════════════════
   const publicProducts = await request(app).get(`/api/v1/vendors/getProducts/${vendor.vendorId}`);
   record(
     'approved vendor products -> 200',
@@ -583,7 +549,6 @@ const main = async (): Promise<void> => {
     `status=${ratingsMissing.status}`,
   );
 
-  // ══ VENDOR: payout min amount ═════════════════════════════════════════════
   const payoutTooSmall = await request(app)
     .post('/api/v1/vendors/requestPayout')
     .set('Authorization', `Bearer ${vendor.token}`)
@@ -625,7 +590,6 @@ const main = async (): Promise<void> => {
     JSON.stringify(stats.body?.result ?? {}).slice(0, 90),
   );
 
-  // ══ VENDOR: suspend (approved shop, no open orders) ═══════════════════════
   const suspendVendor = await request(app)
     .patch(`/api/v1/vendors/suspendVendor/${vendor.vendorId}`)
     .set('Authorization', `Bearer ${adminToken}`)
@@ -646,7 +610,6 @@ const main = async (): Promise<void> => {
     `status=${suspendedNoReason.status}`,
   );
 
-  // ══ VENDOR: reject flow on a second shop ══════════════════════════════════
   const vendor2 = await register('v2', 'VENDOR');
   const rejectVendor = await request(app)
     .patch(`/api/v1/vendors/rejectVendor/${vendor2.vendorId}`)
@@ -673,7 +636,6 @@ const main = async (): Promise<void> => {
     `status=${rejectNoReason.status}`,
   );
 
-  // ══ VENDOR: admin list + docs queue ════════════════════════════════════════
   const vendorList = await request(app)
     .get('/api/v1/vendors/getAll?limit=50')
     .set('Authorization', `Bearer ${adminToken}`);
@@ -715,7 +677,6 @@ const main = async (): Promise<void> => {
     .send({});
   record('customer cannot approve vendors -> 403', approveDenied.status === 403);
 
-  // ══ Summary ═══════════════════════════════════════════════════════════════
   const failed = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
   if (failed.length) {

@@ -63,7 +63,6 @@ const VENDOR_INCLUDE = {
   kycDocuments: { orderBy: { createdAt: 'desc' } },
 } satisfies Prisma.VendorProfileInclude;
 
-/** Resolves the caller's own vendor profile or throws. */
 export const requireOwnVendor = async (vendorId: string): Promise<any> => {
   const vendor = await prisma.vendorProfile.findUnique({
     where: { id: vendorId },
@@ -82,7 +81,6 @@ const requireVendorRecord = async (vendorId: string): Promise<any> => {
   return vendor;
 };
 
-/** Guard for actions that need an approved shop. */
 export const requireApprovedVendor = async (vendorId: string): Promise<any> => {
   const vendor = await requireVendorRecord(vendorId);
   if (vendor.status !== VENDOR_STATUS.APPROVED) {
@@ -90,10 +88,6 @@ export const requireApprovedVendor = async (vendorId: string): Promise<any> => {
   }
   return vendor;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Profile
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const getOwnProfile = async (vendorId: string): Promise<any> =>
   prisma.vendorProfile.findUnique({
@@ -138,7 +132,6 @@ export const updateProfile = async (
   if (input.panNumber !== undefined) data.panNumber = D.str(input.panNumber).toUpperCase();
   if (input.payoutCycleDays !== undefined) data.payoutCycleDays = Number(input.payoutCycleDays);
 
-  // A slug rename must not collide with another shop.
   if (input.slug !== undefined && D.str(input.slug) !== '') {
     const taken = await prisma.vendorProfile.findFirst({
       where: { slug: D.str(input.slug), NOT: { id: vendorId } },
@@ -186,7 +179,7 @@ export const updateBankDetails = async (
   input: { bankHolderName?: string; bankAccountNo?: string; bankIfsc?: string; upiId?: string },
   req?: any,
 ): Promise<any> => {
-  const before = await requireVendorRecord(vendorId);
+  await requireVendorRecord(vendorId);
 
   const updated = await prisma.vendorProfile.update({
     where: { id: vendorId },
@@ -199,7 +192,6 @@ export const updateBankDetails = async (
     select: VENDOR_SELECT,
   });
 
-  // Sensitive: audit the fields, never the values.
   void writeAuditLog({
     req,
     action: ADMIN_ACTION.UPDATE,
@@ -215,10 +207,6 @@ export const updateBankDetails = async (
 
   return updated;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Admin actions
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const listVendors = async (
   query: any,
@@ -369,7 +357,6 @@ export const suspendVendor = async (
     throw AppError.conflict('Vendor is already suspended.', ERROR_CODE.DUPLICATE);
   }
 
-  // Undelivered sub-orders must be settled before a shop is suspended.
   const openSubOrders = await prisma.subOrder.count({
     where: {
       vendorId,
@@ -395,7 +382,6 @@ export const suspendVendor = async (
     select: { ...VENDOR_SELECT, ...VENDOR_INCLUDE },
   });
 
-  // Hide the shop's products immediately.
   await prisma.product.updateMany({
     where: { vendorId, deletedAt: null },
     data: { status: PRODUCT_STATUS.INACTIVE },
@@ -447,10 +433,6 @@ export const updateCommission = async (
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  KYC documents
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const uploadDocuments = async (
   vendorId: string,
   files: Express.Multer.File[],
@@ -476,7 +458,6 @@ export const uploadDocuments = async (
       });
     }
   } finally {
-    // Cloudinary consumed the temp files, but clean up anything left behind.
     await deleteTempFiles(files);
   }
 
@@ -493,7 +474,6 @@ export const uploadDocuments = async (
     ),
   );
 
-  // First submission flips the flag the admin queue filters on.
   await prisma.vendorProfile.update({
     where: { id: vendorId },
     data: { isDocumentsSubmitted: true },
@@ -601,10 +581,6 @@ export const verifyDocument = async (
 
   return updated;
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Stats & ratings
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const getStats = async (vendorId: string): Promise<any> => {
   await requireVendorRecord(vendorId);
@@ -769,10 +745,6 @@ export const getVendorProducts = async (
   return { rows, total };
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  Earnings & payouts
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const getEarnings = async (vendorId: string, query: any): Promise<any> => {
   await requireVendorRecord(vendorId);
   const { limit } = getPagination(query);
@@ -914,7 +886,6 @@ export const requestPayout = async (
     );
   }
 
-  // Only earnings that have cleared the hold period are claimable.
   const holdDays = await getVendorPayoutHoldDays();
   const cutoff = toDayKey(addDays(-holdDays));
 
@@ -945,7 +916,6 @@ export const requestPayout = async (
     );
   }
 
-  // Consume claimable earnings oldest-first until the requested amount is covered.
   let remaining = money(input.amount);
   const consumeIds: string[] = [];
   const periods = new Set<string>();

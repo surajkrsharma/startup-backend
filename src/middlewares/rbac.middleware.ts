@@ -9,7 +9,6 @@ import { ERROR } from '../messages/error';
 import { ERROR_CODE, HTTP_STATUS } from '../constants/http';
 import { asyncHandler } from '../utils/asyncHandler';
 
-/** Resolves the permission set for a role: DB overrides win over code defaults. */
 export const getRolePermissions = async (role: string): Promise<Permission[]> => {
   const cacheKey = REDIS_KEYS.USER_PERMISSIONS(role);
   const cached = await cacheGet<Permission[]>(cacheKey);
@@ -56,10 +55,6 @@ export const setRolePermissions = async (
   return permissions.length;
 };
 
-/**
- * Permission-based guard. SUPER_ADMIN always passes.
- * Attaches resolved permissions to `req.auth.permissions`.
- */
 export const requirePermission = (...permissions: Permission[]): RequestHandler =>
   asyncHandler(async (req, res, next) => {
     if (!req.auth) {
@@ -93,10 +88,6 @@ export const requirePermission = (...permissions: Permission[]): RequestHandler 
     return next();
   });
 
-/**
- * Vendor scoping guard — ADMIN roles see everything, VENDOR only its own rows.
- * Also rejects a vendor whose profile is not approved when `requireApproved` is set.
- */
 export const vendorScope = (options: { requireApproved?: boolean } = {}): RequestHandler =>
   asyncHandler(async (req, res, next) => {
     if (!req.auth) {
@@ -147,10 +138,6 @@ export const vendorScope = (options: { requireApproved?: boolean } = {}): Reques
     return next();
   });
 
-/**
- * Guards `/:id` ownership: admin may act on anyone, a VENDOR only on rows it owns.
- * `resolver` returns the owning vendorId for the entity (or '' when not found).
- */
 export const ensureOwnership = (
   resolver: (id: string) => Promise<{ vendorId: string; userId?: string } | null>,
 ): RequestHandler =>
@@ -191,7 +178,6 @@ export const ensureOwnership = (
     return next();
   });
 
-/** Convenience: current user id from a validated route. */
 export const currentUserId = (req: any): string => req?.auth?.userId ?? '';
 export const currentVendorId = (req: any): string => req?.auth?.vendorId ?? '';
 export const currentRole = (req: any): string => req?.auth?.role ?? '';

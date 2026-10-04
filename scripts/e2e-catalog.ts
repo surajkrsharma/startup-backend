@@ -1,18 +1,8 @@
-/**
- * Live HTTP tests for the catalog modules: category, brand, tag, attribute and
- * collection — against the real database.
- *
- * Usage: npx tsx scripts/e2e-catalog.ts
- */
 import request from 'supertest';
 import { createApp } from '../src/app';
 
 const app = createApp();
 
-/**
- * Registration only completes once the OTP is verified, and `OTP_STATIC_CODE` makes that
- * code predictable so a suite can run offline with no mail provider configured.
- */
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 const sendOtp = (identifier: string) =>
@@ -52,7 +42,6 @@ const main = async (): Promise<void> => {
     .then((r) => r.body?.result?.accessToken ?? '');
   record('bootstrap admin token', Boolean(adminToken));
 
-  // A customer token for the RBAC checks.
   await sendOtp(`ct_${run}@projectname.com`);
 
   const customer = await request(app)
@@ -68,7 +57,6 @@ const main = async (): Promise<void> => {
   const customerToken = customer.body?.result?.accessToken ?? '';
   record('bootstrap customer token', Boolean(customerToken));
 
-  // A vendor with products, so we can test "in use" guards.
   await sendOtp(`ctv_${run}@projectname.com`);
 
   const vendor = await request(app)
@@ -90,7 +78,6 @@ const main = async (): Promise<void> => {
     .set('Authorization', `Bearer ${adminToken}`)
     .send({});
 
-  // ══ CATEGORY ═══════════════════════════════════════════════════════════════
   const catRoot = await request(app)
     .post('/api/v1/categories/createCategory')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -151,7 +138,6 @@ const main = async (): Promise<void> => {
     .send({ name: `Orphan ${run}`, parentId: 'does-not-exist' });
   record('unknown parentId -> 404', badParent.status === 404, `status=${badParent.status}`);
 
-  // Tree + list
   const catList = await request(app).get('/api/v1/categories/getAll?limit=50');
   record('GET /categories/getAll -> 200', catList.status === 200, `status=${catList.status}`);
   record(
@@ -202,8 +188,6 @@ const main = async (): Promise<void> => {
   const catMissing = await request(app).get('/api/v1/categories/getById/nope');
   record('unknown category -> 404', catMissing.status === 404, `status=${catMissing.status}`);
 
-  // The slug route used to reuse the getById handler, which read req.params.id and
-  // so looked up an undefined id. It needs its own coverage.
   const catSlug = String(catById.body?.result?.slug ?? '');
   const catBySlug = await request(app).get(`/api/v1/categories/getBySlug/${catSlug}`);
   record(
@@ -225,7 +209,6 @@ const main = async (): Promise<void> => {
     `status=${catSlugMissing.status}`,
   );
 
-  // Update + cycle guard
   const catUpdated = await request(app)
     .patch(`/api/v1/categories/updateCategory/${rootId}`)
     .set('Authorization', `Bearer ${adminToken}`)
@@ -256,7 +239,6 @@ const main = async (): Promise<void> => {
     `status=${cycle.status}`,
   );
 
-  // Delete guards
   const delParent = await request(app)
     .del(`/api/v1/categories/deleteCategory/${rootId}`)
     .set('Authorization', `Bearer ${adminToken}`);
@@ -266,7 +248,6 @@ const main = async (): Promise<void> => {
     `status=${delParent.status} msg=${delParent.body?.message}`,
   );
 
-  // Attach a product so we can test the "has products" guard.
   const brandRes = await request(app)
     .post('/api/v1/brands/createBrand')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -299,7 +280,6 @@ const main = async (): Promise<void> => {
     `status=${delWithProduct.status} msg=${delWithProduct.body?.message}`,
   );
 
-  // Reorder
   const extraCats = await Promise.all(
     [1, 2].map(async (i) => {
       const r = await request(app)
@@ -330,7 +310,6 @@ const main = async (): Promise<void> => {
     `status=${reorderBad.status}`,
   );
 
-  // Bulk create
   const bulkCat = await request(app)
     .post('/api/v1/categories/bulkCreate')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -348,7 +327,6 @@ const main = async (): Promise<void> => {
     `ok=${bulkCat.body?.result?.successCount} fail=${bulkCat.body?.result?.failCount}`,
   );
 
-  // Clean up the categories that have no products/children.
   for (const id of [...extraCats]) {
     await request(app)
       .del(`/api/v1/categories/deleteCategory/${id}`)
@@ -363,7 +341,6 @@ const main = async (): Promise<void> => {
     `status=${delLeaf.status}`,
   );
 
-  // ══ BRAND ══════════════════════════════════════════════════════════════════
   record('POST /brands/createBrand -> 201', brandRes.status === 201, `status=${brandRes.status}`);
   const brandList = await request(app).get('/api/v1/brands/getAll?limit=50');
   record(
@@ -405,7 +382,6 @@ const main = async (): Promise<void> => {
     .send({ name: 'B', logo: 'not-a-url' });
   record('invalid logo url -> 400', brandBad.status === 400, `status=${brandBad.status}`);
 
-  // ══ TAG ════════════════════════════════════════════════════════════════════
   const tag = await request(app)
     .post('/api/v1/tags/createTag')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -445,7 +421,6 @@ const main = async (): Promise<void> => {
     `ok=${bulkTags.body?.result?.successCount}`,
   );
 
-  // ══ ATTRIBUTE ══════════════════════════════════════════════════════════════
   const attr = await request(app)
     .post('/api/v1/attributes/createAttribute')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -511,7 +486,6 @@ const main = async (): Promise<void> => {
     .set('Authorization', `Bearer ${adminToken}`);
   record('delete unused attribute -> 200', attrDel.status === 200, `status=${attrDel.status}`);
 
-  // ══ COLLECTION ════════════════════════════════════════════════════════════
   const manual = await request(app)
     .post('/api/v1/collections/createCollection')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -628,7 +602,6 @@ const main = async (): Promise<void> => {
     `status=${collAfterDel.status}`,
   );
 
-  // ══ Summary ═══════════════════════════════════════════════════════════════
   const failed = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
   if (failed.length) {

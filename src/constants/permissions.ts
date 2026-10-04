@@ -1,9 +1,4 @@
-/**
- * Database-backed permission catalogue.
- * `RolePermission` rows in DB override `allowed` defaults at runtime.
- */
 export const PERMISSION = {
-  // Dashboard & system
   DASHBOARD_VIEW: 'dashboard:view',
   SYSTEM_HEALTH_VIEW: 'system:health:view',
   CACHE_CLEAR: 'system:cache:clear',
@@ -14,7 +9,6 @@ export const PERMISSION = {
   SETTINGS_RESET: 'settings:reset',
   FEATURE_TOGGLE: 'settings:feature:toggle',
 
-  // Users
   USER_LIST: 'user:list',
   USER_VIEW: 'user:view',
   USER_UPDATE: 'user:update',
@@ -22,7 +16,6 @@ export const PERMISSION = {
   USER_SUSPEND: 'user:suspend',
   USER_IMPERSONATE: 'user:impersonate',
 
-  // Vendors
   VENDOR_LIST: 'vendor:list',
   VENDOR_VIEW: 'vendor:view',
   VENDOR_UPDATE: 'vendor:update',
@@ -32,27 +25,23 @@ export const PERMISSION = {
   VENDOR_COMMISSION_UPDATE: 'vendor:commission:update',
   VENDOR_KYC_VERIFY: 'vendor:kyc:verify',
 
-  // Catalog
   CATEGORY_MANAGE: 'category:manage',
   BRAND_MANAGE: 'brand:manage',
   TAG_MANAGE: 'tag:manage',
   ATTRIBUTE_MANAGE: 'attribute:manage',
   COLLECTION_MANAGE: 'collection:manage',
 
-  // Products
   PRODUCT_CREATE: 'product:create',
   PRODUCT_UPDATE: 'product:update',
   PRODUCT_DELETE: 'product:delete',
   PRODUCT_VIEW_ALL: 'product:view:all',
 
-  // Orders
   ORDER_LIST: 'order:list',
   ORDER_VIEW: 'order:view',
   ORDER_UPDATE_STATUS: 'order:status:update',
   ORDER_CANCEL: 'order:cancel',
   ORDER_ASSIGN_DELIVERY: 'order:delivery:assign',
 
-  // Payments & payouts
   PAYMENT_LIST: 'payment:list',
   PAYMENT_CONFIRM: 'payment:confirm',
   PAYMENT_REFUND: 'payment:refund',
@@ -61,20 +50,17 @@ export const PERMISSION = {
   PAYOUT_REJECT: 'payout:reject',
   PAYOUT_GENERATE: 'payout:generate',
 
-  // Returns
   RETURN_LIST: 'return:list',
   RETURN_APPROVE: 'return:approve',
   RETURN_REJECT: 'return:reject',
   RETURN_REFUND: 'return:refund',
 
-  // Marketing
   COUPON_MANAGE: 'coupon:manage',
   FLASH_SALE_MANAGE: 'flashsale:manage',
   BANNER_MANAGE: 'banner:manage',
   GIFT_CARD_MANAGE: 'giftcard:manage',
   REFERRAL_MANAGE: 'referral:manage',
 
-  // Content
   REVIEW_MODERATE: 'review:moderate',
   QUESTION_MODERATE: 'question:moderate',
   PAGE_MANAGE: 'page:manage',
@@ -82,7 +68,6 @@ export const PERMISSION = {
   FAQ_MANAGE: 'faq:manage',
   CONTENT_VIEW: 'content:view',
 
-  // Support
   TICKET_LIST: 'ticket:list',
   TICKET_REPLY: 'ticket:reply',
   TICKET_ASSIGN: 'ticket:assign',
@@ -90,14 +75,12 @@ export const PERMISSION = {
   CONTACT_VIEW: 'contact:view',
   NEWSLETTER_MANAGE: 'newsletter:manage',
 
-  // Engagement
   WALLET_ADJUST: 'wallet:adjust',
   LOYALTY_MANAGE: 'loyalty:manage',
   CHAT_VIEW: 'chat:view',
   NOTIFICATION_SEND: 'notification:send',
   NOTIFICATION_TEMPLATE_MANAGE: 'notification:template:manage',
 
-  // Analytics / ops
   ANALYTICS_VIEW: 'analytics:view',
   ANALYTICS_EXPORT: 'analytics:export',
   REPORT_VIEW: 'report:view',
@@ -109,7 +92,6 @@ export const PERMISSION = {
   ACTIVITY_LOG_VIEW: 'activitylog:view',
   TRACKING_VIEW: 'tracking:view',
 
-  // Infra
   BULK_IMPORT: 'bulk:import',
   API_KEY_MANAGE: 'apikey:manage',
   WEBHOOK_MANAGE: 'webhook:manage',
@@ -237,7 +219,6 @@ export const PERMISSION_GROUPS: Record<string, Permission[]> = {
   ],
 };
 
-/** Code-level defaults. SUPER_ADMIN bypasses RBAC entirely. */
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
   SUPER_ADMIN: PERMISSION_VALUES,
   SUB_ADMIN: [

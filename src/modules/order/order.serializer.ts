@@ -10,13 +10,6 @@ import {
   serializePayment,
 } from '../../utils/serialize';
 
-/**
- * Order serializers.
- * Re-export the shared shapes so the module has a single import site, then add
- * the order-specific projections the API contract requires.
- */
-
-/** Sub-order rows in a customer's order list: enough to render a shop card. */
 export const serializeOrderSummary = (o: any) => {
   const base = serializeOrder(o);
 
@@ -65,7 +58,6 @@ export const serializeOrderSummary = (o: any) => {
   void base;
 };
 
-/** A vendor's view of their own slice of an order. */
 export const serializeVendorOrder = (s: any) => {
   const base = serializeSubOrder(s);
   const order = s?.order;
@@ -83,7 +75,7 @@ export const serializeVendorOrder = (s: any) => {
       ? {
           userId: D.str(order.user.id),
           name: D.str(order.user.name),
-          // The phone is only useful to the shop fulfilling it.
+
           phone: D.str(order.user.phone),
         }
       : {},
@@ -104,7 +96,6 @@ export const serializeVendorOrder = (s: any) => {
   };
 };
 
-/** Result of placing an order. */
 export const serializePlaceOrderResult = (order: any, skipped: any[] = []) => {
   const base = serializeOrder(order);
 
@@ -121,7 +112,6 @@ export const serializePlaceOrderResult = (order: any, skipped: any[] = []) => {
   };
 };
 
-/** Public tracking view — deliberately omits customer identity. */
 export const serializeTrackOrder = (o: any) => ({
   orderNumber: D.str(o?.orderNumber),
   status: D.str(o?.status),

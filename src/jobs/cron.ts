@@ -13,7 +13,6 @@ export interface CronDefinition {
   description: string;
 }
 
-/** Single source of truth for `GET /admin/getCronJobs` and `POST /admin/triggerJob`. */
 export const CRON_JOB_LIST: CronDefinition[] = [
   {
     name: 'analytics-rollup',
@@ -52,10 +51,6 @@ export const CRON_JOB_LIST: CronDefinition[] = [
   },
 ];
 
-/**
- * Registers each cron as a BullMQ repeatable job. Repeatable definitions live in
- * Redis, so they survive restarts and are shared across instances.
- */
 export const startCronJobs = async (): Promise<number> => {
   if (!ENV.WORKER_ENABLED) {
     logger.warn('[cron] WORKER_ENABLED=false — scheduled jobs not registered');
@@ -72,7 +67,6 @@ export const startCronJobs = async (): Promise<number> => {
     }
 
     try {
-      // Dedupe: drop any prior definition with the same key before re-adding.
       const existing = (await queue.getRepeatableJobs().catch(() => [])) ?? [];
       for (const job of existing) {
         if (job.name !== definition.job) continue;
@@ -104,11 +98,8 @@ export const startCronJobs = async (): Promise<number> => {
   return registered;
 };
 
-export const stopCronJobs = async (): Promise<void> => {
-  // Repeatable definitions are removed by the queue worker closing; nothing to unwind here.
-};
+export const stopCronJobs = async (): Promise<void> => {};
 
-/** Manual trigger from the admin panel — runs a job immediately. */
 export const triggerCronJob = async (
   name: string,
 ): Promise<{ triggered: boolean; name: string }> => {
@@ -147,7 +138,8 @@ export const listCronJobs = async (): Promise<
           isRegistered = Boolean(match);
           nextRunAt = match?.next ? new Date(match.next).toISOString() : '';
         } catch {
-          /* ignore */
+          isRegistered = false;
+          nextRunAt = '';
         }
       }
 

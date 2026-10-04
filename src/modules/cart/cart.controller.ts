@@ -14,7 +14,6 @@ import {
 
 const userId = (req: Request): string => req.auth!.userId;
 
-/** Coupon details attached to a totals object, for the `couponData` block. */
 const couponExtras = (totals: any): Record<string, any> => ({
   couponCode: D.str(totals?.couponCode),
   couponTitle: D.str(totals?.couponTitle),
@@ -24,7 +23,6 @@ const couponExtras = (totals: any): Record<string, any> => ({
   couponInvalid: D.bool(totals?.couponInvalid),
 });
 
-/** Per-vendor subtotals, mirroring how the order will be split at checkout. */
 const vendorGroups = (totals: any): any[] => {
   const grouped = new Map<
     string,
@@ -48,8 +46,6 @@ const vendorGroups = (totals: any): any[] => {
 
   return Array.from(grouped.values());
 };
-
-// ─── Cart ─────────────────────────────────────────────────────────────────────
 
 /**
  * @openapi
@@ -182,7 +178,7 @@ export const applyCoupon = asyncHandler(async (req, res) => {
  *       200: { description: Coupon removed }
  */
 export const removeCoupon = asyncHandler(async (req, res) => {
-  const { totals } = await service.removeCoupon(userId(req), req);
+  const { totals } = await service.removeCoupon(userId(req));
   return ApiResponse.success(res, {
     message: SUCCESS.CART.COUPON_REMOVED,
     result: serializeCartDetail(await service.getCart(userId(req)), totals, couponExtras(totals)),
@@ -203,11 +199,7 @@ export const removeCoupon = asyncHandler(async (req, res) => {
  *       422: { description: Empty cart, disabled method, or COD over the limit }
  */
 export const estimate = asyncHandler(async (req, res) => {
-  const { totals, address, payment, walletBalance } = await service.estimate(
-    userId(req),
-    req.body,
-    req,
-  );
+  const { totals, address, payment, walletBalance } = await service.estimate(userId(req), req.body);
 
   const stockIssueList = D.arr(totals.lines)
     .filter((l: any) => !l.isAvailable)

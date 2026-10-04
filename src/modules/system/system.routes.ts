@@ -6,7 +6,6 @@ import { packageJson } from '../../config/package.meta';
 
 const router = Router();
 
-/** Mounted at `/api/v1/version`, so this resolves to `GET /api/v1/version`. */
 router.get('/', (_req, res) =>
   ApiResponse.success(res, {
     message: SUCCESS.SYSTEM.VERSION_FETCHED,

@@ -1,15 +1,5 @@
 import { D } from './defaults';
 
-/**
- * Shared serializers.
- *
- * Rules enforced here (applies to every entity serializer in every module):
- *  • Keys are ordered: pagination nums -> single values -> objects -> arrays
- *  • Objects end with the `Data` suffix, arrays with `List`
- *  • Prisma `null` is never emitted — D.* substitutes the type default
- */
-
-/** Pagination numbers come first, always in this exact order. */
 export const paginationFields = (
   totalRecord: number,
   page: number,
@@ -33,26 +23,6 @@ export const paginationFields = (
   };
 };
 
-// ─── Identity ─────────────────────────────────────────────────────────────────
-
-export const serializeUser = (u: any) => ({
-  userId: D.str(u?.id),
-  name: D.str(u?.name),
-  email: D.str(u?.email),
-  phone: D.str(u?.phone),
-  avatarUrl: D.str(u?.avatarUrl),
-  role: D.str(u?.role),
-  isActive: D.bool(u?.isActive),
-  isEmailVerified: D.bool(u?.isEmailVerified),
-  isPhoneVerified: D.bool(u?.isPhoneVerified),
-  isTwoFactorEnabled: D.bool(u?.twoFactorEnabled),
-  loyaltyTier: D.str(u?.loyaltyTier),
-  lastLoginAt: D.date(u?.lastLoginAt),
-  createdAt: D.date(u?.createdAt),
-
-  rolesList: u?.role ? [D.str(u.role)] : [],
-});
-
 export const serializeAddress = (a: any) => ({
   addressId: D.str(a?.id),
   type: D.str(a?.type),
@@ -69,62 +39,7 @@ export const serializeAddress = (a: any) => ({
   pincode: D.str(a?.pincode),
   isDefault: D.bool(a?.isDefault),
   createdAt: D.date(a?.createdAt),
-});
-
-// ─── Vendor ───────────────────────────────────────────────────────────────────
-
-export const serializeVendor = (v: any) => ({
-  vendorId: D.str(v?.id),
-  userId: D.str(v?.userId),
-  shopName: D.str(v?.shopName),
-  slug: D.str(v?.slug),
-  description: D.str(v?.description),
-  logo: D.str(v?.logo),
-  banner: D.str(v?.banner),
-  gstNumber: D.str(v?.gstNumber),
-  panNumber: D.str(v?.panNumber),
-  status: D.str(v?.status),
-  commissionRate: D.float(v?.commissionRate),
-  rating: D.float(v?.rating),
-  ratingCount: D.num(v?.ratingCount),
-  totalSales: D.float(v?.totalSales),
-  pendingAmount: D.float(v?.pendingAmount),
-  payoutCycleDays: D.num(v?.payoutCycleDays),
-  isDocumentsSubmitted: D.bool(v?.isDocumentsSubmitted),
-  isApproved: D.str(v?.status) === 'APPROVED',
-  approvedAt: D.date(v?.approvedAt),
-  rejectedReason: D.str(v?.rejectedReason),
-  createdAt: D.date(v?.createdAt),
-
-  userData: v?.user
-    ? {
-        userId: D.str(v.user.id),
-        name: D.str(v.user.name),
-        email: D.str(v.user.email),
-        phone: D.str(v.user.phone),
-        isActive: D.bool(v.user.isActive),
-      }
-    : {},
-
-  bankData:
-    v?.bankAccountNo || v?.upiId
-      ? {
-          bankHolderName: D.str(v?.bankHolderName),
-          bankAccountNo: D.str(v?.bankAccountNo),
-          bankIfsc: D.str(v?.bankIfsc),
-          upiId: D.str(v?.upiId),
-        }
-      : {},
-
-  documentList: D.arr(v?.kycDocuments).map((d: any) => ({
-    documentId: D.str(d?.id),
-    docType: D.str(d?.docType),
-    fileUrl: D.str(d?.fileUrl),
-    number: D.str(d?.number),
-    isVerified: D.bool(d?.isVerified),
-    remark: D.str(d?.remark),
-    createdAt: D.date(d?.createdAt),
-  })),
+  updatedAt: D.date(a?.updatedAt),
 });
 
 export const serializeKycDocument = (d: any) => ({
@@ -143,34 +58,142 @@ export const serializeKycDocument = (d: any) => ({
         vendorId: D.str(d.vendor.id),
         shopName: D.str(d.vendor.shopName),
         slug: D.str(d.vendor.slug),
+        status: D.str(d.vendor.status),
       }
     : {},
 });
 
-// ─── Catalog ──────────────────────────────────────────────────────────────────
+export const serializeUser = (u: any) => ({
+  userId: D.str(u?.id),
+  name: D.str(u?.name),
+  email: D.str(u?.email),
+  phone: D.str(u?.phone),
+  avatarUrl: D.str(u?.avatarUrl),
+  role: D.str(u?.role),
+  isActive: D.bool(u?.isActive),
+  isEmailVerified: D.bool(u?.isEmailVerified),
+  isPhoneVerified: D.bool(u?.isPhoneVerified),
+  isTwoFactorEnabled: D.bool(u?.twoFactorEnabled),
+  loyaltyTier: D.str(u?.loyaltyTier),
+  lastLoginAt: D.date(u?.lastLoginAt),
+  createdAt: D.date(u?.createdAt),
+  updatedAt: D.date(u?.updatedAt),
+
+  vendorData: u?.vendorProfile
+    ? {
+        vendorId: D.str(u.vendorProfile.id),
+        shopName: D.str(u.vendorProfile.shopName),
+        slug: D.str(u.vendorProfile.slug),
+        status: D.str(u.vendorProfile.status),
+      }
+    : {},
+
+  addressList: D.arr(u?.addresses).map(serializeAddress),
+
+  statsData: u?._count
+    ? {
+        orderCount: D.num(u._count.orders),
+        reviewCount: D.num(u._count.reviews),
+      }
+    : {},
+
+  rolesList: u?.role ? [D.str(u.role)] : [],
+});
+
+/**
+ * Deliberately narrower than `serializeUser`, for places that only need to show
+ * who somebody is — a review author, an activity-log actor, a nested `userData`.
+ * Naming the projection keeps the choice explicit instead of leaving a reader
+ * guessing which of the two user shapes a given endpoint returns.
+ */
+export const serializeUserSummary = (u: any) => ({
+  userId: D.str(u?.id),
+  name: D.str(u?.name),
+  email: D.str(u?.email),
+  phone: D.str(u?.phone),
+  avatarUrl: D.str(u?.avatarUrl),
+  isActive: D.bool(u?.isActive),
+});
+
+export const serializeVendor = (v: any) => ({
+  vendorId: D.str(v?.id),
+  userId: D.str(v?.userId),
+  shopName: D.str(v?.shopName),
+  slug: D.str(v?.slug),
+  description: D.str(v?.description),
+  logo: D.str(v?.logo),
+  banner: D.str(v?.banner),
+  gstNumber: D.str(v?.gstNumber),
+  panNumber: D.str(v?.panNumber),
+  status: D.str(v?.status),
+  isApproved: D.str(v?.status) === 'APPROVED',
+  commissionRate: D.float(v?.commissionRate),
+  payoutCycleDays: D.num(v?.payoutCycleDays),
+  rating: D.float(v?.rating),
+  ratingCount: D.num(v?.ratingCount),
+  totalSales: D.float(v?.totalSales),
+  pendingAmount: D.float(v?.pendingAmount),
+  isDocumentsSubmitted: D.bool(v?.isDocumentsSubmitted),
+  documentsVerifiedAt: D.date(v?.documentsVerifiedAt),
+  approvedAt: D.date(v?.approvedAt),
+  rejectedReason: D.str(v?.rejectedReason),
+  createdAt: D.date(v?.createdAt),
+  updatedAt: D.date(v?.updatedAt),
+
+  userData: v?.user ? serializeUserSummary(v.user) : {},
+
+  bankData: {
+    bankHolderName: D.str(v?.bankHolderName),
+    bankAccountNo: D.str(v?.bankAccountNo),
+    bankIfsc: D.str(v?.bankIfsc),
+    upiId: D.str(v?.upiId),
+    hasBankDetails: Boolean(D.str(v?.bankAccountNo) && D.str(v?.bankIfsc)),
+    hasUpi: Boolean(D.str(v?.upiId)),
+  },
+
+  documentList: D.arr(v?.kycDocuments).map(serializeKycDocument),
+
+  statsData: v?._count
+    ? {
+        productCount: D.num(v._count.products),
+        subOrderCount: D.num(v._count.subOrders),
+        reviewCount: D.num(v._count.reviews),
+      }
+    : {},
+});
 
 export const serializeCategory = (c: any) => ({
   categoryId: D.str(c?.id),
+  parentId: D.str(c?.parentId),
   name: D.str(c?.name),
   slug: D.str(c?.slug),
   description: D.str(c?.description),
   image: D.str(c?.image),
   icon: D.str(c?.icon),
-  parentId: D.str(c?.parentId),
   isActive: D.bool(c?.isActive),
   sortOrder: D.num(c?.sortOrder),
+  productCount: D.num(c?._count?.products),
   createdAt: D.date(c?.createdAt),
+  updatedAt: D.date(c?.updatedAt),
 
-  parentData: c?.parent ? { categoryId: D.str(c.parent.id), name: D.str(c.parent.name) } : {},
+  parentData: c?.parent
+    ? {
+        categoryId: D.str(c.parent.id),
+        name: D.str(c.parent.name),
+        slug: D.str(c.parent.slug),
+      }
+    : {},
 
-  childrenList: D.arr(c?.children).map((child: any) => ({
+  childList: D.arr(c?.children).map((child: any) => ({
     categoryId: D.str(child?.id),
+    parentId: D.str(child?.parentId),
     name: D.str(child?.name),
     slug: D.str(child?.slug),
+    image: D.str(child?.image),
     isActive: D.bool(child?.isActive),
+    sortOrder: D.num(child?.sortOrder),
+    productCount: D.num(child?._count?.products),
   })),
-
-  productCount: D.num(c?._count?.products),
 });
 
 export const serializeBrand = (b: any) => ({
@@ -180,9 +203,9 @@ export const serializeBrand = (b: any) => ({
   logo: D.str(b?.logo),
   description: D.str(b?.description),
   isActive: D.bool(b?.isActive),
-  createdAt: D.date(b?.createdAt),
-
   productCount: D.num(b?._count?.products),
+  createdAt: D.date(b?.createdAt),
+  updatedAt: D.date(b?.updatedAt),
 });
 
 export const serializeTag = (t: any) => ({
@@ -190,9 +213,8 @@ export const serializeTag = (t: any) => ({
   name: D.str(t?.name),
   slug: D.str(t?.slug),
   isActive: D.bool(t?.isActive),
-  createdAt: D.date(t?.createdAt),
-
   productCount: D.num(t?._count?.products),
+  createdAt: D.date(t?.createdAt),
 });
 
 export const serializeAttribute = (a: any) => ({
@@ -205,7 +227,9 @@ export const serializeAttribute = (a: any) => ({
   isFilterable: D.bool(a?.isFilterable),
   isActive: D.bool(a?.isActive),
   sortOrder: D.num(a?.sortOrder),
+  usageCount: D.num(a?._count?.values),
   createdAt: D.date(a?.createdAt),
+  updatedAt: D.date(a?.updatedAt),
 });
 
 export const serializeCollection = (c: any) => ({
@@ -218,9 +242,24 @@ export const serializeCollection = (c: any) => ({
   rules: D.obj(c?.rules),
   isActive: D.bool(c?.isActive),
   sortOrder: D.num(c?.sortOrder),
+  productCount: D.num(c?._count?.products ?? c?.products?.length),
   createdAt: D.date(c?.createdAt),
+  updatedAt: D.date(c?.updatedAt),
 
-  productCount: D.num(c?._count?.products),
+  productList: D.arr(c?.products).map((p: any) => ({
+    productId: D.str(p?.id),
+    name: D.str(p?.name),
+    slug: D.str(p?.slug),
+    price: D.float(p?.price),
+    mrpPrice: D.float(p?.mrpPrice),
+    stock: D.num(p?.stock),
+    isActive: D.str(p?.status) === 'ACTIVE',
+    sortOrder: D.num(p?.sortOrder),
+    imageList: D.arr(p?.images)
+      .slice()
+      .sort((a: any, b: any) => D.num(a?.sortOrder) - D.num(b?.sortOrder))
+      .map((i: any) => D.str(i?.url)),
+  })),
 });
 
 export const serializeProduct = (p: any) => {
@@ -317,7 +356,6 @@ export const serializeProduct = (p: any) => {
   };
 };
 
-/** Compact shape for lists and search results. */
 export const serializeProductSummary = (p: any) => ({
   productId: D.str(p?.id),
   vendorId: D.str(p?.vendorId),
@@ -354,12 +392,10 @@ export const serializeProductList = (rows: any[]) => ({
   productList: D.arr(rows).map(serializeProductSummary),
 });
 
-// ─── Cart / Wishlist ──────────────────────────────────────────────────────────
-
 export const serializeCartItem = (item: any) => ({
   cartItemId: D.str(item?.id),
   productId: D.str(item?.productId),
-  /** Empty string for a plain product line; the variant id when one is chosen. */
+
   variantId: D.str(item?.variantId),
   qty: D.num(item?.qty),
   price: D.float(item?.price),
@@ -413,10 +449,13 @@ export const serializeWishlistItem = (item: any) => ({
   productId: D.str(item?.productId),
   createdAt: D.date(item?.createdAt),
 
-  productData: item?.product ? serializeProductSummary(item.product) : {},
+  productData: item?.product
+    ? {
+        ...serializeProductSummary(item.product),
+        isAvailable: D.num(item.product.stock) > 0,
+      }
+    : {},
 });
-
-// ─── Order ────────────────────────────────────────────────────────────────────
 
 export const serializeOrderItem = (item: any) => ({
   orderItemId: D.str(item?.id),
@@ -557,8 +596,6 @@ export const serializeOrderTimeline = (t: any) => ({
   createdAt: D.date(t?.createdAt),
 });
 
-// ─── Payment / Payout ─────────────────────────────────────────────────────────
-
 export const serializePayment = (p: any) => ({
   paymentId: D.str(p?.id),
   orderId: D.str(p?.orderId),
@@ -657,8 +694,6 @@ export const serializeVendorEarning = (e: any) => ({
   createdAt: D.date(e?.createdAt),
 });
 
-// ─── Return ───────────────────────────────────────────────────────────────────
-
 export const serializeReturnReason = (r: any) => ({
   reasonId: D.str(r?.id),
   title: D.str(r?.title),
@@ -719,8 +754,6 @@ export const serializeReturnRequest = (r: any) => ({
       : {},
   })),
 });
-
-// ─── Engagement ───────────────────────────────────────────────────────────────
 
 export const serializeReview = (r: any) => ({
   reviewId: D.str(r?.id),
@@ -848,8 +881,6 @@ export const serializeBanner = (b: any) => ({
   createdAt: D.date(b?.createdAt),
 });
 
-// ─── Wallet / Loyalty / Referral / Gift card ──────────────────────────────────
-
 export const serializeWalletTransaction = (t: any) => ({
   transactionId: D.str(t?.id),
   type: D.str(t?.type),
@@ -900,8 +931,6 @@ export const serializeGiftCard = (g: any) => ({
   redeemedAt: D.date(g?.redeemedAt),
   createdAt: D.date(g?.createdAt),
 });
-
-// ─── Notification / Chat / Ticket ─────────────────────────────────────────────
 
 export const serializeNotification = (n: any) => ({
   notificationId: D.str(n?.id),
@@ -1010,8 +1039,6 @@ export const serializeTicketCategory = (c: any) => ({
   sortOrder: D.num(c?.sortOrder),
 });
 
-// ─── Content ──────────────────────────────────────────────────────────────────
-
 export const serializePage = (p: any) => ({
   pageId: D.str(p?.id),
   title: D.str(p?.title),
@@ -1068,8 +1095,6 @@ export const serializeNewsletterSubscriber = (s: any) => ({
   unsubscribedAt: D.date(s?.unsubscribedAt),
   createdAt: D.date(s?.createdAt),
 });
-
-// ─── System ───────────────────────────────────────────────────────────────────
 
 export const serializeSystemSetting = (s: any) => ({
   settingId: D.str(s?.id),
@@ -1234,10 +1259,9 @@ export const serializeState = (s: any) => ({
   name: D.str(s?.name),
   countryCode: D.str(s?.countryCode),
   isActive: D.bool(s?.isActive),
-  /** Always present, from the relation count. */
+
   cityCount: D.num(s?._count?.cities),
 
-  // Only rendered when the query asked for `includeCities=true`.
   ...(Array.isArray(s?.cities)
     ? {
         cityList: s.cities.map((c: any) => ({
@@ -1412,7 +1436,6 @@ export const serializeSearchLog = (s: any) => ({
   createdAt: D.date(s?.createdAt),
 });
 
-/** Wraps a plain object into a `xxxList` array. */
 export const listOf = <T>(items: T[], key: string): Record<string, T[]> => ({
   [key]: D.arr(items),
 });

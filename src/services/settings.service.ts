@@ -4,12 +4,6 @@ import { REDIS_KEYS, CACHE_TTL } from '../config/tracking.config';
 import { SETTING_KEY, SETTING_CATEGORY, SettingCategory } from '../config/setting.config';
 import { logger } from './logger.service';
 
-/**
- * Dynamic configuration store (DB `SystemSetting` + Redis cache, 5 min TTL).
- *
- * Code-level defaults live in `src/constants/*`; anything an admin can change at
- * runtime belongs in the DB and is read through this service.
- */
 export const getSetting = async <T>(key: string, fallback: T): Promise<T> => {
   const cacheKey = REDIS_KEYS.SETTING(key);
   const cached = await cacheGet<T>(cacheKey);
@@ -107,7 +101,6 @@ export const getSettingByCategory = async (
   }, {});
 };
 
-/** Client-boot config: every `isPublic` setting, cached for 5 minutes. */
 export const getPublicSettings = async (): Promise<Record<string, any>> => {
   const cacheKey = REDIS_KEYS.SETTING('__public__');
   const cached = await cacheGet<Record<string, any>>(cacheKey);
@@ -130,7 +123,6 @@ export const getPublicSettings = async (): Promise<Record<string, any>> => {
   return payload;
 };
 
-/** Feature flags — `category = feature`, read on every client boot. */
 export const getFeatureFlags = async (): Promise<Record<string, boolean>> => {
   const cacheKey = REDIS_KEYS.SETTING('__features__');
   const cached = await cacheGet<Record<string, boolean>>(cacheKey);
@@ -183,8 +175,6 @@ export const resetSettingsToDefault = async (
   return reset;
 };
 
-// ─── Typed convenience readers (code-level defaults as fallback) ──────────────
-
 export const getCommissionDefault = () => getSetting<number>(SETTING_KEY.COMMISSION_DEFAULT, 10);
 export const getCommissionBounds = async () => ({
   min: await getSetting<number>(SETTING_KEY.COMMISSION_MIN_PERCENT, 0),
@@ -211,11 +201,6 @@ export const getCurrencySymbol = () => getSetting<string>(SETTING_KEY.CURRENCY_S
 export const getCurrencyDecimals = () => getSetting<number>(SETTING_KEY.CURRENCY_DECIMALS, 2);
 export const getSiteName = () => getSetting<string>(SETTING_KEY.SITE_NAME, 'ProjectName');
 
-/**
- * Read sequentially, not via Promise.all: this runs on every request, and a burst of parallel
- * queries needs several pooled connections. Sequential reads keep it to one, which matters on
- * single-connection pools and Render's free tier.
- */
 export const getMaintenanceStatus = async (): Promise<{
   enabled: boolean;
   message: string;

@@ -13,10 +13,6 @@ export type OrderStatus = keyof typeof ORDER_STATUS;
 
 export const ORDER_STATUS_VALUES = Object.values(ORDER_STATUS) as OrderStatus[];
 
-/**
- * Allowed order state machine transitions.
- * Any transition not listed here is rejected with ORDER.INVALID_STATUS_TRANSITION (422).
- */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PENDING_TOKEN, ORDER_STATUS.CANCELLED],
   PENDING_TOKEN: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
@@ -112,7 +108,6 @@ export const SHIPMENT_STATUS_TRANSITIONS: Record<string, string[]> = {
   CANCELLED: [],
 };
 
-/** Statuses after which no further transition is allowed. */
 export const TERMINAL_ORDER_STATUSES: OrderStatus[] = [
   ORDER_STATUS.CANCELLED,
   ORDER_STATUS.RETURNED,
@@ -123,11 +118,6 @@ export const DELIVERED_ORDER_STATUSES: OrderStatus[] = [
   ORDER_STATUS.RETURNED,
 ];
 
-/**
- * Values reported by the health probes. `NOT_CONFIGURED` is distinct from
- * `DOWN` on purpose: an absent Redis is a deliberate choice, an unreachable one
- * is a fault, and the two should not read the same in a dashboard.
- */
 export const HEALTH_STATUS = {
   UP: 'UP',
   DOWN: 'DOWN',
