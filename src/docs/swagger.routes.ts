@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerUiDist from 'swagger-ui-dist';
 import fs from 'fs';
 import path from 'path';
 import { APP } from '../config/app.config';
@@ -132,16 +133,56 @@ const spec = swaggerJsdoc({
 });
 
 /**
+ * Where swagger-ui's own assets are served from.
+ *
+ * The page used to pull CSS and JS from unpkg.com. That works on a developer
+ * machine and fails behind a network that blocks the CDN — the symptom being a
+ * blank /docs page, because the HTML arrives but the bundle never does.
+ *
+ * `swagger-ui-dist` already ships with the app as a dependency of
+ * `swagger-ui-express`, so the exact same files are on disk. Serving them from here
+ * removes the CDN entirely: the docs then work offline, behind a corporate proxy,
+ * and on a network that blocks unpkg.
+ *
+ * Note that `require('swagger-ui-dist')` resolves to the *helpers*
+ * (SwaggerUIBundle, absolutePath, ...), not to a map of assets, so the files are
+ * read from `getAbsoluteFSPath()` rather than imported.
+ */
+const SWAGGER_ASSET_DIR = swaggerUiDist.getAbsoluteFSPath();
+
+const swaggerAsset =
+  (file: string): RequestHandler =>
+  (_req, res) => {
+    const full = path.join(SWAGGER_ASSET_DIR, file);
+
+    if (!fs.existsSync(full)) {
+      res.status(404).json({ status: false, message: 'Not found.', result: {} });
+      return;
+    }
+
+    res
+      .type(file.endsWith('.css') ? 'text/css' : 'application/javascript')
+      .send(fs.readFileSync(full));
+  };
+
+/**
+ * Root-relative paths for the page's own assets.
+ *
+ * Relative ones look right but are not: the page is served from `/api/v1/docs`
+ * with no trailing slash, so a browser resolves `./swagger-ui.css` against the
+ * directory `/api/v1/` and requests `/api/v1/swagger-ui.css`, which is not a
+ * route. Every asset 404s and the page renders blank. Deriving the prefix from
+ * APP.API_PREFIX keeps this correct if the prefix ever changes.
+ */
+const ASSET_BASE = `${APP.API_PREFIX}/docs`;
+
+/**
  * The Swagger UI page, inlined as a string.
  *
  * It used to be a separate `swagger-ui.html` file read with `res.sendFile`. tsc only
  * emits `.ts`, so the HTML never reached `dist/` and every `/docs` request in a built
  * (deployed) app was a 500 — `ENOENT ... dist/docs/swagger-ui.html`. Keeping it here
  * means the compiler carries it into `dist/docs/swagger.routes.js` on its own.
- *
- * It loads swagger-ui-dist from a CDN, so it needs outbound internet. That is fine
- * for the internal API docs; if this ever has to work air-gapped, vendor the three
- * assets instead.
  */
 const SWAGGER_UI_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -149,11 +190,7 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${packageJson.name} API — Swagger UI</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
-      crossorigin="anonymous"
-    />
+    <link rel="stylesheet" href="${ASSET_BASE}/swagger-ui.css" />
     <style>
       body {
         margin: 0;
@@ -166,12 +203,12 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin="anonymous"></script>
+    <script src="${ASSET_BASE}/swagger-ui-bundle.js"></script>
+    <script src="${ASSET_BASE}/swagger-ui-standalone-preset.js"></script>
     <script>
       window.onload = () => {
         window.ui = SwaggerUIBundle({
-          url: './docs.json',
+          url: '${APP.API_PREFIX}/docs.json',
           dom_id: '#swagger-ui',
           deepLinking: true,
           displayRequestDuration: true,
@@ -188,6 +225,10 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
 
 /** Serves Swagger UI at /docs and the raw spec at /docs.json. */
 export const docsRouter = Router();
+
+docsRouter.get('/swagger-ui.css', swaggerAsset('swagger-ui.css'));
+docsRouter.get('/swagger-ui-bundle.js', swaggerAsset('swagger-ui-bundle.js'));
+docsRouter.get('/swagger-ui-standalone-preset.js', swaggerAsset('swagger-ui-standalone-preset.js'));
 
 docsRouter.get('/', (_req, res) => {
   res.type('html').send(SWAGGER_UI_HTML);
