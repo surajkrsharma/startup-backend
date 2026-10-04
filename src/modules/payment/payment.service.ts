@@ -378,7 +378,7 @@ export const initiateRefund = async (
   const amount = D.num(input.amount) || refundable;
 
   if (amount <= 0) {
-    throw AppError.unprocessable('There is nothing left to refund.');
+    throw AppError.unprocessable(ERROR.PAYMENT.NOTHING_TO_REFUND);
   }
 
   if (amount > refundable) {
@@ -427,7 +427,7 @@ export const processRefund = async (
 
   if (!refund) throw AppError.notFound(ERROR.PAYMENT.NOT_FOUND);
   if (refund.status !== PaymentStatus.PENDING) {
-    throw AppError.unprocessable('This refund has already been processed.');
+    throw AppError.unprocessable(ERROR.PAYMENT.REFUND_PROCESSED);
   }
 
   const succeeded = D.str(input.status) === 'PAID';
@@ -719,7 +719,7 @@ export const requestPayout = async (
   const availableTotal = money(available.reduce((sum, e) => sum + D.float(e.netAmount), 0));
 
   if (available.length === 0) {
-    throw AppError.unprocessable('No earnings are available for payout yet.');
+    throw AppError.unprocessable(ERROR.PAYOUT.NO_EARNINGS);
   }
 
   const amount = D.num(input.amount) || availableTotal;
@@ -892,7 +892,7 @@ export const updatePayoutStatus = async (
   }
 
   if (D.str(input.status) === 'REJECTED' && !D.str(input.rejectReason)) {
-    throw AppError.unprocessable('A rejection needs a reason.');
+    throw AppError.unprocessable(ERROR.PAYOUT.REJECTION_REASON_REQUIRED);
   }
 
   const next = D.str(input.status) as PayoutStatus;
@@ -1048,7 +1048,7 @@ export const requestReturn = async (
   const delivered =
     order.status === ORDER_STATUS.DELIVERED || order.status === ORDER_STATUS.RETURNED;
   if (!delivered) {
-    throw AppError.unprocessable('Only a delivered order can be returned.');
+    throw AppError.unprocessable(ERROR.RETURN.ORDER_NOT_DELIVERED);
   }
 
   const deliveredAt = order.deliveredAt ?? order.createdAt;
@@ -1109,7 +1109,7 @@ export const requestReturn = async (
     }
 
     if (D.str(input.subOrderId) && line!.subOrderId !== D.str(input.subOrderId)) {
-      throw AppError.unprocessable('That item does not belong to the chosen vendor.');
+      throw AppError.unprocessable(ERROR.RETURN.VENDOR_MISMATCH);
     }
 
     refundAmount = money(refundAmount + (D.float(line!.total) / line!.qty) * request.qty);
@@ -1120,7 +1120,7 @@ export const requestReturn = async (
     D.str(input.subOrderId) || (vendorIds.size === 1 ? D.str(orderItems[0].subOrderId) : '');
 
   if (vendorIds.size > 1 && !subOrderId) {
-    throw AppError.unprocessable('This order spans several shops — choose which one to return to.');
+    throw AppError.unprocessable(ERROR.RETURN.MULTI_VENDOR_AMBIGUOUS);
   }
 
   const created = await prisma.$transaction(async (tx) => {
@@ -1254,7 +1254,7 @@ export const updateReturnStatus = async (
   }
 
   if (D.str(input.status) === 'REJECTED' && !D.str(input.rejectReason)) {
-    throw AppError.unprocessable('A rejection needs a reason.');
+    throw AppError.unprocessable(ERROR.PAYOUT.REJECTION_REASON_REQUIRED);
   }
 
   if (D.arr(input.itemApproval).length) {

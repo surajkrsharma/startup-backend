@@ -219,7 +219,7 @@ export const adjustPoints = async (
 ): Promise<Record<string, any>> => {
   const amount = D.num(points);
 
-  if (amount === 0) throw AppError.badRequest('Points cannot be zero.');
+  if (amount === 0) throw AppError.badRequest(ERROR.LOYALTY.ZERO_POINTS);
 
   const user = await prisma.user.findFirst({
     where: { id: targetUserId, deletedAt: null },
@@ -283,7 +283,7 @@ const ensureReferralCode = async (userId: string): Promise<string> => {
     return code;
   }
 
-  throw AppError.internal('Could not allocate a referral code.');
+  throw AppError.internal(ERROR.REFERRAL.ALLOCATION_FAILED);
 };
 
 export const getReferralSummary = async (userId: string): Promise<Record<string, any>> => {
@@ -424,8 +424,7 @@ export const completeReferral = async (
 
   if (existing.status !== 'PENDING') throw AppError.unprocessable(ERROR.REFERRAL.EXPIRED);
 
-  if (!existing.refereeId)
-    throw AppError.unprocessable('This referral code has not been applied yet.');
+  if (!existing.refereeId) throw AppError.unprocessable(ERROR.REFERRAL.NOT_APPLIED);
 
   const config = await getReferralConfig();
   const referrerReward = D.float(existing.referrerReward) || config.referrerReward;
@@ -528,7 +527,7 @@ export const expireStaleReferrals = async (): Promise<number> => {
 const giftCardValue = (input: Record<string, any>): number => {
   const value = money(D.float(input.value));
 
-  if (value <= 0) throw AppError.badRequest('Gift card value must be greater than zero.');
+  if (value <= 0) throw AppError.badRequest(ERROR.GIFT_CARD.INVALID_VALUE);
 
   return value;
 };
@@ -594,7 +593,7 @@ export const createGiftCard = async (
 
   if (code) {
     const clash = await prisma.giftCard.findUnique({ where: { code }, select: { id: true } });
-    if (clash) throw AppError.conflict('This gift card code already exists.', ERROR_CODE.DUPLICATE);
+    if (clash) throw AppError.conflict(ERROR.GIFT_CARD.CODE_EXISTS, ERROR_CODE.DUPLICATE);
   } else {
     for (let i = 0; i < 5; i += 1) {
       code = `GC${generateCode(18)}`;
@@ -686,7 +685,7 @@ export const redeemGiftCard = async (
 
   const requested = input.amount === undefined ? D.float(card.value) : money(D.float(input.amount));
 
-  if (requested <= 0) throw AppError.badRequest('Redemption amount must be greater than zero.');
+  if (requested <= 0) throw AppError.badRequest(ERROR.GIFT_CARD.INVALID_REDEEM_AMOUNT);
 
   const applied = Math.min(requested, D.float(card.value));
 

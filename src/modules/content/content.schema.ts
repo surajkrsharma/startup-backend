@@ -1,4 +1,7 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
+import { OPS } from '../../config/app.config';
 import { WebhookProvider } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
 import { NAME } from '../../config/password.config';
@@ -142,7 +145,7 @@ const bannerWindowValid = (v: { startsAt?: Date | string; endsAt?: Date | string
 
 export const createBannerSchema = bannerBody.superRefine((v, ctx) => {
   if (!bannerWindowValid(v as any)) {
-    ctx.addIssue({ code: 'custom', message: 'Banner end time must be after start time.' });
+    ctx.addIssue({ code: 'custom', message: ERROR.BANNER.INVALID_WINDOW });
   }
 });
 
@@ -151,7 +154,7 @@ export const updateBannerSchema = bannerBody.partial().superRefine((v, ctx) => {
     ctx.addIssue({ code: 'custom', message: VALIDATION.INVALID_JSON });
   }
   if (!bannerWindowValid(v as any)) {
-    ctx.addIssue({ code: 'custom', message: 'Banner end time must be after start time.' });
+    ctx.addIssue({ code: 'custom', message: ERROR.BANNER.INVALID_WINDOW });
   }
 });
 
@@ -465,7 +468,7 @@ export const sendCampaignSchema = z
 
 export const bulkRowsSchema = z
   .object({
-    rows: z.array(z.record(z.unknown())).min(1, VALIDATION.REQUIRED('rows')).max(5000),
+    rows: z.array(z.record(z.unknown())).min(1, VALIDATION.REQUIRED('rows')).max(OPS.BULK_MAX_ROWS),
 
     continueOnError: z.boolean().optional().default(false),
   })

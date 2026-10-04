@@ -5,6 +5,7 @@ import swaggerUiDist from 'swagger-ui-dist';
 import fs from 'fs';
 import path from 'path';
 import { APP } from '../config/app.config';
+import { ERROR } from '../messages/error';
 import { packageJson } from '../config/package.meta';
 import { SERVER_SCHEMA } from './schemas';
 import { buildFromRouter } from './swagger.generate';
@@ -291,7 +292,7 @@ const swaggerAsset =
     const full = path.join(SWAGGER_ASSET_DIR, file);
 
     if (!fs.existsSync(full)) {
-      res.status(404).json({ status: false, message: 'Not found.', result: {} });
+      res.status(404).json({ status: false, message: ERROR.COMMON.NOT_FOUND, result: {} });
       return;
     }
 

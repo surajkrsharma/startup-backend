@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { PAYMENT_METHOD } from '../../constants/roles';
 import { VALIDATION } from '../../messages/validation';
 import { COUPON_CODE_REGEX } from '../../constants/countries';
@@ -34,7 +36,7 @@ export const removeItemSchema = z
   })
   .strict()
   .refine((v) => Boolean(v.id || v.productId), {
-    message: 'Provide id or productId.',
+    message: ERROR.CART.ITEM_IDENTIFIER_REQUIRED,
   });
 
 export const applyCouponSchema = z

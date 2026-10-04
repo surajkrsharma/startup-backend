@@ -3,7 +3,7 @@ import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
 import { D, money } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
-import { ERROR_CODE } from '../../constants/http';
+import { ERROR_CODE, HTTP_STATUS } from '../../constants/http';
 import { COUNTRIES } from '../../constants/countries';
 import { CURRENCY } from '../../config/currency.config';
 import { generateCode, uniquePageSlug, uniqueBlogSlug, uniqueBannerSlug } from '../../utils/slug';
@@ -368,7 +368,7 @@ export const createBanner = async (input: Record<string, any>, req?: any): Promi
     D.str(input.endsAt) &&
     new Date(D.str(input.endsAt)) <= new Date(D.str(input.startsAt))
   ) {
-    throw AppError.unprocessable('Banner end time must be after start time.');
+    throw AppError.unprocessable(ERROR.BANNER.INVALID_WINDOW);
   }
 
   const slug = await uniqueBannerSlug(D.str(input.slug) || D.str(input.title));
@@ -427,7 +427,7 @@ export const updateBanner = async (
   const nextEnd = endsAt === undefined ? current?.endsAt : endsAt;
 
   if (nextStart && nextEnd && nextEnd <= nextStart) {
-    throw AppError.unprocessable('Banner end time must be after start time.');
+    throw AppError.unprocessable(ERROR.BANNER.INVALID_WINDOW);
   }
 
   const row = await prisma.banner.update({
@@ -534,7 +534,7 @@ export const subscribe = async (email: string, req?: any): Promise<Record<string
 
   if (existing) {
     if (existing.isSubscribed && existing.isActive) {
-      throw AppError.conflict('This email is already subscribed.', ERROR_CODE.DUPLICATE);
+      throw AppError.conflict(ERROR.NEWSLETTER.ALREADY_SUBSCRIBED, ERROR_CODE.DUPLICATE);
     }
 
     const row = await prisma.newsletterSubscriber.update({
@@ -565,7 +565,7 @@ export const unsubscribe = async (token: string): Promise<Record<string, any>> =
   if (!row) throw AppError.notFound(ERROR.NEWSLETTER.SUBSCRIBER_NOT_FOUND);
 
   if (!row.isSubscribed) {
-    throw AppError.unprocessable('This address is already unsubscribed.');
+    throw AppError.unprocessable(ERROR.NEWSLETTER.NOT_SUBSCRIBED);
   }
 
   await prisma.newsletterSubscriber.update({
@@ -952,8 +952,7 @@ export const createTaxConfig = async (input: Record<string, any>, req?: any): Pr
 
   const existing = await prisma.taxConfig.findUnique({ where: { slug }, select: { id: true } });
 
-  if (existing)
-    throw AppError.conflict('A tax config with this slug exists.', ERROR_CODE.DUPLICATE);
+  if (existing) throw AppError.conflict(ERROR.TAX.SLUG_EXISTS, ERROR_CODE.DUPLICATE);
 
   if (D.str(input.vendorId)) {
     const vendor = await prisma.vendorProfile.findUnique({
@@ -1106,8 +1105,7 @@ export const createDropdown = async (input: Record<string, any>, req?: any): Pro
     select: { id: true },
   });
 
-  if (existing)
-    throw AppError.conflict('This dropdown option already exists.', ERROR_CODE.DUPLICATE);
+  if (existing) throw AppError.conflict(ERROR.DROPDOWN.OPTION_EXISTS, ERROR_CODE.DUPLICATE);
 
   const row = await prisma.dropdown.create({
     data: {
@@ -2122,7 +2120,12 @@ export const bulkImportUsers = async (
     try {
       const email = D.str(row.email).toLowerCase();
 
-      if (!email) throw new Error('email is required');
+      if (!email)
+        throw new AppError(
+          ERROR.NEWSLETTER.EMAIL_REQUIRED,
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODE.VALIDATION_ERROR,
+        );
 
       const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
 

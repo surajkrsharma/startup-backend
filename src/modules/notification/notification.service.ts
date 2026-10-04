@@ -9,6 +9,7 @@ import type { NotificationChannel, Platform, TicketPriority } from '@prisma/clie
 import { notifyUsers, notifyUser } from '../../services/notification.service';
 import { emitToConversation, emitToUser } from '../../services/socket.service';
 import { SOCKET } from '../../config/socket.config';
+import { OPS } from '../../config/app.config';
 import { writeActivityLog } from '../../services/audit.service';
 import { generateTicketNumber, uniqueTicketCategorySlug } from '../../utils/slug';
 
@@ -89,7 +90,7 @@ export const deleteNotification = async (userId: string, id: string): Promise<vo
     select: { id: true },
   });
 
-  if (!existing) throw AppError.notFound('Notification not found.');
+  if (!existing) throw AppError.notFound(ERROR.NOTIFICATION.NOT_FOUND);
 
   await prisma.notification.delete({ where: { id: existing.id } });
 };
@@ -139,7 +140,7 @@ export const broadcast = async (input: {
     const users = await prisma.user.findMany({
       where: { isActive: true },
       select: { id: true },
-      take: 5000,
+      take: OPS.JOB_BATCH_SIZE,
     });
     return notifyUsers(
       users.map((u) => u.id),
@@ -417,7 +418,7 @@ export const sendMessage = async (
   const conversation = await loadConversation(conversationId, userId);
 
   if (!conversation.isActive) {
-    throw AppError.unprocessable('This conversation is closed.');
+    throw AppError.unprocessable(ERROR.CHAT.CLOSED);
   }
 
   const others = D.arr(conversation.participants).filter((p: any) => D.str(p.userId) !== userId);
@@ -519,7 +520,7 @@ export const blockUser = async (
   req?: any,
 ): Promise<void> => {
   if (userId === targetId) {
-    throw AppError.unprocessable('You cannot block yourself.');
+    throw AppError.unprocessable(ERROR.CHAT.SELF_BLOCK);
   }
 
   const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
@@ -656,7 +657,7 @@ export const createTicket = async (
       select: { id: true },
     });
 
-    if (!category) throw AppError.notFound('Ticket category not found.');
+    if (!category) throw AppError.notFound(ERROR.TICKET.CATEGORY_NOT_FOUND);
   }
 
   const row = await prisma.ticket.create({
@@ -753,7 +754,7 @@ export const replyTicket = async (
   const isInternal = D.bool(input.isInternal);
 
   if (isInternal && !isStaff) {
-    throw AppError.forbidden('Internal notes are staff only.');
+    throw AppError.forbidden(ERROR.TICKET.INTERNAL_NOTES_FORBIDDEN);
   }
 
   const message = await prisma.ticketMessage.create({
@@ -775,7 +776,7 @@ export const replyTicket = async (
       userId: ticket.userId,
       type: 'TICKET',
       title: `New reply on ${ticket.ticketNumber}`,
-      body: D.str(input.message).slice(0, 160),
+      body: D.str(input.message).slice(0, OPS.NOTIFICATION_BODY_MAX_CHARS),
       data: { ticketId: ticket.id },
     });
   }
@@ -812,7 +813,7 @@ export const updateTicketStatus = async (
     }
 
     if (status !== 'CLOSED') {
-      throw AppError.forbidden('Only staff can change a ticket to that status.');
+      throw AppError.forbidden(ERROR.TICKET.STATUS_ROLE_FORBIDDEN);
     }
   }
 
@@ -878,7 +879,7 @@ export const assignTicket = async (
       select: { id: true },
     });
 
-    if (!agent) throw AppError.notFound('Assignee must be an active admin.');
+    if (!agent) throw AppError.notFound(ERROR.TICKET.INVALID_ASSIGNEE);
   }
 
   const row = await prisma.ticket.update({
@@ -925,7 +926,7 @@ export const registerDeviceToken = async (
   });
 
   if (existing && existing.userId && existing.userId !== userId) {
-    throw AppError.forbidden('This device is registered to another account.');
+    throw AppError.forbidden(ERROR.DEVICE.DIFFERENT_ACCOUNT);
   }
 
   return prisma.device.upsert({

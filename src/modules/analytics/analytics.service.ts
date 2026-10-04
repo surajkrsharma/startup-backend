@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { PAYMENT_STATUS, VENDOR_STATUS, PRODUCT_STATUS } from '../../constants/roles';
 import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
-import { D, money } from '../../utils/defaults';
+import { D, money, round } from '../../utils/defaults';
 
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE } from '../../constants/http';
@@ -487,7 +487,7 @@ export const registerDevice = async (
   });
 
   if (existing && existing.userId && userId && existing.userId !== userId) {
-    throw AppError.forbidden('This device is registered to another account.');
+    throw AppError.forbidden(ERROR.DEVICE.DIFFERENT_ACCOUNT);
   }
 
   const data = {
@@ -666,7 +666,7 @@ export const getOverview = async (query: Record<string, any>): Promise<Record<st
     orders,
     newUsers: users,
     revenue: D.float(revenue._sum.total),
-    conversionRate: views > 0 ? D.float(Math.round((orders / views) * 10000) / 100) : 0,
+    conversionRate: views > 0 ? D.float(round(orders / views, 2)) : 0,
   };
 };
 
@@ -735,8 +735,7 @@ export const getTopPages = async (query: Record<string, any>): Promise<any[]> =>
   return grouped.map((g) => ({
     pageUrl: D.str(g.pageUrl),
     views: D.num(g._count._all),
-    percentage:
-      totalViews > 0 ? D.float(Math.round((D.num(g._count._all) / totalViews) * 1000) / 10) : 0,
+    percentage: totalViews > 0 ? D.float(round(D.num(g._count._all) / totalViews, 1)) : 0,
   }));
 };
 
@@ -777,7 +776,7 @@ export const getTrafficSources = async (query: Record<string, any>): Promise<any
       source,
       views: data.views,
       visitors: data.sessions.size,
-      percentage: totalViews > 0 ? D.float(Math.round((data.views / totalViews) * 1000) / 10) : 0,
+      percentage: totalViews > 0 ? D.float(round(data.views / totalViews, 1)) : 0,
     }))
     .sort((a, b) => b.views - a.views);
 };
@@ -1034,8 +1033,7 @@ export const getCohorts = async (query: Record<string, any>): Promise<Record<str
       carts: data.carts,
       orders: data.orders,
       revenue: data.revenue,
-      conversionRate:
-        data.carts > 0 ? D.float(Math.round((data.orders / data.carts) * 1000) / 10) : 0,
+      conversionRate: data.carts > 0 ? D.float(round(data.orders / data.carts, 1)) : 0,
     }));
 
   return { from: from.toISOString(), to: to.toISOString(), series };
@@ -1128,9 +1126,7 @@ export const getPageViews = async (query: Record<string, any>): Promise<Record<s
     totalPageViews: total,
     sessions: distinctSessions.length,
     avgViewsPerSession:
-      distinctSessions.length > 0
-        ? D.float(Math.round((total / distinctSessions.length) * 100) / 100)
-        : 0,
+      distinctSessions.length > 0 ? D.float(round(total / distinctSessions.length, 2)) : 0,
     series: Array.from(byDayMap.entries())
       .sort((a, b) => (a[0] < b[0] ? -1 : 1))
       .map(([date, count]) => ({ date, views: count })),
@@ -1167,7 +1163,7 @@ export const getDeviceBreakdown = async (
       .map(([key, count]) => ({
         key,
         count,
-        percentage: D.float(Math.round((count / total) * 1000) / 10),
+        percentage: D.float(round(count / total, 1)),
       }));
 
   const os = tally((r) => D.str(r.os));
@@ -1302,8 +1298,7 @@ export const getConversions = async (query: Record<string, any>): Promise<Record
     to: to.toISOString(),
     totalConversions: orders.length,
     totalRevenue,
-    conversionRate:
-      visits.length > 0 ? D.float(Math.round((orders.length / visits.length) * 10000) / 100) : 0,
+    conversionRate: visits.length > 0 ? D.float(round(orders.length / visits.length, 2)) : 0,
     series: Array.from(byDay.entries())
       .sort((a, b) => (a[0] < b[0] ? -1 : 1))
       .map(([date, data]) => ({ date, orders: data.orders, revenue: data.revenue })),
@@ -1385,9 +1380,7 @@ export const getVendorPerformance = async (
       commission: stats.commission,
       earnings: stats.earnings,
       fulfilmentRate:
-        stats.subOrders > 0
-          ? D.float(Math.round((stats.delivered / stats.subOrders) * 1000) / 10)
-          : 0,
+        stats.subOrders > 0 ? D.float(round(stats.delivered / stats.subOrders, 1)) : 0,
     };
   });
 
@@ -1440,7 +1433,7 @@ export const getAppVersions = async (query: Record<string, any>): Promise<Record
         platform,
         appVersion,
         deviceCount: count,
-        percentage: D.float(Math.round((count / total) * 1000) / 10),
+        percentage: D.float(round(count / total, 1)),
       };
     })
     .sort((a, b) => b.deviceCount - a.deviceCount);
@@ -1533,7 +1526,7 @@ export const updateFunnel = async (
     select: { id: true },
   });
 
-  if (!existing) throw AppError.notFound('Funnel not found.');
+  if (!existing) throw AppError.notFound(ERROR.ANALYTICS.FUNNEL_NOT_FOUND);
 
   const row = await prisma.funnel.update({
     where: { id: funnelId },
@@ -1559,7 +1552,7 @@ export const getFunnel = async (
     include: FUNNEL_INCLUDE,
   });
 
-  if (!funnel) throw AppError.notFound('Funnel not found.');
+  if (!funnel) throw AppError.notFound(ERROR.ANALYTICS.FUNNEL_NOT_FOUND);
 
   const { from, to } = resolveRange(query);
   const steps = D.arr(funnel.steps) as any[];
@@ -1592,7 +1585,7 @@ export const getFunnel = async (
         previousSessions === null
           ? 100
           : previousSessions.length > 0
-            ? D.float(Math.round((reached.length / previousSessions.length) * 1000) / 10)
+            ? D.float(round(reached.length / previousSessions.length, 1))
             : 0,
     });
 
@@ -1607,7 +1600,7 @@ export const getFunnel = async (
     name: D.str(funnel.name),
     from: from.toISOString(),
     to: to.toISOString(),
-    overallConversionRate: first > 0 ? D.float(Math.round((last / first) * 1000) / 10) : 0,
+    overallConversionRate: first > 0 ? D.float(round(last / first, 1)) : 0,
     stepList: result,
   };
 };
@@ -1897,7 +1890,7 @@ export const getTrendingSearches = async (query: Record<string, any>): Promise<a
   return Array.from(weights.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([term, score]) => ({ term, score: D.float(Math.round(score * 100) / 100) }));
+    .map(([term, score]) => ({ term, score: D.float(round(score, 2)) }));
 };
 
 export const getRecentSearches = async (userId: string, req?: any): Promise<string[]> => {

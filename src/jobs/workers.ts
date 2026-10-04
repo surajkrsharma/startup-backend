@@ -6,6 +6,7 @@ import { logger, moduleLogger } from '../services/logger.service';
 import { getQueueConnection } from './queues';
 import { QUEUE, JOB, JobName, QueueName } from '../config/socket.config';
 import { ENV } from '../config/env.config';
+import { OPS } from '../config/app.config';
 import { money } from '../utils/calculations';
 import { D } from '../utils/defaults';
 import { toDayKey, subtractDays } from '../utils/dates';
@@ -117,7 +118,7 @@ register(QUEUE.NOTIFICATION, JOB.TOKEN_BALANCE_REMINDER, async () => {
       balanceDueDays: true,
       createdAt: true,
     },
-    take: 5000,
+    take: OPS.JOB_BATCH_SIZE,
   });
 
   let reminded = 0;

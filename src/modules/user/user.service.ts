@@ -3,6 +3,7 @@ import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
 import { D } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
+import { VALIDATION } from '../../messages/validation';
 import { ERROR_CODE } from '../../constants/http';
 import { Role, ADMIN_ACTION, ADDRESS_TYPE } from '../../constants/roles';
 import { signAccessToken } from '../../utils/crypto';
@@ -68,7 +69,7 @@ export const updateProfile = async (
   if (input.email !== undefined && input.email !== '') {
     const email = D.str(input.email).toLowerCase();
     if (!EMAIL_REGEX.test(email)) {
-      throw AppError.badRequest('Please enter a valid email address.', ERROR_CODE.VALIDATION_ERROR);
+      throw AppError.badRequest(VALIDATION.INVALID_EMAIL, ERROR_CODE.VALIDATION_ERROR);
     }
     const clash = await prisma.user.findFirst({
       where: { email, NOT: { id: userId } },
@@ -691,7 +692,7 @@ export const impersonateUser = async (
     throw AppError.forbidden(ERROR.AUTH.ACCOUNT_SUSPENDED, ERROR_CODE.ACCOUNT_SUSPENDED);
   }
   if (targetUserId === req?.auth?.userId) {
-    throw AppError.forbidden('You are already this user.', ERROR_CODE.FORBIDDEN);
+    throw AppError.forbidden(ERROR.USER.SELF_IMPERSONATION, ERROR_CODE.FORBIDDEN);
   }
 
   const expiresIn = Number(input?.durationMin ?? 30) * 60;

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { NotificationChannel, Platform, TicketPriority, TicketStatus } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
 import { ERROR } from '../../messages/error';
+import { OPS } from '../../config/app.config';
 import { NAME } from '../../config/password.config';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 import { D } from '../../utils/defaults';
@@ -143,7 +144,7 @@ export const ticketIdParamSchema = z.object({ id });
 
 export const broadcastSchema = z
   .object({
-    userIds: z.array(id).max(5000).optional(),
+    userIds: z.array(id).max(OPS.BULK_MAX_ROWS).optional(),
     type: z
       .enum(['ORDER', 'PAYMENT', 'PAYOUT', 'RETURN', 'TICKET', 'PROMO', 'SYSTEM', 'ALERT'])
       .default('PROMO'),
@@ -156,7 +157,7 @@ export const broadcastSchema = z
   })
   .strict()
   .refine((v) => Boolean(D.arr(v.userIds).length) || v.toAll, {
-    message: 'Provide userIds or set toAll.',
+    message: ERROR.NOTIFICATION.RECIPIENT_INPUT_REQUIRED,
   });
 
 export const deviceTokenSchema = z

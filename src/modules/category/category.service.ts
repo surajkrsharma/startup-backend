@@ -47,7 +47,7 @@ const assertNoCycle = async (categoryId: string, parentId: string): Promise<void
   if (!parentId) return;
 
   if (parentId === categoryId) {
-    throw AppError.badRequest('A category cannot be its own parent.', ERROR_CODE.VALIDATION_ERROR);
+    throw AppError.badRequest(ERROR.CATEGORY.SELF_PARENT, ERROR_CODE.VALIDATION_ERROR);
   }
 
   let cursor: string | null = parentId;

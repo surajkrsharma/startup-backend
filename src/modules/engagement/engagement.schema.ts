@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { GiftCardStatus, LoyaltyTxnType, NotificationChannel } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
 import { NAME } from '../../config/password.config';
@@ -25,7 +27,7 @@ export const adjustPointsSchema = z
     points: z.coerce
       .number()
       .int()
-      .refine((v) => v !== 0, { message: 'Points cannot be zero.' }),
+      .refine((v) => v !== 0, { message: ERROR.LOYALTY.ZERO_POINTS }),
     description: z
       .string()
       .trim()

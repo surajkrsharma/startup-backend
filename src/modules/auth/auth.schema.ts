@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ERROR } from '../../messages/error';
 import {
   REGISTER_TYPE,
   OTP_TYPE,
@@ -112,7 +113,7 @@ export const registerSchema = z.any().superRefine((value, ctx) => {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['type'],
-      message: 'Invalid register type.',
+      message: ERROR.AUTH.INVALID_REGISTER_TYPE,
     });
     return;
   }
@@ -148,7 +149,7 @@ export const refreshTokenSchema = z
 export const sendOtpSchema = z
   .object({
     type: z.nativeEnum(OTP_TYPE, {
-      errorMap: () => ({ message: 'Invalid OTP type.' }),
+      errorMap: () => ({ message: ERROR.AUTH.INVALID_OTP_TYPE }),
     }),
     channel: z.nativeEnum(OTP_CHANNEL).default(OTP_CHANNEL.BOTH),
     identifier: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
@@ -215,7 +216,7 @@ export const twoFactorSchema = z
 export const socialLoginSchema = z
   .object({
     provider: z.nativeEnum(SOCIAL_PROVIDER, {
-      errorMap: () => ({ message: 'Social provider not supported.' }),
+      errorMap: () => ({ message: ERROR.AUTH.SOCIAL_PROVIDER_INVALID }),
     }),
     idToken: z.string().trim().min(10, VALIDATION.REQUIRED('idToken')),
     accessToken: z.string().trim().max(4000).optional(),
@@ -245,7 +246,7 @@ export const checkAvailabilitySchema = z
   })
   .strict()
   .refine((v) => v.email || v.phone, {
-    message: 'Provide email or phone to check.',
+    message: ERROR.AUTH.AVAILABILITY_IDENTIFIER_REQUIRED,
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

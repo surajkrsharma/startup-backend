@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
-import { D, money } from '../../utils/defaults';
+import { D, money, round } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE } from '../../constants/http';
 import { ReviewStatus, type CouponType } from '@prisma/client';
@@ -226,16 +226,14 @@ export const getReviewSummary = async (productId: string): Promise<Record<string
 
   return {
     productId,
-    averageRating:
-      total > 0 ? D.float(Math.round((weighted / total) * 100) / 100) : D.float(product?.rating),
+    averageRating: total > 0 ? D.float(round(weighted / total, 2)) : D.float(product?.rating),
     totalCount: total,
     verifiedCount: total,
 
     distributionList: [5, 4, 3, 2, 1].map((star) => ({
       rating: star,
       count: D.num(buckets[String(star)]),
-      percentage:
-        total > 0 ? D.float(Math.round((D.num(buckets[String(star)]) / total) * 1000) / 10) : 0,
+      percentage: total > 0 ? D.float(round(D.num(buckets[String(star)]) / total, 1)) : 0,
     })),
   };
 };
@@ -256,7 +254,7 @@ const recalcProductRating = async (productId: string): Promise<void> => {
     weighted += D.num(g.rating) * count;
   }
 
-  const rating = total > 0 ? D.float(Math.round((weighted / total) * 100) / 100) : 0;
+  const rating = total > 0 ? D.float(round(weighted / total, 2)) : 0;
 
   await prisma.product.update({
     where: { id: productId },
@@ -283,7 +281,7 @@ const recalcVendorRating = async (vendorId: string): Promise<void> => {
   await prisma.vendorProfile.update({
     where: { id: vendorId },
     data: {
-      rating: total > 0 ? D.float(Math.round((weighted / total) * 100) / 100) : 0,
+      rating: total > 0 ? D.float(round(weighted / total, 2)) : 0,
       ratingCount: total,
     },
   });
@@ -569,7 +567,7 @@ export const listCoupons = async (
 export const getCouponById = async (id: string): Promise<any> => {
   const row = await prisma.coupon.findFirst({ where: { id, deletedAt: null } });
 
-  if (!row) throw AppError.notFound('Coupon not found.', ERROR_CODE.NOT_FOUND);
+  if (!row) throw AppError.notFound(ERROR.COUPON.NOT_FOUND, ERROR_CODE.NOT_FOUND);
 
   return row;
 };
@@ -584,7 +582,7 @@ export const createCoupon = async (
   const existing = await prisma.coupon.findFirst({ where: { code }, select: { id: true } });
 
   if (existing) {
-    throw AppError.conflict('This coupon code already exists.', ERROR_CODE.DUPLICATE);
+    throw AppError.conflict(ERROR.COUPON.CODE_EXISTS, ERROR_CODE.DUPLICATE);
   }
 
   const [vendor, products, categories] = await Promise.all([
@@ -605,11 +603,11 @@ export const createCoupon = async (
   if (D.str(input.vendorId) && !vendor) throw AppError.notFound(ERROR.VENDOR.NOT_FOUND);
 
   if (D.arr(input.productIds).length && D.num(products) !== D.arr(input.productIds).length) {
-    throw AppError.unprocessable('One or more products do not exist.');
+    throw AppError.unprocessable(ERROR.PRODUCT.NOT_FOUND_BULK);
   }
 
   if (D.arr(input.categoryIds).length && D.num(categories) !== D.arr(input.categoryIds).length) {
-    throw AppError.unprocessable('One or more categories do not exist.');
+    throw AppError.unprocessable(ERROR.CATEGORY.NOT_FOUND_BULK);
   }
 
   const row = await prisma.coupon.create({
@@ -663,7 +661,7 @@ export const updateCoupon = async (
       select: { id: true },
     });
 
-    if (clash) throw AppError.conflict('This coupon code already exists.', ERROR_CODE.DUPLICATE);
+    if (clash) throw AppError.conflict(ERROR.COUPON.CODE_EXISTS, ERROR_CODE.DUPLICATE);
   }
 
   const row = await prisma.coupon.update({
@@ -936,7 +934,7 @@ export const createFlashSale = async (
   });
 
   if (products.length !== D.arr(input.items).length) {
-    throw AppError.unprocessable('One or more products do not exist.');
+    throw AppError.unprocessable(ERROR.PRODUCT.NOT_FOUND_BULK);
   }
 
   const priceMap = new Map(products.map((p) => [p.id, p.price]));
@@ -1018,7 +1016,7 @@ export const updateFlashSale = async (
     });
 
     if (products.length !== D.arr(input.items).length) {
-      throw AppError.unprocessable('One or more products do not exist.');
+      throw AppError.unprocessable(ERROR.PRODUCT.NOT_FOUND_BULK);
     }
 
     const priceMap = new Map(products.map((p) => [p.id, p.price]));

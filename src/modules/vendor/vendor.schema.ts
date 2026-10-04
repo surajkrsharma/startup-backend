@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { VENDOR_STATUS } from '../../constants/roles';
 import { NAME } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
@@ -41,7 +43,7 @@ const bankDetails = z
   })
   .strict()
   .refine((v) => (v.bankIfsc && v.bankAccountNo) || v.upiId, {
-    message: 'Provide bank account with IFSC, or a UPI ID.',
+    message: ERROR.VENDOR.BANK_DETAILS_INPUT_REQUIRED,
   });
 
 export const updateProfileSchema = z

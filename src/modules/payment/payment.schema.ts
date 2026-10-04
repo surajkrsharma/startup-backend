@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { PaymentMethod, PaymentStatus, PayoutStatus, ReturnStatus } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
 import { NAME } from '../../config/password.config';
@@ -223,7 +225,7 @@ export const requestReturnSchema = z
   })
   .strict()
   .refine((v) => Boolean(v.reasonId || v.reasonText), {
-    message: 'Provide reasonId or reasonText.',
+    message: ERROR.PAYMENT.REASON_INPUT_REQUIRED,
   });
 
 export const returnStatusSchema = z

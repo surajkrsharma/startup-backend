@@ -30,11 +30,13 @@ export const ERROR = {
     RESET_TOKEN_INVALID: 'Password reset token is invalid or expired.',
     EMAIL_NOT_VERIFIED: 'Email is not verified.',
     PHONE_NOT_VERIFIED: 'Phone is not verified.',
+    AVAILABILITY_IDENTIFIER_REQUIRED: 'Provide email or phone to check.',
   },
   USER: {
     NOT_FOUND: 'User not found.',
     ALREADY_EXISTS: 'User already exists.',
     NOT_ALLOWED: 'This action is not allowed on your own account.',
+    SELF_IMPERSONATION: 'You are already this user.',
   },
   ADDRESS: {
     NOT_FOUND: 'Address not found.',
@@ -49,6 +51,9 @@ export const ERROR = {
     DOCUMENTS_NOT_SUBMITTED: 'KYC documents not submitted.',
     MAX_PRODUCTS_REACHED: 'Maximum product limit reached.',
     BANK_DETAILS_REQUIRED: 'Bank or UPI details required.',
+    BANK_DETAILS_INPUT_REQUIRED: 'Provide bank account with IFSC, or a UPI ID.',
+    PROFILE_REQUIRED: 'A vendor profile is required for this action.',
+    ALREADY_SUSPENDED: 'Vendor is already suspended.',
   },
   PRODUCT: {
     NOT_FOUND: 'Product not found.',
@@ -59,11 +64,14 @@ export const ERROR = {
     SLUG_TAKEN: 'Product slug is already in use.',
     ALREADY_IN_WISHLIST: 'Product already exists in wishlist.',
     NOT_IN_WISHLIST: 'Product is not in your wishlist.',
+    NOT_FOUND_BULK: 'One or more products do not exist.',
   },
   CATEGORY: {
     NOT_FOUND: 'Category not found.',
     HAS_CHILDREN: 'Category has sub categories.',
     HAS_PRODUCTS: 'Category has products.',
+    SELF_PARENT: 'A category cannot be its own parent.',
+    NOT_FOUND_BULK: 'One or more categories do not exist.',
   },
   BRAND: {
     NOT_FOUND: 'Brand not found.',
@@ -76,6 +84,7 @@ export const ERROR = {
   ATTRIBUTE: {
     NOT_FOUND: 'Attribute not found.',
     IN_USE: 'Attribute is in use by products.',
+    INVALID_VARIANT_TYPE: 'A variant attribute must be of type SIZE, COLOR or SELECT.',
   },
   COLLECTION: {
     NOT_FOUND: 'Collection not found.',
@@ -85,6 +94,7 @@ export const ERROR = {
     ITEM_NOT_FOUND: 'Cart item not found.',
     MAX_ITEMS: 'Maximum cart items reached.',
     VENDOR_NOT_APPROVED: 'One or more cart vendors are not approved.',
+    ITEM_IDENTIFIER_REQUIRED: 'Provide id or productId.',
   },
   COUPON: {
     NOT_FOUND: 'Coupon not found.',
@@ -93,6 +103,9 @@ export const ERROR = {
     USAGE_LIMIT: 'Coupon usage limit reached.',
     INVALID: 'Coupon is invalid.',
     NOT_APPLICABLE: 'Coupon is not applicable on this order.',
+    CODE_EXISTS: 'This coupon code already exists.',
+    PERCENT_TOO_HIGH: 'A percent coupon cannot exceed 100%.',
+    INVALID_WINDOW: 'Expiry must be after the start.',
   },
   ORDER: {
     NOT_FOUND: 'Order not found.',
@@ -104,6 +117,7 @@ export const ERROR = {
     ALREADY_DELIVERED: 'Order is already delivered.',
     SUB_ORDER_NOT_FOUND: 'Sub order not found.',
     MAX_DAILY_ORDERS: 'Daily order limit reached.',
+    ADDRESS_INPUT_REQUIRED: 'Provide addressId or an inline address.',
   },
   PAYMENT: {
     FAILED: 'Payment failed.',
@@ -117,6 +131,9 @@ export const ERROR = {
     METHOD_DISABLED: 'This payment method is disabled.',
     MIN_LIMIT: 'Payment amount is below the minimum limit.',
     MAX_LIMIT: 'Payment amount exceeds the maximum limit.',
+    NOTHING_TO_REFUND: 'There is nothing left to refund.',
+    REFUND_PROCESSED: 'This refund has already been processed.',
+    REASON_INPUT_REQUIRED: 'Provide reasonId or reasonText.',
   },
   PAYOUT: {
     NOT_FOUND: 'Payout not found.',
@@ -125,6 +142,8 @@ export const ERROR = {
     ALREADY_PROCESSED: 'Payout already processed.',
     BANK_DETAILS_REQUIRED: 'Add bank or UPI details before requesting payout.',
     INVALID_STATUS_TRANSITION: 'This payout status change is not allowed.',
+    NO_EARNINGS: 'No earnings are available for payout yet.',
+    REJECTION_REASON_REQUIRED: 'A rejection needs a reason.',
   },
   RETURN: {
     NOT_FOUND: 'Return not found.',
@@ -132,8 +151,12 @@ export const ERROR = {
     INVALID_STATUS: 'Invalid return status.',
     ALREADY_REQUESTED: 'Return already requested for this order.',
     REASON_REQUIRED: 'Return reason is required.',
+    REASON_INPUT_REQUIRED: 'Provide reasonId or reasonText.',
     IMAGES_REQUIRED: 'Return images are required.',
     ITEM_NOT_PURCHASED: 'Item was not purchased in this order.',
+    ORDER_NOT_DELIVERED: 'Only a delivered order can be returned.',
+    VENDOR_MISMATCH: 'That item does not belong to the chosen vendor.',
+    MULTI_VENDOR_AMBIGUOUS: 'This order spans several shops - choose which one to return to.',
   },
   REVIEW: {
     NOT_FOUND: 'Review not found.',
@@ -147,8 +170,10 @@ export const ERROR = {
     ANSWER_NOT_FOUND: 'Answer not found.',
   },
   NOTIFICATION: {
+    NOT_FOUND: 'Notification not found.',
     TEMPLATE_NOT_FOUND: 'Notification template not found.',
     TEMPLATE_KEY_TAKEN: 'A template with this key already exists.',
+    RECIPIENT_INPUT_REQUIRED: 'Provide userIds or set toAll.',
   },
   CHAT: {
     NOT_FOUND: 'Conversation not found.',
@@ -156,13 +181,19 @@ export const ERROR = {
     USER_BLOCKED: 'You have blocked this user.',
     BLOCKED_BY_USER: 'You are blocked by this user.',
     SELF_CHAT: 'You cannot start a conversation with yourself.',
+    SELF_BLOCK: 'You cannot block yourself.',
     EMPTY_MESSAGE: 'Message cannot be empty.',
+    CLOSED: 'This conversation is closed.',
   },
   TICKET: {
     NOT_FOUND: 'Ticket not found.',
+    CATEGORY_NOT_FOUND: 'Ticket category not found.',
     CLOSED: 'Ticket is closed.',
     ALREADY_CLOSED: 'Ticket is already closed.',
     MESSAGE_REQUIRED: 'Reply message is required.',
+    INTERNAL_NOTES_FORBIDDEN: 'Internal notes are staff only.',
+    STATUS_ROLE_FORBIDDEN: 'Only staff can change a ticket to that status.',
+    INVALID_ASSIGNEE: 'Assignee must be an active admin.',
   },
   WALLET: {
     INSUFFICIENT_BALANCE: 'Insufficient wallet balance.',
@@ -174,12 +205,15 @@ export const ERROR = {
     NOT_ENABLED: 'Loyalty is not enabled.',
     INSUFFICIENT_POINTS: 'Insufficient loyalty points.',
     MIN_POINTS: 'Points are below minimum redeem amount.',
+    ZERO_POINTS: 'Points cannot be zero.',
   },
   REFERRAL: {
     INVALID_CODE: 'Invalid referral code.',
     SELF_REFERRAL: 'You cannot use your own referral code.',
     ALREADY_APPLIED: 'Referral already applied for this account.',
     EXPIRED: 'Referral code has expired.',
+    NOT_APPLIED: 'This referral code has not been applied yet.',
+    ALLOCATION_FAILED: 'Could not allocate a referral code.',
   },
   GIFT_CARD: {
     NOT_FOUND: 'Gift card not found.',
@@ -188,6 +222,9 @@ export const ERROR = {
     EXPIRED: 'Gift card has expired.',
     DISABLED: 'Gift card is disabled.',
     INSUFFICIENT_BALANCE: 'Gift card balance is insufficient.',
+    INVALID_VALUE: 'Gift card value must be greater than zero.',
+    CODE_EXISTS: 'This gift card code already exists.',
+    INVALID_REDEEM_AMOUNT: 'Redemption amount must be greater than zero.',
   },
   FLASH_SALE: {
     NOT_FOUND: 'Flash sale not found.',
@@ -197,6 +234,7 @@ export const ERROR = {
   },
   BANNER: {
     NOT_FOUND: 'Banner not found.',
+    INVALID_WINDOW: 'Banner end time must be after start time.',
   },
   CONTENT: {
     PAGE_NOT_FOUND: 'Page not found.',
@@ -206,12 +244,16 @@ export const ERROR = {
   DROPDOWN: {
     NOT_FOUND: 'Dropdown not found.',
     KEY_ALREADY_EXISTS: 'A dropdown with this key already exists.',
+    OPTION_EXISTS: 'This dropdown option already exists.',
   },
   CONTACT: {
     NOT_FOUND: 'Contact submission not found.',
   },
   NEWSLETTER: {
     SUBSCRIBER_NOT_FOUND: 'Subscriber not found.',
+    ALREADY_SUBSCRIBED: 'This email is already subscribed.',
+    NOT_SUBSCRIBED: 'This address is already unsubscribed.',
+    EMAIL_REQUIRED: 'An email address is required.',
   },
   REPORT: {
     SCHEDULE_NOT_FOUND: 'Report schedule not found.',
@@ -224,11 +266,18 @@ export const ERROR = {
     SHIPMENT_NOT_FOUND: 'Shipment not found.',
     NOT_SERVICEABLE: 'This pincode is not serviceable.',
     INVALID_WINDOW: 'Invalid date range.',
+    DELIVERY_WINDOW_INVALID: 'maxDays must be at least minDays.',
+    METHOD_CODE_EXISTS: 'This shipping method code already exists.',
+    PARTNER_CODE_EXISTS: 'This partner code already exists.',
+    SHIPMENT_EXISTS: 'This sub-order already has a shipment.',
   },
   DELIVERY_BOY: {
     NOT_FOUND: 'Delivery boy not found.',
     INVALID_OTP: 'Invalid delivery OTP.',
     ALREADY_DELIVERED: 'Delivery already completed.',
+    ALREADY_EXISTS: 'This user is already a delivery boy.',
+    HAS_ACTIVE_DELIVERIES: 'This rider still has active deliveries.',
+    HAS_UNDELIVERED_PARCELS: 'This rider still has undelivered parcels.',
   },
   SETTING: {
     NOT_FOUND: 'Setting not found.',
@@ -256,9 +305,11 @@ export const ERROR = {
   ANALYTICS: {
     INVALID_RANGE: 'Invalid date range.',
     RANGE_TOO_LARGE: 'Date range is too large.',
+    FUNNEL_NOT_FOUND: 'Funnel not found.',
   },
   DEVICE: {
     NOT_FOUND: 'Device not found.',
+    DIFFERENT_ACCOUNT: 'This device is registered to another account.',
   },
   SESSION: {
     NOT_FOUND: 'Session not found.',
@@ -286,6 +337,7 @@ export const ERROR = {
   },
   TAX: {
     NOT_FOUND: 'Tax config not found.',
+    SLUG_EXISTS: 'A tax config with this slug exists.',
   },
   CURRENCY: {
     NOT_FOUND: 'Currency not found.',
@@ -305,6 +357,23 @@ export const ERROR = {
     FEATURE_DISABLED: 'This feature is currently disabled.',
     SHUTTING_DOWN: 'Server is shutting down.',
     QUEUE_UNAVAILABLE: 'Background job queue is unavailable.',
+    TOKEN_TYPE_MISMATCH: 'wrong token type',
+  },
+  /**
+   * Boot-time environment validation. These surface on stderr before the HTTP
+   * server exists, so they are developer-facing rather than part of any envelope.
+   */
+  ENV: {
+    REQUIRED: 'is required',
+    OTP_STATIC_CODE_DIGITS: 'OTP_STATIC_CODE must be digits only',
+    OTP_STATIC_CODE_PRODUCTION:
+      'OTP_STATIC_CODE bypasses OTP delivery and must never be set in production',
+    ENCRYPTION_KEY_REQUIRED: 'ENCRYPTION_KEY is required when ENCRYPTION_ENABLED=true',
+    ENCRYPTION_KEY_FORMAT: 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)',
+    CORS_WILDCARD: 'Wildcard CORS origin is not allowed in production',
+    REDIS_REQUIRED_FOR_QUEUE: 'REDIS_URL is required when QUEUE_ENABLED=true',
+    OTP_PROVIDER_REQUIRED:
+      'OTP_REQUIRED=true in production needs a delivery provider. Set BREVO_API_KEY, SMTP_HOST/SMTP_USER/SMTP_PASS, or MSG91_AUTHKEY with OTP_SMS_ENABLED=true. Set OTP_REQUIRED=false only if you are still building.',
   },
   COMMON: {
     SERVER_ERROR: 'Something went wrong. Please try again.',

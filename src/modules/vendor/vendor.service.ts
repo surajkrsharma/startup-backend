@@ -354,7 +354,7 @@ export const suspendVendor = async (
   const before = await getVendorById(vendorId);
 
   if (before.status === VENDOR_STATUS.SUSPENDED) {
-    throw AppError.conflict('Vendor is already suspended.', ERROR_CODE.DUPLICATE);
+    throw AppError.conflict(ERROR.VENDOR.ALREADY_SUSPENDED, ERROR_CODE.DUPLICATE);
   }
 
   const openSubOrders = await prisma.subOrder.count({

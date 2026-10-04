@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import { ERROR } from '../messages/error';
 
 dotenv.config();
 
@@ -106,14 +107,14 @@ const envSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['OTP_STATIC_CODE'],
-          message: 'OTP_STATIC_CODE must be digits only',
+          message: ERROR.ENV.OTP_STATIC_CODE_DIGITS,
         });
       }
       if (env.NODE_ENV === 'production') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['OTP_STATIC_CODE'],
-          message: 'OTP_STATIC_CODE bypasses OTP delivery and must never be set in production',
+          message: ERROR.ENV.OTP_STATIC_CODE_PRODUCTION,
         });
       }
     }
@@ -123,13 +124,13 @@ const envSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['ENCRYPTION_KEY'],
-          message: 'ENCRYPTION_KEY is required when ENCRYPTION_ENABLED=true',
+          message: ERROR.ENV.ENCRYPTION_KEY_REQUIRED,
         });
       } else if (!/^[0-9a-fA-F]{64}$/.test(env.ENCRYPTION_KEY)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['ENCRYPTION_KEY'],
-          message: 'ENCRYPTION_KEY must be 64 hex characters (32 bytes)',
+          message: ERROR.ENV.ENCRYPTION_KEY_FORMAT,
         });
       }
     }
@@ -138,7 +139,7 @@ const envSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['CORS_ORIGINS'],
-        message: 'Wildcard CORS origin is not allowed in production',
+        message: ERROR.ENV.CORS_WILDCARD,
       });
     }
 
@@ -146,7 +147,7 @@ const envSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['REDIS_URL'],
-        message: 'REDIS_URL is required when QUEUE_ENABLED=true',
+        message: ERROR.ENV.REDIS_REQUIRED_FOR_QUEUE,
       });
     }
 
@@ -160,10 +161,7 @@ const envSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['OTP_REQUIRED'],
-          message:
-            'OTP_REQUIRED=true in production needs a delivery provider. Set BREVO_API_KEY, ' +
-            'SMTP_HOST/SMTP_USER/SMTP_PASS, or MSG91_AUTHKEY with OTP_SMS_ENABLED=true. ' +
-            'Set OTP_REQUIRED=false only if you are still building.',
+          message: ERROR.ENV.OTP_PROVIDER_REQUIRED,
         });
       }
     }

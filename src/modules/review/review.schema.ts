@@ -144,12 +144,12 @@ const couponBody = z
 
 const couponRules = [
   {
-    message: 'A percent coupon cannot exceed 100%.',
+    message: ERROR.COUPON.PERCENT_TOO_HIGH,
     check: (v: { type?: string; value?: number }) =>
       D.str(v.type) !== 'PERCENT' || v.value === undefined || v.value <= 100,
   },
   {
-    message: 'Expiry must be after the start.',
+    message: ERROR.COUPON.INVALID_WINDOW,
     check: (v: { expiresAt?: Date | string; startsAt?: Date | string }) =>
       !v.expiresAt || !v.startsAt || new Date(v.expiresAt as any) > new Date(v.startsAt as any),
   },
@@ -222,7 +222,7 @@ export const createFlashSaleSchema = z
   })
   .strict()
   .refine((v) => new Date(v.endsAt) > new Date(v.startsAt), {
-    message: 'End time must be after start time.',
+    message: ERROR.FLASH_SALE.INVALID_WINDOW,
   });
 
 export const updateFlashSaleSchema = z

@@ -1,6 +1,7 @@
 import { Request } from 'express';
 import { ApiResponse } from '../../utils/ApiResponse';
 import { SUCCESS } from '../../messages/success';
+import { ERROR } from '../../messages/error';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { isAdminRole, ROLES } from '../../constants/roles';
 import { D } from '../../utils/defaults';
@@ -38,7 +39,7 @@ const isStaff = (req: Request): boolean => isAdminRole(D.str(req.auth?.role));
 const ownVendorId = (req: Request): string => {
   const vendorId = D.str(req.auth?.vendorId);
 
-  if (!vendorId) throw AppError.forbidden('A vendor profile is required for this action.');
+  if (!vendorId) throw AppError.forbidden(ERROR.VENDOR.PROFILE_REQUIRED);
 
   return vendorId;
 };

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
 import { NAME } from '../../config/password.config';
@@ -67,7 +69,7 @@ export const placeOrderSchema = z
   })
   .strict()
   .refine((v) => Boolean(v.addressId || v.address), {
-    message: 'Provide addressId or an inline address.',
+    message: ERROR.ORDER.ADDRESS_INPUT_REQUIRED,
   });
 
 export const updateOrderStatusSchema = z
@@ -166,7 +168,7 @@ export const returnRequestSchema = z
   })
   .strict()
   .refine((v) => Boolean(v.reasonId || v.reasonText), {
-    message: 'Provide reasonId or reasonText.',
+    message: ERROR.RETURN.REASON_INPUT_REQUIRED,
   });
 
 export const returnDecisionSchema = z

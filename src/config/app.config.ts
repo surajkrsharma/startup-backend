@@ -24,6 +24,14 @@ export const SERVER = {
   NODE_ENV: ENV.NODE_ENV,
 };
 
+export const OPS = {
+  JOB_BATCH_SIZE: 5000,
+  BULK_MAX_ROWS: 5000,
+  NOTIFICATION_BODY_MAX_CHARS: 160,
+  TX_MAX_WAIT_MS: 5000,
+  TX_TIMEOUT_MS: 15_000,
+} as const;
+
 export const HEADER = {
   REQUEST_ID: 'x-request-id',
   RESPONSE_REQUEST_ID: 'X-Request-Id',

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { AdminAction, Role, ShipmentStatus } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
 import { NAME } from '../../config/password.config';
@@ -71,7 +73,7 @@ const methodBody = z
 
 export const createMethodSchema = methodBody.superRefine((v, ctx) => {
   if (D_max(v) < D_min(v)) {
-    ctx.addIssue({ code: 'custom', message: 'maxDays must be at least minDays.' });
+    ctx.addIssue({ code: 'custom', message: ERROR.SHIPPING.DELIVERY_WINDOW_INVALID });
   }
 });
 
@@ -80,7 +82,7 @@ export const updateMethodSchema = methodBody.partial().superRefine((v, ctx) => {
     ctx.addIssue({ code: 'custom', message: VALIDATION.INVALID_JSON });
   }
   if (D_max(v) < D_min(v)) {
-    ctx.addIssue({ code: 'custom', message: 'maxDays must be at least minDays.' });
+    ctx.addIssue({ code: 'custom', message: ERROR.SHIPPING.DELIVERY_WINDOW_INVALID });
   }
 });
 

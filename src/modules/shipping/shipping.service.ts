@@ -206,11 +206,11 @@ export const createMethod = async (input: Record<string, any>, req?: any): Promi
   });
 
   if (existing) {
-    throw AppError.conflict('This shipping method code already exists.', ERROR_CODE.DUPLICATE);
+    throw AppError.conflict(ERROR.SHIPPING.METHOD_CODE_EXISTS, ERROR_CODE.DUPLICATE);
   }
 
   if (D.num(input.maxDays) < D.num(input.minDays)) {
-    throw AppError.unprocessable('maxDays must be at least minDays.');
+    throw AppError.unprocessable(ERROR.SHIPPING.DELIVERY_WINDOW_INVALID);
   }
 
   if (D.str(input.zoneId)) {
@@ -265,7 +265,7 @@ export const updateMethod = async (
   const nextMax = input.maxDays === undefined ? D.num(existing.maxDays) : D.num(input.maxDays);
 
   if (nextMax < nextMin) {
-    throw AppError.unprocessable('maxDays must be at least minDays.');
+    throw AppError.unprocessable(ERROR.SHIPPING.DELIVERY_WINDOW_INVALID);
   }
 
   const row = await prisma.shippingMethod.update({
@@ -363,7 +363,7 @@ export const createPartner = async (input: Record<string, any>, req?: any): Prom
   });
 
   if (existing) {
-    throw AppError.conflict('This partner code already exists.', ERROR_CODE.DUPLICATE);
+    throw AppError.conflict(ERROR.SHIPPING.PARTNER_CODE_EXISTS, ERROR_CODE.DUPLICATE);
   }
 
   const row = await prisma.shippingPartner.create({
@@ -406,7 +406,7 @@ export const updatePartner = async (
       select: { id: true },
     });
 
-    if (clash) throw AppError.conflict('This partner code already exists.', ERROR_CODE.DUPLICATE);
+    if (clash) throw AppError.conflict(ERROR.SHIPPING.PARTNER_CODE_EXISTS, ERROR_CODE.DUPLICATE);
   }
 
   const row = await prisma.shippingPartner.update({
@@ -664,7 +664,7 @@ export const createDeliveryBoy = async (input: Record<string, any>, req?: any): 
   });
 
   if (existing) {
-    throw AppError.conflict('This user is already a delivery boy.', ERROR_CODE.DUPLICATE);
+    throw AppError.conflict(ERROR.DELIVERY_BOY.ALREADY_EXISTS, ERROR_CODE.DUPLICATE);
   }
 
   if (D.str(input.zoneId)) {
@@ -754,7 +754,7 @@ export const toggleDeliveryBoy = async (
     });
 
     if (active > 0) {
-      throw AppError.unprocessable('This rider still has active deliveries.');
+      throw AppError.unprocessable(ERROR.DELIVERY_BOY.HAS_ACTIVE_DELIVERIES);
     }
   }
 
@@ -784,7 +784,7 @@ export const deleteDeliveryBoy = async (boyId: string, req?: any): Promise<void>
   if (!existing) throw AppError.notFound(ERROR.DELIVERY_BOY.NOT_FOUND);
 
   if (existing.currentLoad > 0) {
-    throw AppError.unprocessable('This rider still has undelivered parcels.');
+    throw AppError.unprocessable(ERROR.DELIVERY_BOY.HAS_UNDELIVERED_PARCELS);
   }
 
   await prisma.deliveryBoy.delete({ where: { id: boyId } });
@@ -1324,7 +1324,7 @@ export const createShipment = async (
   });
 
   if (existing) {
-    throw AppError.unprocessable('This sub-order already has a shipment.');
+    throw AppError.unprocessable(ERROR.SHIPPING.SHIPMENT_EXISTS);
   }
 
   const awb = sub.trackingNumber || generateAwb();

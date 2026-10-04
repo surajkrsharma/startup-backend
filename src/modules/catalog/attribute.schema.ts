@@ -1,4 +1,6 @@
 import { z } from 'zod';
+
+import { ERROR } from '../../messages/error';
 import { ATTRIBUTE_TYPE, COLLECTION_TYPE } from '../../constants/roles';
 import { NAME } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
@@ -42,7 +44,7 @@ export const createAttributeBodySchema = createAttributeSchema.superRefine((v, c
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['type'],
-      message: 'A variant attribute must be of type SIZE, COLOR or SELECT.',
+      message: ERROR.ATTRIBUTE.INVALID_VARIANT_TYPE,
     });
   }
 });
@@ -59,7 +61,7 @@ export const updateAttributeSchema = createAttributeSchema
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['type'],
-        message: 'A variant attribute must be of type SIZE, COLOR or SELECT.',
+        message: ERROR.ATTRIBUTE.INVALID_VARIANT_TYPE,
       });
     }
   });

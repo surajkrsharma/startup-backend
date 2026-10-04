@@ -80,7 +80,7 @@ export const verifyAccessToken = (token: string): AccessTokenPayload => {
       issuer: JWT.ISSUER,
       audience: JWT.AUDIENCE,
     }) as AccessTokenPayload;
-    if (decoded.type !== 'access') throw new Error('wrong token type');
+    if (decoded.type !== 'access') throw new Error(ERROR.SYSTEM.TOKEN_TYPE_MISMATCH);
     return decoded;
   } catch (err: any) {
     if (err?.name === 'TokenExpiredError') {
@@ -96,7 +96,7 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
       issuer: JWT.ISSUER,
       audience: JWT.AUDIENCE,
     }) as RefreshTokenPayload;
-    if (decoded.type !== 'refresh') throw new Error('wrong token type');
+    if (decoded.type !== 'refresh') throw new Error(ERROR.SYSTEM.TOKEN_TYPE_MISMATCH);
     return decoded;
   } catch (err: any) {
     if (err?.name === 'TokenExpiredError') {

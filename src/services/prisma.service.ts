@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from './logger.service';
+import { OPS } from '../config/app.config';
 
 export const prisma = new PrismaClient({
   log:
@@ -110,4 +111,7 @@ export const mapPrismaError = (err: unknown): { status: number; code: string } |
 };
 
 export const withTransaction = async <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
-  prisma.$transaction(async (tx) => fn(tx), { maxWait: 5000, timeout: 15000 });
+  prisma.$transaction(async (tx) => fn(tx), {
+    maxWait: OPS.TX_MAX_WAIT_MS,
+    timeout: OPS.TX_TIMEOUT_MS,
+  });
