@@ -339,7 +339,12 @@ export const buildFromRouter = (app: Application, stripPrefix: string): Json => 
       // Errors implied by the guards this route actually carries.
       if (entry.requiresAuth) responses['401'] = { description: 'Not signed in' };
       if (entry.roles.length) responses['403'] = { description: 'Not allowed for this role' };
-      if (method === 'post' || method === 'patch') {
+      /*
+       * 404 needs a record to miss. Tying it to the write verb instead put
+       * "No such record" on every POST, including `/auth/register` and `/cart/addItem`,
+       * which have no identifier to look up and can never return it.
+       */
+      if (entry.params) {
         responses['404'] = { description: 'No such record' };
       }
       if (method === 'delete' || method === 'put' || method === 'patch') {
@@ -348,9 +353,6 @@ export const buildFromRouter = (app: Application, stripPrefix: string): Json => 
       // Validation can fail on any endpoint that declares a schema.
       if (entry.params || entry.query || entry.body) {
         responses['400'] = { description: 'Validation failed' };
-      }
-      if (entry.params && method === 'post') {
-        responses['404'] = responses['404'] ?? { description: 'No such record' };
       }
 
       operation.responses = withResponseEnvelopes(responses, isPaginated);

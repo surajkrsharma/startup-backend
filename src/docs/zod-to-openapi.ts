@@ -16,8 +16,6 @@
 
 type Json = Record<string, any>;
 
-const FIRST = (_: string, obj: any): string => obj?._def?.typeName;
-
 /** Zod string check kind -> OpenAPI format. */
 const STRING_FORMATS: Record<string, string> = {
   email: 'email',
@@ -81,6 +79,33 @@ const describeChecks = (checks: any, json: Json): boolean => {
   return isInteger;
 };
 
+/**
+ * Whether a schema accepts `undefined`, looking through the wrappers that hide it.
+ *
+ * A bare `typeName === 'ZodOptional'` test is not enough, because the codebase writes
+ * `phone = z.string().optional().or(z.literal(''))`. That `.or()` wraps the optional in
+ * a ZodUnion, so the field reads as required - and the docs then told callers they had
+ * to send a `phone` the server was happy without. Any branch being optional makes the
+ * whole schema optional.
+ */
+const isOptionalSchema = (schema: any, depth = 0): boolean => {
+  const def = schema?._def;
+  // Bounded so a cyclic or self-referential schema cannot spin here.
+  if (!def || depth > 10) return false;
+
+  if (def.typeName === 'ZodOptional' || def.typeName === 'ZodDefault') return true;
+
+  // ZodUnion / ZodDiscriminatedUnion.
+  if (Array.isArray(def.options)) {
+    return def.options.some((option: any) => isOptionalSchema(option, depth + 1));
+  }
+
+  // ZodNullable / ZodReadonly / ZodBranded / ZodEffects.
+  if (def.innerType) return isOptionalSchema(def.innerType, depth + 1);
+
+  return false;
+};
+
 const convert = (input: any): Json => {
   if (!input || typeof input !== 'object' || !input._def) return { type: 'string' };
 
@@ -133,9 +158,8 @@ const convert = (input: any): Json => {
       const properties: Json = {};
 
       for (const [key, value] of Object.entries<any>(shape)) {
-        const optional = FIRST('x', value) === 'ZodOptional';
         properties[key] = convert(value);
-        if (!optional) required.push(key);
+        if (!isOptionalSchema(value)) required.push(key);
       }
 
       const json: Json = { type: 'object', properties };
