@@ -57,7 +57,21 @@ export const updateProduct = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /products/deleteProduct/:id — soft delete. */
+/**
+ * @openapi
+ * /products/deleteProduct/{id}:
+ *   delete:
+ *     tags: [Products]
+ *     summary: Soft delete a product and archive it
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     responses:
+ *       200: { description: Deleted }
+ *       401: { description: Not signed in }
+ *       403: { description: Not the owning vendor, or not admin }
+ *       404: { description: No such product }
+ */
 export const deleteProduct = asyncHandler(async (req, res) => {
   await service.deleteProduct(req.params.id, req);
   return ApiResponse.success(res, {
@@ -93,7 +107,32 @@ export const toggleStatus = asyncHandler(async (req, res) => {
   });
 });
 
-/** POST /products/uploadImages/:id — multipart. */
+/**
+ * @openapi
+ * /products/uploadImages/{id}:
+ *   post:
+ *     tags: [Products]
+ *     summary: Attach images to a product
+ *     description: Send `multipart/form-data` with one or more entries under the field `files`.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [files]
+ *             properties:
+ *               files: { type: array, items: { type: string, format: binary }, description: One or more image files }
+ *     responses:
+ *       201: { description: Images attached }
+ *       400: { description: No file sent, or the type is not an image }
+ *       401: { description: Not signed in }
+ *       403: { description: Not the owning vendor }
+ *       404: { description: No such product }
+ */
 export const uploadImages = asyncHandler(async (req, res) => {
   const files = getUploadedFiles(req);
   const result = await service.uploadImages(req.params.id, files, req);
@@ -225,7 +264,20 @@ export const getAll = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getById/:id */
+/**
+ * @openapi
+ * /products/getById/{id}:
+ *   get:
+ *     tags: [Products]
+ *     summary: Full product detail
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     responses:
+ *       200: { description: Product found }
+ *       401: { description: Not signed in }
+ *       404: { description: No such product }
+ */
 export const getById = asyncHandler(async (req, res) => {
   const product = await service.getProductById(req.params.id);
   return ApiResponse.success(res, {
@@ -234,7 +286,20 @@ export const getById = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /products/getBySlug/:slug — counts a view. */
+/**
+ * @openapi
+ * /products/getBySlug/{slug}:
+ *   get:
+ *     tags: [Products]
+ *     summary: Full product detail by slug, and it counts a view
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 140 }, example: classic-cotton-shirt }
+ *     responses:
+ *       200: { description: Product found }
+ *       401: { description: Not signed in }
+ *       404: { description: No such slug }
+ */
 export const getBySlug = asyncHandler(async (req, res) => {
   const product = await service.getProductBySlug(req.params.slug);
   return ApiResponse.success(res, {

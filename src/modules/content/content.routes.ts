@@ -454,13 +454,87 @@ webhook.post(
   controller.registerWebhook,
 );
 
-/** POST /webhooks/razorpay — signature verified, no auth */
+/**
+ * @openapi
+ * /webhooks/razorpay:
+ *   post:
+ *     tags: [Webhooks]
+ *     summary: Receive a Razorpay event
+ *     description: >
+ *       Called by Razorpay, not by an app. There is no bearer token; the request is
+ *       accepted only when the HMAC in `x-signature` (or `x-webhook-signature`) matches
+ *       the raw body. The payload is stored verbatim after `endpointId`, `event` and
+ *       `eventId` are read off it.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/WebhookProviderPayload'
+ *     responses:
+ *       200:
+ *         description: Event accepted and recorded
+ *       400:
+ *         description: Signature missing or not matching
+ */
 webhook.post('/razorpay', controller.receiveRazorpayWebhook);
 
-/** POST /webhooks/shipping — signature verified, no auth */
+/**
+ * @openapi
+ * /webhooks/shipping:
+ *   post:
+ *     tags: [Webhooks]
+ *     summary: Receive a shipping courier event
+ *     description: >
+ *       Called by the courier webhook, not by an app. No bearer token; the request is
+ *       accepted only when the HMAC in `x-signature` (or `x-webhook-signature`) matches
+ *       the raw body. The payload is stored verbatim after `endpointId`, `event` and
+ *       `eventId` are read off it.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/WebhookProviderPayload'
+ *     responses:
+ *       200:
+ *         description: Event accepted and recorded
+ *       400:
+ *         description: Signature missing or not matching
+ */
 webhook.post('/shipping', controller.receiveShippingWebhook);
 
-/** POST /webhooks/payment-gateway/:provider — signature verified, no auth */
+/**
+ * @openapi
+ * /webhooks/payment-gateway/{provider}:
+ *   post:
+ *     tags: [Webhooks]
+ *     summary: Receive a payment gateway event
+ *     description: >
+ *       Called by the gateway named in `provider`, not by an app. No bearer token; the
+ *       request is accepted only when the HMAC in `x-signature` (or `x-webhook-signature`)
+ *       matches the raw body. The payload is stored verbatim after `endpointId`, `event`
+ *       and `eventId` are read off it.
+ *     parameters:
+ *       - in: path
+ *         name: provider
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [RAZORPAY, PAYPAL, STRIPE, PHONEPE]
+ *         example: RAZORPAY
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/WebhookProviderPayload'
+ *     responses:
+ *       200:
+ *         description: Event accepted and recorded
+ *       400:
+ *         description: Signature missing or not matching
+ */
 webhook.post(
   '/payment-gateway/:provider',
   validate({ params: schema.webhookProviderParamSchema }),
@@ -599,7 +673,7 @@ report.get(
   '/export/:type',
   authenticate,
   ...controller.guards.admin,
-  validate({ query: schema.reportSchema }),
+  validate({ params: schema.reportTypeParamSchema, query: schema.reportSchema }),
   controller.exportReport,
 );
 

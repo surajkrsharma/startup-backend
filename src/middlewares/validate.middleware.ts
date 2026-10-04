@@ -17,9 +17,8 @@ export type Source = keyof ValidateSchemas;
  * Validated output replaces the raw value, so handlers always receive coerced,
  * stripped data. Unknown keys are rejected because schemas use `.strict()`.
  */
-export const validate =
-  (schemas: ValidateSchemas): RequestHandler =>
-  (req, res, next) => {
+export const validate = (schemas: ValidateSchemas): RequestHandler => {
+  const handler: RequestHandler = (req, res, next) => {
     try {
       if (schemas.params) req.params = schemas.params.parse(req.params) as any;
       if (schemas.query) {
@@ -47,6 +46,16 @@ export const validate =
       next(err);
     }
   };
+
+  /**
+   * The schemas hang off the handler so the OpenAPI generator can read them back off
+   * the Express router stack. Without this the spec has to restate every field by
+   * hand in an `@openapi` comment, which is exactly how it drifts out of date.
+   */
+  (handler as any).validatedSchemas = schemas;
+
+  return handler;
+};
 
 export const validateBody = (schema: ZodTypeAny): RequestHandler => validate({ body: schema });
 export const validateQuery = (schema: ZodTypeAny): RequestHandler => validate({ query: schema });

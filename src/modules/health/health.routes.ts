@@ -11,6 +11,14 @@ import { getActiveWorkerCount } from '../../jobs/workers';
 import { QUEUE_ALL, QueueName } from '../../config/socket.config';
 import { getJobStatus } from '../../jobs/queues';
 import { asyncHandler } from '../../utils/asyncHandler';
+import { z } from 'zod';
+import { validate } from '../../middlewares/validate.middleware';
+import { VALIDATION } from '../../messages/validation';
+
+/** GET /health/jobs/:jobId */
+const jobIdParamSchema = z
+  .object({ jobId: z.string().trim().min(4, VALIDATION.REQUIRED('jobId')).max(64) })
+  .strict();
 
 const router = Router();
 
@@ -131,6 +139,7 @@ router.get(
 
 router.get(
   '/jobs/:jobId',
+  validate({ params: jobIdParamSchema }),
   asyncHandler(async (req, res) =>
     ApiResponse.success(res, {
       message: SUCCESS.BULK.STATUS_FETCHED,

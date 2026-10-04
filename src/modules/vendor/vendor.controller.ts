@@ -91,7 +91,32 @@ export const updateProfile = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/updateBankDetails/:id — vendor may only edit its own shop. */
+/**
+ * @openapi
+ * /vendors/updateBankDetails/{id}:
+ *   patch:
+ *     tags: [Vendors]
+ *     summary: Update payout bank details — a vendor may only edit its own shop
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               bankHolderName: { type: string, maxLength: 100, example: Ramesh Sharma }
+ *               bankAccountNo: { type: string, maxLength: 30, example: '4111111111111111' }
+ *               bankIfsc: { type: string, maxLength: 15, example: HDFC0001234 }
+ *               upiId: { type: string, maxLength: 100, example: ramesh@upi }
+ *     responses:
+ *       200: { description: Bank details updated }
+ *       400: { description: No usable payout destination }
+ *       401: { description: Not signed in }
+ *       403: { description: Not the owning vendor }
+ */
 export const updateBankDetails = asyncHandler(async (req, res) => {
   if (req.params.id !== vendorId(req)) {
     throw AppError.forbidden(ERROR.COMMON.FORBIDDEN, ERROR_CODE.FORBIDDEN);
@@ -173,7 +198,21 @@ export const uploadDocuments = asyncHandler(async (req, res) => {
 
 // ── Public ───────────────────────────────────────────────────────────────────
 
-/** GET /vendors/getRatings/:id */
+/**
+ * @openapi
+ * /vendors/getRatings/{id}:
+ *   get:
+ *     tags: [Vendors]
+ *     summary: Rating breakdown for a shop
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *       - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+ *     responses:
+ *       200: { description: Average rating plus the per-star distribution }
+ *       401: { description: Not signed in }
+ *       404: { description: No such vendor }
+ */
 export const getRatings = asyncHandler(async (req, res) => {
   const { limit } = getPagination({ limit: req.query?.limit });
   const summary = await service.getRatings(req.params.id, limit);
@@ -184,7 +223,25 @@ export const getRatings = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /vendors/getProducts/:id — only an approved shop is publicly listed. */
+/**
+ * @openapi
+ * /vendors/getProducts/{id}:
+ *   get:
+ *     tags: [Vendors]
+ *     summary: Paginated products of a shop — only an approved shop is listed
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *       - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+ *       - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+ *       - { name: search, in: query, required: false, schema: { type: string, maxLength: 120 }, example: shirt }
+ *       - { name: sort, in: query, required: false, schema: { type: string, maxLength: 40 }, example: -createdAt }
+ *     responses:
+ *       200: { description: Products, with the pagination numbers first }
+ *       401: { description: Not signed in }
+ *       403: { description: The shop is not approved }
+ *       404: { description: No such vendor }
+ */
 export const getProducts = asyncHandler(async (req, res) => {
   const vendor = await service.getVendorById(req.params.id);
   if (vendor.status !== 'APPROVED') {
@@ -246,7 +303,30 @@ export const getById = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/approveVendor/:id */
+/**
+ * @openapi
+ * /vendors/approveVendor/{id}:
+ *   patch:
+ *     tags: [Vendors]
+ *     summary: Approve a pending vendor
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               commissionRate: { type: number, minimum: 0, maximum: 100, example: 10 }
+ *               payoutCycleDays: { type: integer, minimum: 1, maximum: 90, example: 7 }
+ *     responses:
+ *       200: { description: Approved }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ *       404: { description: No such vendor }
+ */
 export const approveVendor = asyncHandler(async (req, res) => {
   const vendor = await service.approveVendor(req.params.id, req.body ?? {}, req);
   return ApiResponse.success(res, {
@@ -255,7 +335,52 @@ export const approveVendor = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/rejectVendor/:id */
+/**
+ * @openapi
+ * /vendors/suspendVendor/{id}:
+ *   patch:
+ *     tags: [Vendors]
+ *     summary: Suspend an approved vendor
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason: { type: string, maxLength: 500, example: Repeated policy violations }
+ *     responses:
+ *       200: { description: Suspended }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ *       404: { description: No such vendor }
+ */
+/**
+ * @openapi
+ * /vendors/rejectVendor/{id}:
+ *   patch:
+ *     tags: [Vendors]
+ *     summary: Reject a pending vendor
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason: { type: string, maxLength: 500, example: GST documents unreadable }
+ *     responses:
+ *       200: { description: Rejected }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ *       404: { description: No such vendor }
+ */
 export const rejectVendor = asyncHandler(async (req, res) => {
   const vendor = await service.rejectVendor(req.params.id, req.body, req);
   return ApiResponse.success(res, {
@@ -264,7 +389,6 @@ export const rejectVendor = asyncHandler(async (req, res) => {
   });
 });
 
-/** PATCH /vendors/suspendVendor/:id */
 export const suspendVendor = asyncHandler(async (req, res) => {
   const vendor = await service.suspendVendor(req.params.id, req.body, req);
   return ApiResponse.success(res, {

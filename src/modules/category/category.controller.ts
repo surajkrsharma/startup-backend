@@ -54,7 +54,20 @@ export const getAll = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /categories/getById/:id */
+/**
+ * @openapi
+ * /categories/getById/{id}:
+ *   get:
+ *     tags: [Categories]
+ *     summary: Single category with its immediate children and product count
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     responses:
+ *       200: { description: Category found }
+ *       401: { description: Not signed in }
+ *       404: { description: No such category }
+ */
 export const getById = asyncHandler(async (req, res) => {
   const category = await service.getCategoryById(req.params.id);
   return ApiResponse.success(res, {
@@ -92,7 +105,22 @@ export const updateCategory = asyncHandler(async (req, res) => {
   });
 });
 
-/** DELETE /categories/deleteCategory/:id — soft delete, refused when in use. */
+/**
+ * @openapi
+ * /categories/deleteCategory/{id}:
+ *   delete:
+ *     tags: [Categories]
+ *     summary: Soft delete a category, refused while products still reference it
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     responses:
+ *       200: { description: Deleted, and whether it was a soft delete }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ *       404: { description: No such category }
+ *       409: { description: Products still reference this category }
+ */
 export const deleteCategory = asyncHandler(async (req, res) => {
   const result = await service.deleteCategory(req.params.id, req);
   return ApiResponse.success(res, {

@@ -140,10 +140,14 @@ export const require2FAVerified: RequestHandler = asyncHandler(async (req, res, 
   next();
 });
 
-/** Role gate. Pass roles in scope order — first match wins. */
-export const authorize =
-  (...roles: Role[]): RequestHandler =>
-  (req, res, next) => {
+/**
+ * Role gate. Pass roles in scope order — first match wins.
+ *
+ * The roles are tagged onto the handler so the OpenAPI generator can tell a public
+ * route from an admin-only one, which is what drives the documented responses.
+ */
+export const authorize = (...roles: Role[]): RequestHandler => {
+  const handler: RequestHandler = (req, res, next) => {
     if (!req.auth) {
       return ApiResponse.error(res, {
         statusCode: HTTP_STATUS.UNAUTHORIZED,
@@ -161,7 +165,19 @@ export const authorize =
     });
   };
 
+  (handler as any).requiredRoles = roles;
+
+  return handler;
+};
+
 export const ADMIN_ROLES_GUARD = [ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN];
+
+/*
+ * Tags consumed by the OpenAPI generator. They are assigned after the declarations
+ * because `const` is in the temporal dead zone before that.
+ */
+(authenticate as any).requiresAuth = true;
+(optionalAuth as any).optionalAuth = true;
 
 export const requireRole = (...roles: Role[]) => [authenticate, authorize(...roles)];
 export const requireAdmin = () => [authenticate, authorize(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN)];

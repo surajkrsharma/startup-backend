@@ -214,7 +214,7 @@ device.get('/getTrusted', authenticate, controller.listTrustedDevices);
 device.patch(
   '/trust/:id',
   authenticate,
-  validate({ params: schema.deviceIdParamSchema }),
+  validate({ params: idParamSchema }),
   controller.trustDevice,
 );
 
@@ -222,7 +222,7 @@ device.patch(
 device.patch(
   '/untrust/:id',
   authenticate,
-  validate({ params: schema.deviceIdParamSchema }),
+  validate({ params: idParamSchema }),
   controller.untrustDevice,
 );
 

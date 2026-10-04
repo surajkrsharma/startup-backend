@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { validate } from '../../middlewares/validate.middleware';
+import { validate, idParamSchema } from '../../middlewares/validate.middleware';
 import { authenticate } from '../../middlewares/auth.middleware';
 import * as controller from './order.controller';
 import * as schema from './order.schema';
@@ -108,7 +108,7 @@ router.get(
   '/getPackingSlip/:id',
   authenticate,
   ...controller.guards.vendor,
-  validate({ params: schema.subOrderParamSchema, query: schema.invoiceQuerySchema }),
+  validate({ params: idParamSchema, query: schema.invoiceQuerySchema }),
   controller.getPackingSlip,
 );
 

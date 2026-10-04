@@ -73,7 +73,7 @@ const apiRoutes = Router();
 apiRoutes.use('/health', healthRoutes);
 apiRoutes.use('/version', systemRoutes);
 apiRoutes.use('/docs', docsRouter);
-apiRoutes.get('/docs.json', (_req, res) => res.json(getSpec()));
+apiRoutes.get('/docs.json', (req, res) => res.json(getSpec(req.app)));
 
 // ── Module routes (auth module is public; guards live inside each route) ────
 apiRoutes.use('/auth', authRoutes);

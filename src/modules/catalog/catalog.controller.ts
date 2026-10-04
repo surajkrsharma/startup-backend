@@ -88,6 +88,21 @@ export const updateBrand = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * @openapi
+ * /brands/deleteBrand/{id}:
+ *   delete:
+ *     tags: [Brands]
+ *     summary: Soft delete a brand
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     responses:
+ *       200: { description: Deleted }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ *       404: { description: No such brand }
+ */
 export const deleteBrand = asyncHandler(async (req, res) => {
   const result = await service.deleteBrand(req.params.id, req);
   return ApiResponse.success(res, {

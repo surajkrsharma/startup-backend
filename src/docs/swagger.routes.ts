@@ -7,6 +7,7 @@ import path from 'path';
 import { APP } from '../config/app.config';
 import { packageJson } from '../config/package.meta';
 import { SERVER_SCHEMA } from './schemas';
+import { buildFromRouter } from './swagger.generate';
 
 /**
  * Every module is documented with `@openapi` blocks, and different modules put
@@ -42,10 +43,18 @@ const docFiles = (): string[] => {
   return files;
 };
 
+/**
+ * `package.json` is still named `projectname-api`, which is what the docs page used to
+ * show as its title. Taken from the repo name instead, so the header is not a
+ * placeholder while `package.json` is left alone - renaming it there would ripple into
+ * the lockfile and build output for no documentation gain.
+ */
+const API_TITLE = 'Startup Marketplace API';
+
 export const swaggerSpec: swaggerJsdoc.OAS3Definition = {
   openapi: '3.0.3',
   info: {
-    title: `${packageJson.name} API`,
+    title: API_TITLE,
     version: packageJson.version,
     description: [
       'Multi-vendor marketplace API — Node + Express + TypeScript + Prisma + PostgreSQL + Redis.',
@@ -127,10 +136,211 @@ export const swaggerSpec: swaggerJsdoc.OAS3Definition = {
   },
 };
 
-const spec = swaggerJsdoc({
+/**
+ * The spec is built in two passes.
+ *
+ * `swagger-jsdoc` supplies the prose: summaries, tags, hand-written parameters and any
+ * response detail a developer bothered to write. Those are the parts that cannot be
+ * derived, because they are explanations rather than facts.
+ *
+ * `buildFromRouter` then supplies the facts: every path parameter, query parameter,
+ * request body field, type and required flag, read straight off the Zod schema the
+ * route actually validates with, plus the auth guards and the status codes they imply.
+ *
+ * A comment goes stale the moment a schema changes; a schema cannot. So the derived
+ * facts win, and anything jsdoc said that the generator did not produce is kept.
+ */
+const documented = swaggerJsdoc({
   swaggerDefinition: swaggerSpec as any,
   apis: docFiles(),
+}) as any;
+
+let spec: swaggerJsdoc.OAS3Definition = documented;
+
+/**
+ * Filled in on the first call to /docs, because deriving the spec needs the Express
+ * routing table, and that only exists once `createApp()` has run.
+ */
+let derived = false;
+
+/** Express writes `:id`; OpenAPI writes `{id}`. */
+const toBraces = (p: string): string => p.replace(/:([A-Za-z_]\w*)/g, '{$1}');
+
+const ensureDerived = (app: any): void => {
+  if (derived) return;
+  derived = true;
+
+  const generated = buildFromRouter(app, APP.API_PREFIX);
+
+  const real = new Set(Object.keys(generated));
+
+  /*
+   * Normalise the keys jsdoc produced before merging. Some `@openapi` comments were
+   * written with Express-style `:id` and some carry a prefix the route does not have
+   * (a `/content/pages/...` entry when the real mount is `/pages/...`). Left alone,
+   * every such endpoint showed up twice: once from the stale comment and once from
+   * the routing table.
+   */
+  const documentedPaths: any = {};
+  for (const [rawPath, methods] of Object.entries<any>(documented.paths ?? {})) {
+    const normalised = toBraces(rawPath);
+    const target = [...real].find((r) => r === normalised || r.endsWith(normalised));
+
+    // Nothing mounted matches, so the comment names an endpoint that does not exist.
+    if (!target) continue;
+
+    const mountedHere = generated[target];
+    if (!mountedHere) continue;
+
+    /*
+     * Only keep methods the routing table actually has. A stale comment claiming
+     * `POST /cart/removeCoupon` (the real route is DELETE) would otherwise publish an
+     * endpoint that cannot be called.
+     */
+    const kept: any = {};
+    for (const [method, operation] of Object.entries<any>(methods)) {
+      if (mountedHere[method]) kept[method] = operation;
+    }
+
+    if (Object.keys(kept).length) {
+      documentedPaths[target] = { ...(documentedPaths[target] ?? {}), ...kept };
+    }
+  }
+
+  for (const [path, methods] of Object.entries<any>(generated)) {
+    documentedPaths[path] = documentedPaths[path] ?? {};
+
+    for (const [method, operation] of Object.entries<any>(methods)) {
+      const existing = documentedPaths[path][method];
+
+      if (!existing) {
+        documentedPaths[path][method] = operation;
+        continue;
+      }
+
+      // jsdoc kept for the prose, the tags and any explicitly written requestBody.
+      // The generator kept for parameters, security, schemas and implied statuses.
+      documentedPaths[path][method] = {
+        ...operation,
+        ...(existing.summary ? { summary: existing.summary } : {}),
+        ...(existing.tags ? { tags: existing.tags } : {}),
+        ...(existing.description
+          ? {
+              description: `${existing.description}${operation.description ? ` ${operation.description}` : ''}`,
+            }
+          : {}),
+        ...resolveRequestBody(operation.requestBody, existing.requestBody),
+        responses: resolveResponses(operation.responses, existing.responses),
+        ...(operation.parameters ? { parameters: operation.parameters } : {}),
+        ...(operation.security ? { security: operation.security } : {}),
+      };
+    }
+  }
+
+  documented.paths = documentedPaths;
+  spec = documented as swaggerJsdoc.OAS3Definition;
+};
+
+/**
+ * Whether a derived schema actually says anything about the body.
+ *
+ * It often cannot. A route validated with `z.any().superRefine(...)` hides its real
+ * shape inside the refine callback, so introspection yields a typeless `{}` - and an
+ * empty `{}` body would otherwise overwrite a correct hand-written block. An empty
+ * `properties` map is the same story: the route genuinely takes no input, and the
+ * hand-written block is the only place that can know more.
+ */
+const isInformativeBody = (schema: any): boolean => {
+  if (!schema || typeof schema !== 'object') return false;
+  if (schema.$ref || schema.oneOf || schema.anyOf || schema.allOf) return true;
+
+  const keys = Object.keys(schema).filter((k) => k !== 'description');
+  if (!keys.length) return false;
+
+  if (schema.type === 'object') return Object.keys(schema.properties ?? {}).length > 0;
+
+  return true;
+};
+
+/**
+ * Reconciles a hand-written requestBody with the one derived from the route's Zod schema.
+ *
+ * The derived schema has to win when it has something to say: it comes from the
+ * validator the endpoint actually enforces, so a hand-written block that calls
+ * `productId` a bare string documents a field the server would reject. jsdoc is still
+ * the source for prose, so its description and example are preserved per media type.
+ */
+const resolveRequestBody = (derived?: any, written?: any): Record<string, any> => {
+  if (!written) return derived ? { requestBody: derived } : {};
+  if (!derived) return { requestBody: written };
+
+  const derivedContent = derived.content ?? {};
+  const writtenContent = written.content ?? {};
+
+  // Nothing was learned from the validator, so the hand-written block stands as-is.
+  const informative = Object.values<any>(derivedContent).some((m) => isInformativeBody(m?.schema));
+  if (!informative) return { requestBody: written };
+
+  const content: any = { ...writtenContent };
+
+  for (const [media, derivedMedia] of Object.entries<any>(derivedContent)) {
+    content[media] = { ...(writtenContent[media] ?? {}), ...derivedMedia };
+  }
+
+  return {
+    requestBody: {
+      ...written,
+      ...derived,
+      // Only advertise a media type the derived schema actually describes.
+      content: Object.keys(content).length ? content : derivedContent,
+    },
+  };
+};
+
+const envelopeRef = (code: string): string =>
+  Number(code) >= 400 ? 'ErrorResponse' : 'SuccessResponse';
+
+const envelopeContent = (code: string): Record<string, any> => ({
+  content: {
+    'application/json': { schema: { $ref: `#/components/schemas/${envelopeRef(code)}` } },
+  },
 });
+
+/**
+ * Reconciles hand-written responses with the derived ones.
+ *
+ * Same rule as `resolveRequestBody`: a written block may keep its prose, but it
+ * cannot replace the response body schema. Spreading `written` over `derived` left
+ * 166 responses advertising a status with no body at all.
+ */
+const resolveResponses = (derived?: any, written?: any): any => {
+  if (!derived && !written) return derived;
+  if (!written) return derived;
+  if (!derived) return written;
+
+  const out: any = { ...derived };
+
+  for (const [code, value] of Object.entries<any>(written)) {
+    if (!value?.content) {
+      // Prose only - keep the written description, and still describe the body.
+      out[code] = {
+        ...(derived[code] ?? {}),
+        ...value,
+        ...(derived[code]?.content ? {} : envelopeContent(code)),
+      };
+      continue;
+    }
+
+    out[code] = {
+      ...(derived[code] ?? {}),
+      ...value,
+      // A written body only wins if the generator had nothing for that status.
+      content: derived[code]?.content ?? value.content,
+    };
+  }
+
+  return out;
+};
 
 /**
  * Where swagger-ui's own assets are served from.
@@ -211,7 +421,7 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${packageJson.name} API — Swagger UI</title>
+    <title>${API_TITLE} — Swagger UI</title>
     <link rel="stylesheet" href="${ASSET_BASE}/swagger-ui.css" />
     <style>
       /* ── Theme tokens ──────────────────────────────────────────────────────
@@ -308,12 +518,62 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
       .swagger-ui .opblock.opblock-head,
       .swagger-ui .opblock.opblock-options {
         background: var(--panel);
-        border-color: var(--border);
         box-shadow: none;
       }
-      .swagger-ui .opblock .opblock-summary-method,
+      /*
+       * Each HTTP method keeps swagger's own accent colour, on both the box border
+       * and the summary badge: GET blue, POST green, PUT orange, DELETE red,
+       * PATCH teal, HEAD purple, OPTIONS navy. Those colours are how a reader scans
+       * a long endpoint list without reading a single label.
+       *
+       * An earlier override painted every method badge with the page background and
+       * every box border with the neutral border colour, which erased the blue from
+       * every GET. Only the neutral surfaces are themed here now; accents are not.
+       */
+      .swagger-ui .opblock .opblock-summary-method {
+        color: #ffffff;
+      }
+      .swagger-ui .opblock.opblock-get {
+        border-color: #61affe;
+      }
       .swagger-ui .opblock.opblock-get .opblock-summary-method {
-        background: var(--bg);
+        background: #61affe;
+      }
+      .swagger-ui .opblock.opblock-post {
+        border-color: #49cc90;
+      }
+      .swagger-ui .opblock.opblock-post .opblock-summary-method {
+        background: #49cc90;
+      }
+      .swagger-ui .opblock.opblock-put {
+        border-color: #fca130;
+      }
+      .swagger-ui .opblock.opblock-put .opblock-summary-method {
+        background: #fca130;
+      }
+      .swagger-ui .opblock.opblock-delete {
+        border-color: #f93e3e;
+      }
+      .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+        background: #f93e3e;
+      }
+      .swagger-ui .opblock.opblock-patch {
+        border-color: #50e3c2;
+      }
+      .swagger-ui .opblock.opblock-patch .opblock-summary-method {
+        background: #50e3c2;
+      }
+      .swagger-ui .opblock.opblock-head {
+        border-color: #9012fe;
+      }
+      .swagger-ui .opblock.opblock-head .opblock-summary-method {
+        background: #9012fe;
+      }
+      .swagger-ui .opblock.opblock-options {
+        border-color: #0d5aa7;
+      }
+      .swagger-ui .opblock.opblock-options .opblock-summary-method {
+        background: #0d5aa7;
       }
       .swagger-ui select,
       .swagger-ui input[type='text'],
@@ -467,7 +727,8 @@ docsRouter.get('/swagger-ui.css', swaggerAsset('swagger-ui.css'));
 docsRouter.get('/swagger-ui-bundle.js', swaggerAsset('swagger-ui-bundle.js'));
 docsRouter.get('/swagger-ui-standalone-preset.js', swaggerAsset('swagger-ui-standalone-preset.js'));
 
-docsRouter.get('/', (_req, res) => {
+docsRouter.get('/', (req, res) => {
+  ensureDerived(req.app);
   res.type('html').send(SWAGGER_UI_HTML);
 });
 
@@ -479,8 +740,13 @@ docsRouter.use(
   }),
 );
 
-docsRouter.get('/docs.json', (_req, res) => {
+docsRouter.get('/docs.json', (req, res) => {
+  ensureDerived(req.app);
   res.json(spec);
 });
 
-export const getSpec = () => spec;
+/** The spec, deriving the router-derived half on first call. */
+export const getSpec = (app?: any): swaggerJsdoc.OAS3Definition => {
+  if (app) ensureDerived(app);
+  return spec;
+};

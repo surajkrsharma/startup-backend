@@ -395,6 +395,23 @@ export const listJobsSchema = z
 
 export const jobIdParamSchema = z.object({ jobId: z.string().trim().min(4).max(64) });
 
+/** GET /reports/export/:type - the report to render as CSV. */
+export const reportTypeParamSchema = z
+  .object({
+    type: z.enum([
+      'SALES',
+      'ORDERS',
+      'PRODUCTS',
+      'CUSTOMERS',
+      'VENDORS',
+      'PAYOUTS',
+      'TAX',
+      'INVENTORY',
+      'RETURNS',
+    ]),
+  })
+  .strict();
+
 export const bulkProductsSchema = z
   .object({
     /** Per-row failures are reported rather than failing the whole batch. */

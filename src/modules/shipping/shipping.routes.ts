@@ -138,7 +138,7 @@ router.post(
 );
 
 /** GET /shipping/track/:awb — public */
-router.get('/track/:awb', controller.shipmentTrack);
+router.get('/track/:awb', validate({ params: schema.awbParamSchema }), controller.shipmentTrack);
 
 /** PATCH /shipping/updateStatus/:id */
 router.patch(

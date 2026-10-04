@@ -116,6 +116,11 @@ export const updatePartnerSchema = createPartnerSchema
 
 export const partnerIdParamSchema = z.object({ id });
 
+/** GET /shipping/track/:awb - public tracking by waybill. */
+export const awbParamSchema = z
+  .object({ awb: z.string().trim().min(4, 'Enter a valid tracking number.').max(40) })
+  .strict();
+
 /** POST /shipping/createShipment/:subOrderId — the path param is named, not a bare `id`. */
 export const subOrderIdParamSchema = z.object({ subOrderId: common.cuid });
 
