@@ -199,42 +199,168 @@ const ASSET_BASE = `${APP.API_PREFIX}/docs`;
  *
  * The loading panel is a deliberate safety net: if the bundle ever fails to execute
  * again, the page says so instead of showing an empty coloured rectangle.
+ *
+ * Theming: swagger-ui-dist ships no dark stylesheet and its CSS is hardcoded hex,
+ * so the dark palette below is a set of overrides keyed off [data-theme="dark"] on
+ * <html>. Light is the default; the choice is remembered in localStorage and
+ * applied by an inline script that runs before the bundles, so the page never
+ * flashes the wrong theme.
  */
 const SWAGGER_UI_HTML = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${packageJson.name} API — Swagger UI</title>
     <link rel="stylesheet" href="${ASSET_BASE}/swagger-ui.css" />
     <style>
-      /* Loud on purpose. A dark background makes an empty render obvious at a glance
-         instead of looking like a page that simply has not painted yet. */
+      /* ── Theme tokens ──────────────────────────────────────────────────────
+         Everything below reads these, so a palette change is a one-line edit. */
+      :root {
+        --bg: #ffffff;
+        --fg: #3b4151;
+        --muted: #6b7280;
+        --panel: #f7f8fa;
+        --border: #d9dde3;
+        --accent: #1b6ac9;
+      }
+      [data-theme='dark'] {
+        --bg: #0b1020;
+        --fg: #e6edf7;
+        --muted: #9aa7bd;
+        --panel: #131a2e;
+        --border: #2b3550;
+        --accent: #7cc4ff;
+      }
+
+      html,
       body {
         margin: 0;
-        background: #0b1020;
-        color: #e6edf7;
+        background: var(--bg);
+        color: var(--fg);
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       .topbar {
         display: none;
       }
+
+      /* ── Theme toggle ──────────────────────────────────────────────────── */
+      #theme-toggle {
+        position: fixed;
+        top: 12px;
+        right: 14px;
+        z-index: 9999;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 13px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--fg);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      #theme-toggle:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* ── Swagger surface, themed ─────────────────────────────────────────
+         swagger-ui.css hardcodes its palette, so each container is overridden. */
+      .swagger-ui,
+      .swagger-ui .info .title,
+      .swagger-ui .info p,
+      .swagger-ui .info li,
+      .swagger-ui .info a,
+      .swagger-ui .opblock-tag,
+      .swagger-ui .opblock .opblock-summary-path,
+      .swagger-ui .opblock .opblock-summary-description,
+      .swagger-ui .opblock .opblock-section-header,
+      .swagger-ui .parameter__name,
+      .swagger-ui .parameter__type,
+      .swagger-ui table thead tr td,
+      .swagger-ui table thead tr th,
+      .swagger-ui .response-col_status,
+      .swagger-ui .response-col_description,
+      .swagger-ui label,
+      .swagger-ui h1,
+      .swagger-ui h2,
+      .swagger-ui h3,
+      .swagger-ui h4,
+      .swagger-ui h5,
+      .swagger-ui p {
+        color: var(--fg);
+      }
+      .swagger-ui .info .base-url,
+      .swagger-ui .model-title,
+      .swagger-ui .prop-type {
+        color: var(--muted);
+      }
+      .swagger-ui .scheme-container,
+      .swagger-ui .opblock .opblock-section-header,
+      .swagger-ui .opblock.opblock-get,
+      .swagger-ui .opblock.opblock-post,
+      .swagger-ui .opblock.opblock-put,
+      .swagger-ui .opblock.opblock-patch,
+      .swagger-ui .opblock.opblock-delete,
+      .swagger-ui .opblock.opblock-head,
+      .swagger-ui .opblock.opblock-options {
+        background: var(--panel);
+        border-color: var(--border);
+        box-shadow: none;
+      }
+      .swagger-ui .opblock .opblock-summary-method,
+      .swagger-ui .opblock.opblock-get .opblock-summary-method {
+        background: var(--bg);
+      }
+      .swagger-ui select,
+      .swagger-ui input[type='text'],
+      .swagger-ui input[type='password'],
+      .swagger-ui textarea {
+        background: var(--bg);
+        color: var(--fg);
+        border-color: var(--border);
+      }
+      .swagger-ui .btn {
+        background: var(--bg);
+        color: var(--fg);
+        border-color: var(--border);
+      }
+      .swagger-ui .btn.authorize {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .swagger-ui table tbody tr td {
+        border-color: var(--border);
+      }
+      .swagger-ui .microlight,
+      .swagger-ui code,
+      .swagger-ui pre {
+        background: var(--panel) !important;
+        color: var(--fg) !important;
+      }
+
+      /* ── Failure panel ──────────────────────────────────────────────────────
+         Also themed, so it stays readable if Swagger ever fails to boot. */
       #swagger-fallback {
         max-width: 780px;
         margin: 64px auto;
         padding: 24px 28px;
-        border: 1px solid #2b3550;
+        border: 1px solid var(--border);
         border-radius: 10px;
-        background: #131a2e;
+        background: var(--panel);
+        color: var(--fg);
         line-height: 1.7;
       }
       #swagger-fallback h1 {
         margin: 0 0 12px;
         font-size: 17px;
-        color: #7cc4ff;
+        color: var(--accent);
       }
       #swagger-fallback code {
-        background: #1e2a44;
+        background: var(--bg);
         padding: 2px 6px;
         border-radius: 4px;
       }
@@ -243,8 +369,25 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
         padding-left: 20px;
       }
     </style>
+    <script>
+      // Applied before the bundles load so the page never flashes the wrong theme.
+      (function () {
+        try {
+          var saved = window.localStorage.getItem('swagger-theme');
+          if (saved === 'dark' || saved === 'light') {
+            document.documentElement.setAttribute('data-theme', saved);
+          }
+        } catch (e) {
+          /* private mode: fall back to the light default */
+        }
+      })();
+    </script>
   </head>
   <body>
+    <button id="theme-toggle" type="button" aria-label="Toggle colour theme">
+      <span id="theme-toggle-icon">&#9789;</span>
+      <span id="theme-toggle-text">Dark</span>
+    </button>
     <div id="swagger-fallback">
       <h1>Swagger UI is loading...</h1>
       <div>
@@ -263,6 +406,30 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
     <script src="${ASSET_BASE}/swagger-ui-standalone-preset.js"></script>
     <script>
       window.onload = function () {
+        var root = document.documentElement;
+        var button = document.getElementById('theme-toggle');
+        var icon = document.getElementById('theme-toggle-icon');
+        var text = document.getElementById('theme-toggle-text');
+
+        var paint = function () {
+          var dark = root.getAttribute('data-theme') === 'dark';
+          icon.innerHTML = dark ? '&#9788;' : '&#9789;';
+          text.innerHTML = dark ? 'Light' : 'Dark';
+        };
+
+        button.addEventListener('click', function () {
+          var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          root.setAttribute('data-theme', next);
+          try {
+            window.localStorage.setItem('swagger-theme', next);
+          } catch (e) {
+            /* ignore: the theme just will not persist */
+          }
+          paint();
+        });
+
+        paint();
+
         try {
           window.ui = SwaggerUIBundle({
             url: '${APP.API_PREFIX}/docs.json',
