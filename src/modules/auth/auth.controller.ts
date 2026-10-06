@@ -13,6 +13,7 @@ import * as authService from './auth.service';
 import {
   serializeSession,
   serializeOtpResponse,
+  serializeVerificationResponse,
   serializeSessionDevice,
   serializeTwoFactor,
   serializeAvailability,
@@ -83,21 +84,11 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const device = deviceFrom(req, req.body);
 
-  const outcome = req.body.otp
-    ? await authService.loginWithOtp(
-        {
-          identifier: req.body.email || req.body.phone,
-          otp: req.body.otp,
-          type: (req.body.type ?? OTP_TYPE.LOGIN) as any,
-        },
-        device,
-        req,
-      )
-    : await authService.loginWithPassword(
-        { email: req.body.email, phone: req.body.phone, password: req.body.password },
-        device,
-        req,
-      );
+  const outcome = await authService.loginWithPassword(
+    { email: req.body.email, phone: req.body.phone, password: req.body.password },
+    device,
+    req,
+  );
 
   if (outcome.twoFactorRequired) {
     return ApiResponse.success(res, {
@@ -119,17 +110,30 @@ export const login = asyncHandler(async (req, res) => {
   });
 });
 
-export const loginWithOtp = asyncHandler(async (req, res) => {
-  const device = deviceFrom(req, req.body);
-  const outcome = await authService.loginWithOtp(
-    {
-      identifier: req.body.email || req.body.phone,
-      otp: req.body.otp,
-      type: (req.body.type ?? OTP_TYPE.LOGIN) as any,
-    },
-    device,
+export const registrationSendOtp = asyncHandler(async (req, res) => {
+  const result = await authService.sendRegistrationOtp(
+    { identifier: req.body.identifier, channel: req.body.channel },
     req,
   );
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.OTP_SENT,
+    result: serializeOtpResponse(result),
+  });
+});
+
+export const registrationVerifyOtp = asyncHandler(async (req, res) => {
+  const result = await authService.verifyRegistrationOtp(req.body);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.OTP_VERIFIED,
+    result: serializeVerificationResponse(result),
+  });
+});
+
+export const loginVerifyOtp = asyncHandler(async (req, res) => {
+  const device = deviceFrom(req, req.body);
+  const outcome = await authService.verifyLoginOtp(req.body, device, req);
 
   setRefreshCookie(res, outcome.tokens.refreshToken);
 
@@ -219,20 +223,6 @@ export const sendOtp = asyncHandler(async (req, res) => {
 });
 
 export const verifyOtp = asyncHandler(async (req, res) => {
-  if (req.body.isLoginFlow) {
-    const device = deviceFrom(req, req.body);
-    const outcome = await authService.loginWithOtp(
-      { identifier: req.body.identifier, otp: req.body.otp, type: req.body.type },
-      device,
-      req,
-    );
-    setRefreshCookie(res, outcome.tokens.refreshToken);
-    return ApiResponse.success(res, {
-      message: SUCCESS.AUTH.OTP_VERIFIED,
-      result: serializeSession(outcome.user, outcome.tokens),
-    });
-  }
-
   await authService.consumeOtp(req.body.identifier, req.body.type, req.body.otp, req.body.channel);
 
   return ApiResponse.success(res, {

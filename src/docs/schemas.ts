@@ -107,29 +107,31 @@ export const SERVER_SCHEMA: Record<string, any> = {
 
   RegisterCustomerRequest: {
     type: 'object',
-    required: ['type', 'name', 'email', 'password', 'otp'],
+    required: ['type', 'name', 'email', 'password', 'verificationToken'],
     description:
-      'Call POST /auth/sendOtp with type=REGISTER and this identifier first, then submit the code. ' +
-      'Only the contact the OTP proves is marked verified.',
+      'Step 3 of registration. `verificationToken` comes from POST /auth/register/verifyOtp and ' +
+      'must have been issued for the `email` or `phone` sent here — presenting one issued for a ' +
+      'different contact is rejected. It is single-use and short-lived. Only the contact the OTP ' +
+      'proved is marked verified.',
     properties: {
       type: { type: 'string', enum: ['CUSTOMER'] },
       name: { type: 'string', example: 'Ravi Kumar' },
       email: { type: 'string', format: 'email', example: 'ravi@example.com' },
       phone: { type: 'string', example: '+919876543210' },
       password: { type: 'string', example: 'Secret@123' },
-      otp: { type: 'string', minLength: 6, maxLength: 6, example: '123456' },
+      verificationToken: { type: 'string', minLength: 32, example: '9f2a41c7…' },
     },
   },
   RegisterVendorRequest: {
     type: 'object',
-    required: ['type', 'name', 'email', 'password', 'otp', 'shopName'],
+    required: ['type', 'name', 'email', 'password', 'verificationToken', 'shopName'],
     properties: {
       type: { type: 'string', enum: ['VENDOR'] },
       name: { type: 'string', example: 'Ravi Kumar' },
       email: { type: 'string', format: 'email', example: 'ravi@example.com' },
       phone: { type: 'string', example: '+919876543210' },
       password: { type: 'string', example: 'Secret@123' },
-      otp: { type: 'string', minLength: 6, maxLength: 6, example: '123456' },
+      verificationToken: { type: 'string', minLength: 32, example: '9f2a41c7…' },
       shopName: { type: 'string', example: 'Ravi Store' },
       slug: { type: 'string', example: 'ravi-store' },
       description: { type: 'string' },
@@ -141,16 +143,69 @@ export const SERVER_SCHEMA: Record<string, any> = {
       upiId: { type: 'string' },
     },
   },
+  RegistrationSendOtpRequest: {
+    type: 'object',
+    required: ['identifier'],
+    description:
+      'Registration step 1. Returns the same shape whether or not the identifier is already ' +
+      'taken, so it cannot be used to enumerate accounts.',
+    properties: {
+      identifier: { type: 'string', description: 'Email address or phone number.' },
+      channel: { type: 'string', enum: ['EMAIL', 'SMS', 'BOTH'] },
+    },
+  },
+  RegistrationVerifyOtpRequest: {
+    type: 'object',
+    required: ['identifier', 'otp'],
+    description: 'Registration step 2. Returns a verificationToken; creates nothing.',
+    properties: {
+      identifier: { type: 'string' },
+      otp: { type: 'string', minLength: 6, maxLength: 6, example: '123456' },
+      channel: { type: 'string', enum: ['EMAIL', 'SMS', 'BOTH'] },
+    },
+  },
+  VerificationTokenResponse: {
+    allOf: [
+      { $ref: '#/components/schemas/SuccessResponse' },
+      {
+        type: 'object',
+        properties: {
+          result: {
+            type: 'object',
+            properties: {
+              verificationToken: { type: 'string' },
+              expiresIn: { type: 'integer', example: 900 },
+              identifier: { type: 'string' },
+            },
+          },
+        },
+      },
+    ],
+  },
+  LoginVerifyOtpRequest: {
+    type: 'object',
+    required: ['identifier', 'otp'],
+    description:
+      'Final step of OTP login. Verifies the code and signs in for the identifier it was ' +
+      'sent to, so the session cannot be pointed elsewhere. The code is single-use.',
+    properties: {
+      identifier: { type: 'string' },
+      otp: { type: 'string', minLength: 6, maxLength: 6, example: '123456' },
+      channel: { type: 'string', enum: ['EMAIL', 'SMS', 'BOTH'] },
+    },
+  },
   LoginRequest: {
     type: 'object',
-    required: ['email'],
-    description: 'Send `password` for password login, or `otp` + `type` for OTP login.',
+    required: ['password'],
+    description:
+      'Password login only. For OTP login use POST /auth/sendOtp (`type` = LOGIN) followed by ' +
+      'POST /auth/login/verifyOtp, which verifies the code and signs in. There is ' +
+      'deliberately no `otp` or `type` field here — OTP used to be accepted on this endpoint ' +
+      'with a client-chosen purpose, which let a password-reset code open a session.',
     properties: {
       email: { type: 'string', format: 'email' },
       phone: { type: 'string' },
       password: { type: 'string' },
-      otp: { type: 'string', example: '123456' },
-      type: { type: 'string', enum: ['LOGIN', 'FORGOT_PASSWORD', 'TWO_FA'] },
     },
   },
   SendOtpRequest: {
@@ -159,7 +214,15 @@ export const SERVER_SCHEMA: Record<string, any> = {
     properties: {
       type: {
         type: 'string',
-        enum: ['REGISTER', 'FORGOT_PASSWORD', 'LOGIN', 'PHONE_VERIFY', 'EMAIL_VERIFY', 'TWO_FA'],
+        enum: [
+          'REGISTER',
+          'FORGOT_PASSWORD',
+          'LOGIN',
+          'CHANGE_PASSWORD',
+          'PHONE_VERIFY',
+          'EMAIL_VERIFY',
+          'TWO_FA',
+        ],
       },
       channel: { type: 'string', enum: ['EMAIL', 'SMS', 'BOTH'], default: 'BOTH' },
       identifier: { type: 'string', description: 'Email address or phone number.' },

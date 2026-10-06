@@ -6,9 +6,15 @@ const app = createApp();
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
 const sendOtp = (identifier: string) =>
-  request(app)
-    .post('/api/v1/auth/sendOtp')
-    .send({ type: 'REGISTER', channel: 'EMAIL', identifier });
+  request(app).post('/api/v1/auth/register/sendOtp').send({ identifier });
+
+const verifyRegistration = async (identifier: string) => {
+  await sendOtp(identifier);
+  const verified = await request(app)
+    .post('/api/v1/auth/register/verifyOtp')
+    .send({ identifier, otp: OTP });
+  return verified.body?.result?.verificationToken as string | undefined;
+};
 
 interface Check {
   name: string;
@@ -61,14 +67,14 @@ const main = async (): Promise<void> => {
     `status=${db.body?.result?.database}`,
   );
 
-  await sendOtp(uniqueEmail);
+  const registerToken = await verifyRegistration(uniqueEmail);
 
   const register = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type: 'VENDOR',
       name: 'E2E Vendor',
-      otp: OTP,
+      verificationToken: registerToken,
       email: uniqueEmail,
       phone: uniquePhone,
       password: 'Secret@123',
@@ -105,6 +111,57 @@ const main = async (): Promise<void> => {
     'refresh token set as HttpOnly cookie',
     Array.isArray(setCookie) &&
       setCookie.some((c) => c.includes('refreshToken') && /HttpOnly/i.test(c)),
+  );
+
+  await request(app)
+    .post('/api/v1/auth/sendOtp')
+    .send({ type: 'LOGIN', channel: 'EMAIL', identifier: uniqueEmail });
+
+  const otpLogin = await request(app)
+    .post('/api/v1/auth/login/verifyOtp')
+    .send({ identifier: uniqueEmail, otp: OTP });
+
+  record(
+    'POST /auth/login/verifyOtp -> 200 and signs in',
+    otpLogin.status === 200 && Boolean(otpLogin.body?.result?.accessToken),
+    `status=${otpLogin.status} msg=${otpLogin.body?.message}`,
+  );
+
+  const otpCookie = otpLogin.headers['set-cookie'];
+  record(
+    'OTP login sets the refresh cookie',
+    Array.isArray(otpCookie) &&
+      otpCookie.some((c) => c.includes('refreshToken') && /HttpOnly/i.test(c)),
+  );
+
+  const otpLoginReplayed = await request(app)
+    .post('/api/v1/auth/login/verifyOtp')
+    .send({ identifier: uniqueEmail, otp: OTP });
+
+  record(
+    'the same login code cannot be reused -> 401',
+    otpLoginReplayed.status === 401,
+    `status=${otpLoginReplayed.status} msg=${otpLoginReplayed.body?.message}`,
+  );
+
+  const removedEndpoint = await request(app)
+    .post('/api/v1/auth/loginWithOtp')
+    .send({ verificationToken: 'x'.repeat(64) });
+
+  record(
+    'POST /auth/loginWithOtp is gone -> 404',
+    removedEndpoint.status === 404,
+    `status=${removedEndpoint.status}`,
+  );
+
+  const loginWithOtpOnLogin = await request(app)
+    .post('/api/v1/auth/login')
+    .send({ email: uniqueEmail, otp: OTP });
+
+  record(
+    'POST /auth/login does not accept an otp -> 400',
+    loginWithOtpOnLogin.status === 400,
+    `status=${loginWithOtpOnLogin.status} msg=${loginWithOtpOnLogin.body?.message}`,
   );
 
   const login = await request(app)
@@ -166,6 +223,8 @@ const main = async (): Promise<void> => {
     `status=${adminRoute.status}`,
   );
 
+  const FORMED_TOKEN = 'f'.repeat(64);
+
   const unknownField = await request(app)
     .post('/api/v1/auth/register')
     .send({
@@ -173,6 +232,7 @@ const main = async (): Promise<void> => {
       name: 'Valid Name',
       email: `u_${Date.now()}@x.com`,
       password: 'Secret@123',
+      verificationToken: FORMED_TOKEN,
       isAdmin: true,
     });
 
@@ -220,6 +280,7 @@ const main = async (): Promise<void> => {
       name: 'Valid Name',
       email: `b_${Date.now()}@x.com`,
       password: 'Secret@123',
+      verificationToken: FORMED_TOKEN,
     });
 
   record(
@@ -235,6 +296,7 @@ const main = async (): Promise<void> => {
       name: 'Valid Name',
       email: `w_${Date.now()}@x.com`,
       password: 'weakpassword',
+      verificationToken: FORMED_TOKEN,
     });
 
   record(
@@ -244,12 +306,12 @@ const main = async (): Promise<void> => {
   );
 
   const smuggledEmail = `r_${runId}@projectname.com`;
-  await sendOtp(smuggledEmail);
+  const smuggledToken = await verifyRegistration(smuggledEmail);
 
   const smuggledRole = await request(app).post('/api/v1/auth/register').send({
     type: 'CUSTOMER',
     name: 'Valid Name',
-    otp: OTP,
+    verificationToken: smuggledToken,
     email: smuggledEmail,
     password: 'Secret@123',
     role: 'SUPER_ADMIN',
@@ -261,31 +323,71 @@ const main = async (): Promise<void> => {
     `status=${smuggledRole.status} msg=${smuggledRole.body?.message}`,
   );
 
-  await sendOtp(uniqueEmail);
+  const otherEmail = `other_${runId}@projectname.com`;
+  const otherToken = await verifyRegistration(otherEmail);
 
-  const dupe = await request(app).post('/api/v1/auth/register').send({
-    type: 'VENDOR',
-    name: 'Dup',
-    otp: OTP,
-    email: uniqueEmail,
+  const swapped = await request(app)
+    .post('/api/v1/auth/register')
+    .send({
+      type: 'CUSTOMER',
+      name: 'Swapped',
+      verificationToken: otherToken,
+      email: `swapped_${runId}@projectname.com`,
+      password: 'Secret@123',
+    });
+
+  record(
+    'verification token cannot be spent on a different email -> 400',
+    swapped.status === 400,
+    `status=${swapped.status} msg=${swapped.body?.message}`,
+  );
+
+  const spent = await request(app).post('/api/v1/auth/register').send({
+    type: 'CUSTOMER',
+    name: 'Spender',
+    verificationToken: otherToken,
+    email: otherEmail,
     password: 'Secret@123',
-    shopName: 'Dup Store',
   });
 
   record(
-    'duplicate email -> 409 EMAIL_EXISTS',
-    dupe.status === 409 && String(dupe.body?.message).includes('EMAIL_EXISTS'),
-    `status=${dupe.status} msg=${dupe.body?.message}`,
+    'a token can be spent once on its own identifier -> 201',
+    spent.status === 201,
+    `status=${spent.status} msg=${spent.body?.message}`,
   );
 
-  await sendOtp(`e2e2_${runId}@projectname.com`);
+  const replayed = await request(app)
+    .post('/api/v1/auth/register')
+    .send({
+      type: 'CUSTOMER',
+      name: 'Replayer',
+      verificationToken: otherToken,
+      email: `replay_${runId}@projectname.com`,
+      password: 'Secret@123',
+    });
+
+  record(
+    'spent verification token cannot create a second account -> 401',
+    replayed.status === 401,
+    `status=${replayed.status} msg=${replayed.body?.message}`,
+  );
+
+  const throttled = await sendOtp(otherEmail);
+
+  record(
+    'resending to the same identifier inside the cooldown -> 429',
+    throttled.status === 429,
+    `status=${throttled.status} msg=${throttled.body?.message}`,
+  );
+
+  const secondToken = await verifyRegistration(`e2e2_${runId}@projectname.com`);
 
   const secondVendor = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type: 'VENDOR',
       name: 'E2E Vendor Two',
-      otp: OTP,
+      verificationToken: secondToken,
       email: `e2e2_${runId}@projectname.com`,
       password: 'Secret@123',
       shopName: `E2E Store ${runId}`,

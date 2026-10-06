@@ -14,6 +14,11 @@ export const ERROR = {
     ACCOUNT_UNVERIFIED: 'Verify your phone or email before signing in.',
     CONTACT_MISMATCH: 'That contact does not belong to this account.',
     OTP_RESEND_COOLDOWN: 'Please wait before requesting another OTP.',
+    VERIFICATION_REQUIRED:
+      'Verify your phone or email first, then submit the verificationToken you receive.',
+    VERIFICATION_INVALID: 'Verification token is invalid, expired or already used.',
+    VERIFICATION_IDENTIFIER_MISMATCH:
+      'This verification was issued for a different phone or email.',
     ACCOUNT_SUSPENDED: 'Your account is suspended.',
     ACCOUNT_LOCKED: 'Account temporarily locked. Try again later.',
     SESSION_EXPIRED: 'Session expired, please log in again.',

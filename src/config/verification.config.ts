@@ -1,0 +1,6 @@
+export const VERIFICATION = {
+  TTL_MIN: 15,
+  TOKEN_BYTES: 32,
+  MIN_TOKEN_LENGTH: 32,
+  MAX_TOKEN_LENGTH: 128,
+} as const;

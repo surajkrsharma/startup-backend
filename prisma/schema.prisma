@@ -111,9 +111,15 @@ enum OtpType {
   REGISTER
   FORGOT_PASSWORD
   LOGIN
+  CHANGE_PASSWORD
   PHONE_VERIFY
   EMAIL_VERIFY
   TWO_FA
+}
+
+enum VerificationPurpose {
+  REGISTER
+  LOGIN
 }
 
 enum OtpChannel {
@@ -369,11 +375,31 @@ model Otp {
   attempts   Int        @default(0)
   isVerified Boolean    @default(false)
   verifiedAt DateTime?
+  lastSentAt DateTime   @default(now())
+  sendDay    String     @default("")
+  sendCount  Int        @default(0)
   createdAt  DateTime   @default(now())
 
   @@unique([identifier, type, channel])
   @@index([identifier])
   @@index([expiresAt])
+  @@index([lastSentAt])
+}
+
+model AuthVerification {
+  id         String             @id @default(cuid())
+  tokenHash  String             @unique
+  purpose    VerificationPurpose
+  identifier String
+  channel    OtpChannel         @default(EMAIL)
+  userId     String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime           @default(now())
+
+  @@index([purpose, identifier])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
 
 model SocialAccount {

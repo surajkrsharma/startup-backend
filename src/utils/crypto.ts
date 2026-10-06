@@ -44,6 +44,8 @@ export const safeCompare = (a: string, b: string): boolean => {
   return crypto.timingSafeEqual(bufA, bufB);
 };
 
+export type AccessTokenPurpose = 'session' | 'two_factor';
+
 export interface AccessTokenPayload {
   sub: string;
   role: string;
@@ -52,6 +54,7 @@ export interface AccessTokenPayload {
   sessionKey: string;
   deviceId: string;
   type: 'access';
+  purpose: AccessTokenPurpose;
 }
 
 export interface RefreshTokenPayload {
@@ -60,12 +63,25 @@ export interface RefreshTokenPayload {
   type: 'refresh';
 }
 
-export const signAccessToken = (payload: Omit<AccessTokenPayload, 'type'>): string =>
-  jwt.sign({ ...payload, type: 'access' }, JWT.ACCESS_SECRET, {
-    expiresIn: JWT.ACCESS_EXPIRY,
-    issuer: JWT.ISSUER,
-    audience: JWT.AUDIENCE,
-  } as SignOptions);
+export const signAccessToken = (
+  payload: Omit<AccessTokenPayload, 'type' | 'purpose'> & { purpose?: AccessTokenPurpose },
+): string =>
+  jwt.sign(
+    { ...payload, type: 'access', purpose: payload.purpose ?? 'session' },
+    JWT.ACCESS_SECRET,
+    {
+      expiresIn: JWT.ACCESS_EXPIRY,
+      issuer: JWT.ISSUER,
+      audience: JWT.AUDIENCE,
+    } as SignOptions,
+  );
+
+export const signTwoFactorChallengeToken = (
+  payload: Omit<AccessTokenPayload, 'type' | 'purpose'>,
+): string => signAccessToken({ ...payload, purpose: 'two_factor' });
+
+export const isSessionToken = (payload: { purpose?: string }): boolean =>
+  !payload.purpose || payload.purpose === 'session';
 
 export const signRefreshToken = (payload: Omit<RefreshTokenPayload, 'type'>): string =>
   jwt.sign({ ...payload, type: 'refresh' }, JWT.REFRESH_SECRET, {

@@ -72,7 +72,7 @@ const apiRoutes = Router();
 apiRoutes.use('/health', healthRoutes);
 apiRoutes.use('/version', systemRoutes);
 apiRoutes.use('/docs', docsRouter);
-apiRoutes.get('/docs.json', (req, res) => res.json(getSpec(req.app)));
+apiRoutes.get('/docs.json', (req, res) => res.json(getSpec(req.app, req)));
 
 apiRoutes.use('/auth', authRoutes);
 apiRoutes.use('/users', userRoutes);

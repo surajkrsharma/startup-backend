@@ -71,6 +71,17 @@ export const serializeOtpResponse = (input: {
   isNewUser: D.bool(input.isNewUser),
 });
 
+export const serializeVerificationResponse = (input: {
+  verificationToken: string;
+  expiresIn: number;
+  identifier?: string;
+}): Record<string, any> => ({
+  verificationToken: D.str(input.verificationToken),
+  expiresIn: D.num(input.expiresIn),
+  identifier: D.str(input.identifier),
+  otpLength: OTP.LENGTH,
+});
+
 export const serializeSessionDevice = (s: any): Record<string, any> => ({
   sessionId: D.str(s?.sessionKey || s?.id),
   recordId: D.str(s?.id),

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { createApp } from '../src/app';
+import { getSpec } from '../src/docs/swagger.routes';
 
 describe('public API surface', () => {
   let app: express.Application;
@@ -87,5 +88,57 @@ describe('public API surface', () => {
     expect(res.headers['x-powered-by']).toBeUndefined();
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['x-frame-options']).toBeDefined();
+  });
+
+  it('leads the OpenAPI spec with the register and login flow, in call order', async () => {
+    const spec = getSpec(app) as any;
+    const paths = Object.keys(spec.paths ?? {});
+
+    expect(paths.slice(0, 6)).toEqual([
+      '/auth/register/sendOtp',
+      '/auth/register/verifyOtp',
+      '/auth/register',
+      '/auth/sendOtp',
+      '/auth/login/verifyOtp',
+      '/auth/login',
+    ]);
+  });
+
+  it('puts the Auth tag first so the flow heads the Swagger page', () => {
+    const spec = getSpec(app) as any;
+
+    expect(spec.tags?.[0]?.name).toBe('Auth');
+  });
+
+  it('serves docs.json with a usable base URL, prefix included', async () => {
+    const res = await request(app)
+      .get('/api/v1/docs.json')
+      .set('Host', 'projectname-api.onrender.com')
+      .set('X-Forwarded-Proto', 'https');
+
+    const url: string = res.body.servers?.[0]?.url ?? '';
+    expect(res.status).toBe(200);
+    expect(url).toMatch(/^https?:\/\//);
+    expect(url.endsWith('/api/v1')).toBe(true);
+  });
+
+  it('takes the base URL from PUBLIC_API_URL, appending the prefix itself', async () => {
+    const configured = process.env.PUBLIC_API_URL?.trim();
+    if (!configured) return;
+
+    const res = await request(app).get('/api/v1/docs.json').set('Host', 'localhost:5000');
+
+    const url: string = res.body.servers?.[0]?.url ?? '';
+    const expected = configured.replace(/\/+$/, '');
+
+    expect(url).toMatch(/^https?:\/\//);
+    expect(url).toBe(expected.endsWith('/api/v1') ? expected : `${expected}/api/v1`);
+  });
+
+  it('never advertises an empty base URL, which would drop the prefix', async () => {
+    const res = await request(app).get('/api/v1/docs.json');
+
+    const url: string = res.body.servers?.[0]?.url ?? '';
+    expect(url.length).toBeGreaterThan(0);
   });
 });

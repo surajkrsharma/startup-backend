@@ -46,6 +46,14 @@ const docFiles = (): string[] => {
 
 const API_TITLE = 'Startup Marketplace API';
 
+const withApiPrefix = (origin: string): string => {
+  const base = origin.trim().replace(/\/+$/, '');
+  return base.endsWith(APP.API_PREFIX) ? base : `${base}${APP.API_PREFIX}`;
+};
+
+const configuredServerUrl = (): string =>
+  withApiPrefix(process.env.PUBLIC_API_URL || APP.API_PREFIX);
+
 export const swaggerSpec: swaggerJsdoc.OAS3Definition = {
   openapi: '3.0.3',
   info: {
@@ -79,12 +87,11 @@ export const swaggerSpec: swaggerJsdoc.OAS3Definition = {
   },
   servers: [
     {
-      url:
-        process.env.PUBLIC_API_URL ??
-        `http://localhost:${process.env.PORT ?? APP.DEFAULT_PORT}${APP.API_PREFIX}`,
-      description: process.env.PUBLIC_API_URL ? 'Server' : 'Local',
+      url: configuredServerUrl(),
+      description: process.env.PUBLIC_API_URL?.trim() ? 'Server' : 'Same host',
     },
   ],
+
   tags: [
     { name: 'Auth' },
     { name: 'Users' },
@@ -141,6 +148,31 @@ let spec: swaggerJsdoc.OAS3Definition = documented;
 let derived = false;
 
 const toBraces = (p: string): string => p.replace(/:([A-Za-z_]\w*)/g, '{$1}');
+
+const FLOW_PATHS = [
+  '/auth/register/sendOtp',
+  '/auth/register/verifyOtp',
+  '/auth/register',
+  '/auth/sendOtp',
+  '/auth/login/verifyOtp',
+  '/auth/login',
+  '/auth/refreshToken',
+  '/auth/logout',
+];
+
+const FLOW_RANK = new Map(FLOW_PATHS.map((p, i) => [p, i]));
+
+const orderPaths = (paths: Record<string, any>): Record<string, any> => {
+  const keys = Object.keys(paths);
+  const leading = keys
+    .filter((p) => FLOW_RANK.has(p))
+    .sort((a, b) => FLOW_RANK.get(a)! - FLOW_RANK.get(b)!);
+  const trailing = keys.filter((p) => !FLOW_RANK.has(p));
+
+  const out: Record<string, any> = {};
+  for (const key of [...leading, ...trailing]) out[key] = paths[key];
+  return out;
+};
 
 const ensureDerived = (app: any): void => {
   if (derived) return;
@@ -205,7 +237,7 @@ const ensureDerived = (app: any): void => {
     }
   }
 
-  documented.paths = documentedPaths;
+  documented.paths = orderPaths(documentedPaths);
   spec = documented as swaggerJsdoc.OAS3Definition;
 };
 
@@ -609,15 +641,25 @@ const SWAGGER_UI_HTML = `<!DOCTYPE html>
 
 export const docsRouter = Router();
 
+const applyServers = (req: any): void => {
+  const configured = process.env.PUBLIC_API_URL?.trim();
+  if (configured) return;
+
+  const host = req.get?.('host');
+  if (!host) return;
+
+  spec.servers = [{ url: withApiPrefix(`${req.protocol}://${host}`), description: 'Server' }];
+};
+
 docsRouter.get('/swagger-ui.css', swaggerAsset('swagger-ui.css'));
 docsRouter.get('/swagger-ui-bundle.js', swaggerAsset('swagger-ui-bundle.js'));
 docsRouter.get('/swagger-ui-standalone-preset.js', swaggerAsset('swagger-ui-standalone-preset.js'));
 
 docsRouter.get('/', (req, res) => {
   ensureDerived(req.app);
+  applyServers(req);
   res.type('html').send(SWAGGER_UI_HTML);
 });
-
 docsRouter.use(
   swaggerUi.serveFiles(undefined, {
     explorer: true,
@@ -628,10 +670,12 @@ docsRouter.use(
 
 docsRouter.get('/docs.json', (req, res) => {
   ensureDerived(req.app);
+  applyServers(req);
   res.json(spec);
 });
 
-export const getSpec = (app?: any): swaggerJsdoc.OAS3Definition => {
+export const getSpec = (app?: any, req?: any): swaggerJsdoc.OAS3Definition => {
   if (app) ensureDerived(app);
+  if (req) applyServers(req);
   return spec;
 };

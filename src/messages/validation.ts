@@ -15,6 +15,7 @@ export const VALIDATION = {
     'Password must be 8-64 characters with upper, lower, number and special character.',
   INVALID_SLUG: 'Slug may only contain lowercase letters, numbers and hyphens.',
   INVALID_OTP_FORMAT: 'Please enter a valid 6 digit OTP.',
+  INVALID_VERIFICATION_TOKEN: 'Please provide the verificationToken you received.',
   INVALID_UUID: 'Please enter a valid identifier.',
   INVALID_CURRENCY: 'Please enter a valid currency code.',
   INVALID_COUNTRY: 'Please enter a valid country code.',

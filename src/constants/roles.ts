@@ -27,6 +27,7 @@ export const OTP_TYPE = {
   REGISTER: 'REGISTER',
   FORGOT_PASSWORD: 'FORGOT_PASSWORD',
   LOGIN: 'LOGIN',
+  CHANGE_PASSWORD: 'CHANGE_PASSWORD',
   PHONE_VERIFY: 'PHONE_VERIFY',
   EMAIL_VERIFY: 'EMAIL_VERIFY',
   TWO_FA: 'TWO_FA',
@@ -35,6 +36,27 @@ export const OTP_TYPE = {
 export type OtpType = keyof typeof OTP_TYPE;
 
 export const OTP_TYPE_VALUES = Object.values(OTP_TYPE) as OtpType[];
+
+export const OTP_TYPES_REQUIRING_ACCOUNT: OtpType[] = [
+  OTP_TYPE.LOGIN,
+  OTP_TYPE.FORGOT_PASSWORD,
+  OTP_TYPE.CHANGE_PASSWORD,
+  OTP_TYPE.PHONE_VERIFY,
+  OTP_TYPE.EMAIL_VERIFY,
+];
+
+export const LOGIN_OTP_TYPES: OtpType[] = [OTP_TYPE.LOGIN];
+
+export const VERIFICATION_PURPOSE = {
+  REGISTER: 'REGISTER',
+  LOGIN: 'LOGIN',
+} as const;
+
+export type VerificationPurpose = keyof typeof VERIFICATION_PURPOSE;
+
+export const VERIFICATION_PURPOSE_VALUES = Object.values(
+  VERIFICATION_PURPOSE,
+) as VerificationPurpose[];
 
 export const OTP_CHANNEL = {
   EMAIL: 'EMAIL',

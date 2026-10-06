@@ -8,6 +8,7 @@ import {
   randomNumericCode,
   sha256,
   signAccessToken,
+  signTwoFactorChallengeToken,
   signRefreshToken,
   verifyRefreshToken,
   buildOtpAuthUri,
@@ -20,6 +21,8 @@ import { AppError } from '../../utils/AppError';
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE, HTTP_STATUS } from '../../constants/http';
 import { ROLES, OTP_TYPE, OTP_CHANNEL, OtpType, VENDOR_STATUS } from '../../constants/roles';
+import { VERIFICATION_PURPOSE } from '../../constants/roles';
+import { OTP_TYPES_REQUIRING_ACCOUNT } from '../../constants/roles';
 import { OTP } from '../../config/otp.config';
 import { isOtpEnforceable } from '../../config/otp-policy';
 import { ENV, isProduction } from '../../config/env.config';
@@ -38,13 +41,21 @@ import { writeAuditLog, writeActivityLog } from '../../services/audit.service';
 import { D } from '../../utils/defaults';
 import { addMinutes } from '../../utils/dates';
 import { AUTH_USER_SELECT, AuthUserWithVendor, DeviceContext, TokenPair } from './auth.types';
+import {
+  channelForIdentifier,
+  consumeVerificationFor,
+  issueVerification,
+  normaliseIdentifier,
+} from './auth.verification';
 import { EMAIL_REGEX, PHONE_REGEX } from '../../constants/countries';
 import { SOCIAL_PROVIDER as PROVIDERS } from '../../constants/roles';
 
-const normaliseIdentifier = (value: string): string => {
-  const raw = D.str(value).trim();
-  return EMAIL_REGEX.test(raw) ? raw.toLowerCase() : raw;
-};
+const INVALID_IDENTIFIER = (): AppError =>
+  new AppError(
+    ERROR.AUTH.INVALID_CREDENTIALS,
+    HTTP_STATUS.BAD_REQUEST,
+    ERROR_CODE.VALIDATION_ERROR,
+  );
 
 export const registerCustomer = async (
   input: any,
@@ -59,6 +70,8 @@ export const registerCustomer = async (
     select: { id: true, email: true, phone: true },
   });
 
+  const verified = await requireRegistrationProof({ email, phone }, D.str(input.verificationToken));
+
   if (existing?.email === email) {
     throw new AppError(ERROR.AUTH.EMAIL_EXISTS, HTTP_STATUS.CONFLICT, ERROR_CODE.EMAIL_EXISTS);
   }
@@ -67,8 +80,6 @@ export const registerCustomer = async (
   }
 
   const passwordHash = await hashPassword(input.password);
-
-  const verified = await consumeOtpForRegistration({ email, phone }, input.otp);
 
   const user = await prisma.user.create({
     data: {
@@ -112,6 +123,13 @@ export const registerVendor = async (
     select: { id: true, email: true, phone: true },
   });
 
+  const [autoApprove, defaultCommission] = await Promise.all([
+    getVendorAutoApprove(),
+    getCommissionDefault(),
+  ]);
+
+  const verified = await requireRegistrationProof({ email, phone }, D.str(input.verificationToken));
+
   if (existing?.email === email) {
     throw new AppError(ERROR.AUTH.EMAIL_EXISTS, HTTP_STATUS.CONFLICT, ERROR_CODE.EMAIL_EXISTS);
   }
@@ -119,15 +137,8 @@ export const registerVendor = async (
     throw new AppError(ERROR.AUTH.PHONE_EXISTS, HTTP_STATUS.CONFLICT, ERROR_CODE.PHONE_EXISTS);
   }
 
-  const [autoApprove, defaultCommission] = await Promise.all([
-    getVendorAutoApprove(),
-    getCommissionDefault(),
-  ]);
-
   const slug = await uniqueVendorSlug(D.str(input.slug) || D.str(input.shopName));
   const passwordHash = await hashPassword(input.password);
-
-  const verified = await consumeOtpForRegistration({ email, phone }, input.otp);
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -395,7 +406,7 @@ export const loginWithPassword = async (
       user,
       tokens: { accessToken: '', refreshToken: '', expiresIn: 0, refreshTokenId: '' },
       twoFactorRequired: true,
-      twoFactorToken: signAccessToken({
+      twoFactorToken: signTwoFactorChallengeToken({
         sub: user.id,
         role: user.role,
         vendorId: user.vendorProfile?.id ?? '',
@@ -475,48 +486,12 @@ export const completeTwoFactorLogin = async (
   return { user, tokens, twoFactorRequired: false };
 };
 
-export const loginWithOtp = async (
-  input: { identifier: string; otp: string; type: OtpType },
-  device: DeviceContext,
-  req?: any,
-): Promise<LoginOutcome> => {
-  const identifier = normaliseIdentifier(input.identifier);
-
-  await consumeOtp(identifier, input.type, input.otp, 'BOTH');
-
-  const email = EMAIL_REGEX.test(identifier) ? identifier : '';
-  const user = await prisma.user.findFirst({
-    where: email ? { email } : { phone: identifier },
+const findUserByIdentifier = async (identifier: string) => {
+  const isEmail = EMAIL_REGEX.test(identifier);
+  return prisma.user.findFirst({
+    where: isEmail ? { email: identifier } : { phone: identifier },
     select: AUTH_USER_SELECT,
   });
-
-  if (!user)
-    throw AppError.unauthorized(ERROR.AUTH.INVALID_CREDENTIALS, ERROR_CODE.INVALID_CREDENTIALS);
-  if (!user.isActive) {
-    throw new AppError(
-      ERROR.AUTH.ACCOUNT_SUSPENDED,
-      HTTP_STATUS.FORBIDDEN,
-      ERROR_CODE.ACCOUNT_SUSPENDED,
-    );
-  }
-
-  assertVerified(user);
-
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-
-  const tokens = await issueTokens(user.id, device);
-  await linkDeviceToUser(user.id, device);
-
-  void writeActivityLog({
-    req,
-    userId: user.id,
-    action: 'LOGIN',
-    entity: 'User',
-    entityId: user.id,
-    meta: { method: 'otp' },
-  });
-
-  return { user, tokens, twoFactorRequired: false };
 };
 
 export interface OtpSendResult {
@@ -526,6 +501,24 @@ export interface OtpSendResult {
   isNewUser: boolean;
 }
 
+const throttleError = (): AppError =>
+  new AppError(
+    ERROR.AUTH.OTP_RESEND_COOLDOWN,
+    HTTP_STATUS.TOO_MANY_REQUESTS,
+    ERROR_CODE.OTP_RESEND_COOLDOWN,
+  );
+
+const enforceSendCooldown = async (identifier: string, type: OtpType): Promise<void> => {
+  const cooldownStart = new Date(Date.now() - OTP.RESEND_COOLDOWN_SEC * 1000);
+
+  const recent = await prisma.otp.findFirst({
+    where: { identifier, type: type as any, lastSentAt: { gt: cooldownStart } },
+    select: { lastSentAt: true },
+  });
+
+  if (recent) throw throttleError();
+};
+
 export const sendOtp = async (
   input: { type: OtpType; channel: string; identifier: string },
   req?: any,
@@ -534,78 +527,52 @@ export const sendOtp = async (
   const type = input.type;
 
   const isEmail = EMAIL_REGEX.test(identifier);
-  if (!isEmail && !PHONE_REGEX.test(identifier)) {
+  if (!isEmail && !PHONE_REGEX.test(identifier)) throw INVALID_IDENTIFIER();
+
+  const account = await prisma.user.findFirst({
+    where: isEmail ? { email: identifier } : { phone: identifier },
+    select: { id: true, twoFactorEnabled: true },
+  });
+
+  if (OTP_TYPES_REQUIRING_ACCOUNT.includes(type) && !account) {
     throw new AppError(
       ERROR.AUTH.INVALID_CREDENTIALS,
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODE.VALIDATION_ERROR,
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODE.INVALID_CREDENTIALS,
     );
   }
 
-  const EXISTING_ACCOUNT_TYPES: OtpType[] = [
-    OTP_TYPE.LOGIN,
-    OTP_TYPE.FORGOT_PASSWORD,
-    OTP_TYPE.PHONE_VERIFY,
-    OTP_TYPE.EMAIL_VERIFY,
-  ];
-
-  if (EXISTING_ACCOUNT_TYPES.includes(type)) {
-    const exists = await prisma.user.findFirst({
-      where: isEmail ? { email: identifier } : { phone: identifier },
-      select: { id: true },
-    });
-    if (!exists) {
-      throw new AppError(
-        ERROR.AUTH.INVALID_CREDENTIALS,
-        HTTP_STATUS.UNAUTHORIZED,
-        ERROR_CODE.INVALID_CREDENTIALS,
-      );
-    }
-  }
-
-  if (type === OTP_TYPE.TWO_FA) {
-    const user = await prisma.user.findFirst({
-      where: isEmail ? { email: identifier } : { phone: identifier },
-      select: { twoFactorEnabled: true },
-    });
-    if (!user?.twoFactorEnabled) {
-      throw new AppError(
-        ERROR.AUTH.TWO_FA_INVALID,
-        HTTP_STATUS.UNAUTHORIZED,
-        ERROR_CODE.TWO_FA_INVALID,
-      );
-    }
+  if (type === OTP_TYPE.TWO_FA && !account?.twoFactorEnabled) {
+    throw new AppError(
+      ERROR.AUTH.TWO_FA_INVALID,
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODE.TWO_FA_INVALID,
+    );
   }
 
   const code = OTP.staticCode || randomNumericCode(OTP.LENGTH);
   const otpHash = await bcrypt.hash(code, OTP.BCRYPT_ROUNDS);
   const expiresAt = addMinutes(OTP.EXPIRY_MIN);
 
-  const redis = getRedis();
-  if (redis) {
-    const cooldownKey = REDIS_KEYS.OTP_RESEND(identifier, type);
-    const cooldown = await incr(cooldownKey, OTP.RESEND_COOLDOWN_SEC);
-    if (cooldown > 1) {
-      throw new AppError(
-        ERROR.AUTH.OTP_RESEND_COOLDOWN,
-        HTTP_STATUS.TOO_MANY_REQUESTS,
-        ERROR_CODE.OTP_RESEND_COOLDOWN,
-      );
-    }
+  await enforceSendCooldown(identifier, type);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const dailyKey = REDIS_KEYS.OTP_DAILY(identifier, today);
-    const daily = await incr(dailyKey, 86400);
-    if (daily > OTP.MAX_RESENDS_PER_DAY) {
-      throw new AppError(
-        ERROR.AUTH.OTP_RESEND_COOLDOWN,
-        HTTP_STATUS.TOO_MANY_REQUESTS,
-        ERROR_CODE.OTP_RESEND_COOLDOWN,
-      );
-    }
-  }
+  const effectiveChannel = channelForIdentifier(identifier);
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const existingRow = await prisma.otp.findUnique({
+    where: {
+      identifier_type_channel: {
+        identifier,
+        type: type as any,
+        channel: effectiveChannel as any,
+      },
+    },
+    select: { id: true, sendDay: true, sendCount: true },
+  });
 
-  const effectiveChannel = isEmail ? OTP_CHANNEL.EMAIL : OTP_CHANNEL.SMS;
+  const sendsToday = existingRow?.sendDay === today ? existingRow.sendCount : 0;
+
+  if (sendsToday + 1 > OTP.MAX_RESENDS_PER_DAY) throw throttleError();
 
   await prisma.otp.upsert({
     where: {
@@ -622,9 +589,31 @@ export const sendOtp = async (
       otpHash,
       expiresAt,
       attempts: 0,
+      lastSentAt: now,
+      sendDay: today,
+      sendCount: 1,
     },
-    update: { otpHash, expiresAt, attempts: 0, isVerified: false, verifiedAt: null },
+    update: {
+      otpHash,
+      expiresAt,
+      attempts: 0,
+      isVerified: false,
+      verifiedAt: null,
+      lastSentAt: now,
+      sendDay: today,
+      sendCount: sendsToday + 1,
+    },
   });
+
+  if (getRedis()) {
+    const cooldownKey = REDIS_KEYS.OTP_RESEND(identifier, type);
+    const cooldown = await incr(cooldownKey, OTP.RESEND_COOLDOWN_SEC);
+    if (cooldown > 1) throw throttleError();
+
+    const dailyKey = REDIS_KEYS.OTP_DAILY(identifier, today);
+    const daily = await incr(dailyKey, 86400);
+    if (daily > OTP.MAX_RESENDS_PER_DAY) throw throttleError();
+  }
 
   if (!isProduction && isEmail) {
     logger.info({ identifier, type, code }, '[otp] dev code issued');
@@ -652,8 +641,91 @@ export const sendOtp = async (
     expiresIn: OTP.EXPIRY_MIN * 60,
     identifier,
     channel: effectiveChannel,
-    isNewUser: false,
+    isNewUser: !account,
   };
+};
+
+export const sendRegistrationOtp = async (
+  input: { identifier: string; channel?: string },
+  req?: any,
+): Promise<OtpSendResult> => {
+  const identifier = normaliseIdentifier(input.identifier);
+
+  const isEmail = EMAIL_REGEX.test(identifier);
+  if (!isEmail && !PHONE_REGEX.test(identifier)) throw INVALID_IDENTIFIER();
+
+  return sendOtp(
+    { type: OTP_TYPE.REGISTER, channel: input.channel ?? OTP_CHANNEL.BOTH, identifier },
+    req,
+  );
+};
+
+export interface VerifiedOtp {
+  verificationToken: string;
+  expiresIn: number;
+  identifier: string;
+}
+
+export const verifyRegistrationOtp = async (input: {
+  identifier: string;
+  otp: string;
+  channel?: string;
+}): Promise<VerifiedOtp> => {
+  const identifier = normaliseIdentifier(input.identifier);
+
+  await consumeOtp(identifier, OTP_TYPE.REGISTER, input.otp, input.channel);
+
+  const issued = await issueVerification(
+    VERIFICATION_PURPOSE.REGISTER,
+    identifier,
+    channelForIdentifier(identifier),
+  );
+
+  return { ...issued, identifier };
+};
+
+export const verifyLoginOtp = async (
+  input: { identifier: string; otp: string; channel?: string },
+  device: DeviceContext,
+  req?: any,
+): Promise<LoginOutcome> => {
+  const identifier = normaliseIdentifier(input.identifier);
+
+  await consumeOtp(identifier, OTP_TYPE.LOGIN, input.otp, input.channel);
+
+  const user = await findUserByIdentifier(identifier);
+  if (!user) {
+    throw new AppError(
+      ERROR.AUTH.INVALID_CREDENTIALS,
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODE.INVALID_CREDENTIALS,
+    );
+  }
+  if (!user.isActive) {
+    throw new AppError(
+      ERROR.AUTH.ACCOUNT_SUSPENDED,
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODE.ACCOUNT_SUSPENDED,
+    );
+  }
+
+  assertVerified(user);
+
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+
+  const tokens = await issueTokens(user.id, device);
+  await linkDeviceToUser(user.id, device);
+
+  void writeActivityLog({
+    req,
+    userId: user.id,
+    action: 'LOGIN',
+    entity: 'User',
+    entityId: user.id,
+    meta: { method: 'otp' },
+  });
+
+  return { user, tokens, twoFactorRequired: false };
 };
 
 export const consumeOtp = async (
@@ -663,15 +735,8 @@ export const consumeOtp = async (
   channel?: string,
 ): Promise<boolean> => {
   const identifier = normaliseIdentifier(identifierRaw);
-
-  const record = await prisma.otp.findFirst({
-    where: {
-      identifier,
-      type: type as any,
-      ...(channel ? { channel: channel as any } : {}),
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  const effectiveChannel =
+    channel && channel !== OTP_CHANNEL.BOTH ? channel : channelForIdentifier(identifier);
 
   const invalid = new AppError(
     ERROR.AUTH.OTP_INVALID,
@@ -679,75 +744,71 @@ export const consumeOtp = async (
     ERROR_CODE.OTP_INVALID,
   );
 
+  const maxAttempts = new AppError(
+    ERROR.AUTH.OTP_MAX_ATTEMPTS,
+    HTTP_STATUS.TOO_MANY_REQUESTS,
+    ERROR_CODE.OTP_MAX_ATTEMPTS,
+  );
+
+  const record = await prisma.otp.findFirst({
+    where: {
+      identifier,
+      type: type as any,
+      channel: effectiveChannel as any,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
   if (!record) throw invalid;
   if (record.isVerified) throw invalid;
   if (record.expiresAt < new Date()) throw invalid;
 
   if (record.attempts >= OTP.MAX_ATTEMPTS) {
     await prisma.otp.delete({ where: { id: record.id } }).catch(() => undefined);
-    throw new AppError(
-      ERROR.AUTH.OTP_MAX_ATTEMPTS,
-      HTTP_STATUS.TOO_MANY_REQUESTS,
-      ERROR_CODE.OTP_MAX_ATTEMPTS,
-    );
+    throw maxAttempts;
   }
 
   const matches = await bcrypt.compare(D.str(otp), record.otpHash);
 
   if (!matches) {
-    const attempts = record.attempts + 1;
-    await prisma.otp.update({ where: { id: record.id }, data: { attempts } });
-    if (attempts >= OTP.MAX_ATTEMPTS) {
-      throw new AppError(
-        ERROR.AUTH.OTP_MAX_ATTEMPTS,
-        HTTP_STATUS.TOO_MANY_REQUESTS,
-        ERROR_CODE.OTP_MAX_ATTEMPTS,
-      );
-    }
+    const bumped = await prisma.otp.updateMany({
+      where: { id: record.id, isVerified: false },
+      data: { attempts: { increment: 1 } },
+    });
+
+    if (bumped.count === 0) throw invalid;
+    if (record.attempts + 1 >= OTP.MAX_ATTEMPTS) throw maxAttempts;
+
     throw invalid;
   }
 
-  await prisma.otp.update({
-    where: { id: record.id },
+  const claimed = await prisma.otp.updateMany({
+    where: { id: record.id, isVerified: false },
     data: { isVerified: true, verifiedAt: new Date() },
   });
+
+  if (claimed.count === 0) throw invalid;
 
   return true;
 };
 
-const consumeOtpForRegistration = async (
+const requireRegistrationProof = async (
   contacts: { email: string; phone: string },
-  otp: string,
+  verificationToken: string,
 ): Promise<{ email: boolean; phone: boolean }> => {
   if (!isOtpEnforceable()) {
     logger.warn({ contacts }, '[auth] registering without OTP verification — OTP_REQUIRED is off');
     return { email: false, phone: false };
   }
 
-  const invalid = new AppError(
-    ERROR.AUTH.OTP_REQUIRED,
-    HTTP_STATUS.UNAUTHORIZED,
-    ERROR_CODE.OTP_INVALID,
-  );
+  const proof = await consumeVerificationFor(verificationToken, VERIFICATION_PURPOSE.REGISTER, [
+    contacts.email,
+    contacts.phone,
+  ]);
 
-  const candidates = [contacts.phone, contacts.email].filter(Boolean);
+  const isEmail = EMAIL_REGEX.test(proof.identifier);
 
-  if (!candidates.length) throw invalid;
-
-  let lastError: unknown = invalid;
-  for (const identifier of candidates) {
-    try {
-      await consumeOtp(identifier, OTP_TYPE.REGISTER, otp);
-      return {
-        email: EMAIL_REGEX.test(identifier),
-        phone: !EMAIL_REGEX.test(identifier),
-      };
-    } catch (err) {
-      lastError = err;
-    }
-  }
-
-  throw lastError instanceof AppError ? lastError : invalid;
+  return { email: isEmail, phone: !isEmail };
 };
 
 const assertVerified = (user: {
@@ -839,7 +900,7 @@ export const changePassword = async (
     if (!otp) {
       throw new AppError(ERROR.AUTH.OTP_REQUIRED, HTTP_STATUS.UNAUTHORIZED, ERROR_CODE.OTP_INVALID);
     }
-    await consumeOtp(identifier, OTP_TYPE.LOGIN, otp);
+    await consumeOtp(identifier, OTP_TYPE.CHANGE_PASSWORD, otp);
   }
 
   const matches = await comparePassword(currentPassword, user.passwordHash);

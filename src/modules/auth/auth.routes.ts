@@ -23,11 +23,11 @@ const router = Router();
  * /auth/register:
  *   post:
  *     tags: [Auth]
- *     summary: Register a customer or a vendor
+ *     summary: Complete registration and sign in
  *     description: >
- *       Single endpoint with a discriminated union on `type`.
- *       CUSTOMER requires identity fields only; VENDOR additionally requires `shopName`.
- *       The `VENDOR` role is assigned here — there is no separate vendor-apply route.
+ *       Third and final step. `verificationToken` must come from
+ *       POST /auth/register/verifyOtp, and must have been issued for the
+ *       `email` or `phone` submitted here. It is single-use.
  *     requestBody:
  *       required: true
  *       content:
@@ -39,7 +39,8 @@ const router = Router();
  *     responses:
  *       201:
  *         description: "Registered. The `Set-Cookie: refreshToken` header is HttpOnly."
- *       400: { description: Validation failed }
+ *       400: { description: Verification token was issued for a different contact }
+ *       401: { description: Missing, invalid, expired or already-used verification token }
  *       409: { description: Email or phone already registered }
  */
 router.post(
@@ -51,12 +52,56 @@ router.post(
 
 /**
  * @openapi
+ * /auth/register/sendOtp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Registration step 1 — request a code
+ *     description: >
+ *       Returns the same shape whether or not the identifier is already taken,
+ *       so it cannot be used to enumerate accounts.
+ *     responses:
+ *       200: { description: Code dispatched }
+ *       400: { description: Identifier is not a valid email or phone }
+ *       429: { description: Resend cooldown or daily cap reached }
+ */
+router.post(
+  '/register/sendOtp',
+  otpSendRateLimit,
+  validate({ body: schema.registrationSendOtpSchema }),
+  controller.registrationSendOtp,
+);
+
+/**
+ * @openapi
+ * /auth/register/verifyOtp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Registration step 2 — verify the code
+ *     description: >
+ *       Returns a single-use `verificationToken` bound to the identifier that
+ *       was proven. No account is created and no session is issued here.
+ *     responses:
+ *       200: { description: Verified; verificationToken returned }
+ *       401: { description: Invalid or expired OTP }
+ *       429: { description: Too many OTP attempts }
+ */
+router.post(
+  '/register/verifyOtp',
+  otpVerifyRateLimit,
+  validate({ body: schema.registrationVerifyOtpSchema }),
+  controller.registrationVerifyOtp,
+);
+
+/**
+ * @openapi
  * /auth/login:
  *   post:
  *     tags: [Auth]
- *     summary: Login with password or OTP
+ *     summary: Login with a password
  *     description: >
- *       Provide `password` for password login, or `otp` + `type` for OTP login.
+ *       Password login only. OTP login is the separate two-step path —
+ *       POST /auth/sendOtp then POST /auth/login/verifyOtp, which verifies
+ *       the code and signs in.
  *       When 2FA is enabled the response contains `twoFactorRequired: true` and no tokens.
  *     requestBody:
  *       required: true
@@ -72,16 +117,24 @@ router.post('/login', authRateLimit, validate({ body: schema.loginSchema }), con
 
 /**
  * @openapi
- * /auth/loginWithOtp:
+ * /auth/login/verifyOtp:
  *   post:
  *     tags: [Auth]
- *     summary: Login using an OTP sent to the registered phone/email
+ *     summary: OTP login step 2 — verify the code and sign in
+ *     description: >
+ *       Final step of OTP login. The session is issued for the identifier the
+ *       code was sent to, so it cannot be pointed anywhere else.
+ *     responses:
+ *       200: { description: Logged in; tokens returned }
+ *       401: { description: Invalid or expired OTP, or no account for that identifier }
+ *       403: { description: Account suspended or not verified }
+ *       429: { description: Too many OTP attempts }
  */
 router.post(
-  '/loginWithOtp',
+  '/login/verifyOtp',
   otpVerifyRateLimit,
-  validate({ body: schema.verifyOtpSchema }),
-  controller.loginWithOtp,
+  validate({ body: schema.loginVerifyOtpSchema }),
+  controller.loginVerifyOtp,
 );
 
 /**
@@ -159,8 +212,11 @@ router.post(
  * /auth/verifyOtp:
  *   post:
  *     tags: [Auth]
- *     summary: Verify an OTP
- *     description: "Set `isLoginFlow: true` to complete login and receive tokens."
+ *     summary: Verify an OTP for a non-login purpose
+ *     description: >
+ *       For FORGOT_PASSWORD, EMAIL_VERIFY, PHONE_VERIFY and TWO_FA. LOGIN and
+ *       REGISTER are rejected here — their step 2 mints a verificationToken
+ *       instead (see /auth/login/verifyOtp and /auth/register/verifyOtp).
  */
 router.post(
   '/verifyOtp',

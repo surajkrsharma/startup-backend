@@ -29,10 +29,13 @@ CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')
 CREATE TYPE "TicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 
 -- CreateEnum
-CREATE TYPE "OtpType" AS ENUM ('REGISTER', 'FORGOT_PASSWORD', 'LOGIN', 'PHONE_VERIFY', 'EMAIL_VERIFY', 'TWO_FA');
+CREATE TYPE "OtpType" AS ENUM ('REGISTER', 'FORGOT_PASSWORD', 'LOGIN', 'CHANGE_PASSWORD', 'PHONE_VERIFY', 'EMAIL_VERIFY', 'TWO_FA');
 
 -- CreateEnum
 CREATE TYPE "OtpChannel" AS ENUM ('EMAIL', 'SMS', 'BOTH');
+
+-- CreateEnum
+CREATE TYPE "VerificationPurpose" AS ENUM ('REGISTER', 'LOGIN');
 
 -- CreateEnum
 CREATE TYPE "SocialProvider" AS ENUM ('GOOGLE', 'APPLE', 'FACEBOOK');
@@ -141,9 +144,27 @@ CREATE TABLE "Otp" (
     "attempts" INTEGER NOT NULL DEFAULT 0,
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "verifiedAt" TIMESTAMP(3),
+    "lastSentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "sendDay" TEXT NOT NULL DEFAULT '',
+    "sendCount" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Otp_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AuthVerification" (
+    "id" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "purpose" "VerificationPurpose" NOT NULL,
+    "identifier" TEXT NOT NULL,
+    "channel" "OtpChannel" NOT NULL DEFAULT 'EMAIL',
+    "userId" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuthVerification_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1747,7 +1768,22 @@ CREATE INDEX "Otp_identifier_idx" ON "Otp"("identifier");
 CREATE INDEX "Otp_expiresAt_idx" ON "Otp"("expiresAt");
 
 -- CreateIndex
+CREATE INDEX "Otp_lastSentAt_idx" ON "Otp"("lastSentAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Otp_identifier_type_channel_key" ON "Otp"("identifier", "type", "channel");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AuthVerification_tokenHash_key" ON "AuthVerification"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "AuthVerification_purpose_identifier_idx" ON "AuthVerification"("purpose", "identifier");
+
+-- CreateIndex
+CREATE INDEX "AuthVerification_expiresAt_idx" ON "AuthVerification"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "AuthVerification_usedAt_idx" ON "AuthVerification"("usedAt");
 
 -- CreateIndex
 CREATE INDEX "SocialAccount_userId_idx" ON "SocialAccount"("userId");

@@ -3,9 +3,15 @@
 Multi-vendor marketplace API — Node + Express + TypeScript + Prisma +
 PostgreSQL + Redis. Backend only; the web, Android and iOS apps consume it.
 
-The functional spec is [`projectname-api.md`](projectname-api.md) — envelope
-shape, every endpoint, every default, and the coding rules the code follows. This
-file is the operational README: how to run it, how to test it, how to deploy it.
+This file is the operational README: how to run it, how to test it, how to
+deploy it.
+
+| Document | What it holds |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What the API does — the stack, the modules, the endpoints, every configuration value |
+| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | The rules code here must follow — envelope, key ordering, naming, DO's and DON'Ts |
+| [`AGENTS.md`](AGENTS.md) | Orientation for AI agents working in this repo |
+| `GET /api/v1/docs.json` | The endpoint contract, generated from the live router |
 
 ---
 
@@ -290,15 +296,24 @@ server log instead of being emailed.
 
 ```bash
 # 1. request the code
-curl -X POST http://localhost:5000/api/v1/auth/sendOtp \
+curl -X POST http://localhost:5000/api/v1/auth/register/sendOtp \
   -H "Content-Type: application/json" -H "x-device-id: dev" \
-  -d '{"type":"REGISTER","identifier":"you@example.com"}'
+  -d '{"identifier":"you@example.com"}'
 
-# 2. register with it
+# 2. verify the code — returns a single-use verificationToken
+curl -X POST http://localhost:5000/api/v1/auth/register/verifyOtp \
+  -H "Content-Type: application/json" -H "x-device-id: dev" \
+  -d '{"identifier":"you@example.com","otp":"111111"}'
+
+# 3. register with the token
 curl -X POST http://localhost:5000/api/v1/auth/register \
   -H "Content-Type: application/json" -H "x-device-id: dev" \
-  -d '{"type":"CUSTOMER","name":"Your Name","email":"you@example.com","password":"Aa1!aaaa","otp":"111111"}'
+  -d '{"type":"CUSTOMER","name":"Your Name","email":"you@example.com","password":"Aa1!aaaa","verificationToken":"<from step 2>"}'
 ```
+
+OTP login is the same shape in two steps: `POST /auth/sendOtp` with
+`{"type":"LOGIN"}`, then `POST /auth/login/verifyOtp` with the code, which
+verifies it and signs in in one call.
 
 To skip the code while building, set `OTP_REQUIRED=false`. Do not ship that.
 
@@ -388,28 +403,31 @@ CI enforces them.
 
 ## Architecture
 
-384 endpoints across 17 module directories, backed by a 97-model schema. A few
+494 operations across 17 module directories, backed by a 98-model schema. A few
 directories export more than one router, so they mount at several prefixes.
 
-| Module | Mount | Endpoints |
+| Module | Mount | Operations |
 | --- | --- | --- |
-| content | `/content` | 59 |
-| shipping | `/shipping`, `/settings`, `/admin` | 36 |
-| analytics | `/tracking`, `/analytics`, `/search`, `/upload` | 34 |
-| engagement | `/loyalty`, `/referrals`, `/gift-cards`, `/templates` | 32 |
-| review | `/reviews`, `/coupons`, `/flash-sales` | 27 |
-| notification | `/notifications`, `/chat`, `/tickets` | 26 |
-| payment | `/payments` | 24 |
-| auth | `/auth` | 23 |
-| catalog | `/brands`, `/tags`, `/collections`, `/attributes` | 23 |
-| product | `/products` | 20 |
+| content | `/content`, `/webhooks`, `/pages`, `/blogs`, `/faqs`, `/banners`, `/contact`, `/newsletter`, `/countries`, `/currencies`, `/tax`, `/i18n`, `/bulk`, `/reports`, `/apiKeys` | 82 |
+| analytics | `/track`, `/search`, `/uploads`, `/devices`, `/analytics` | 67 |
+| shipping | `/shipping`, `/deliveryBoys`, `/settings`, `/admin`, `/auditLogs`, `/activityLogs` | 53 |
+| payment | `/payments`, `/payouts`, `/returns`, `/wallet` | 41 |
+| notification | `/notifications`, `/chat`, `/tickets` | 35 |
+| engagement | `/loyalty`, `/templates`, `/referral`, `/giftCards` | 30 |
+| review | `/reviews`, `/coupons`, `/questions`, `/flashSales` | 29 |
+| auth | `/auth` | 25 |
+| catalog | `/brands`, `/attributes`, `/collections`, `/tags` | 23 |
+| product | `/products` | 22 |
+| order | `/orders` | 18 |
 | user | `/users` | 17 |
 | vendor | `/vendors` | 17 |
-| cart | `/cart`, `/wishlist` | 16 |
-| order | `/orders` | 16 |
+| cart | `/cart`, `/wishlist` | 15 |
 | category | `/categories` | 8 |
 | health | `/health` | 5 |
 | system | `/version` | 1 |
+
+Regenerate this table rather than counting by hand — the counts come from the
+OpenAPI spec, which is built off the live router.
 
 ### Conventions
 
@@ -431,13 +449,14 @@ unknown fields are rejected), `<module>.service.ts` (Prisma, throws `AppError`),
   per route, never per controller body.
 - **Strings** — no message, number or status literal in a service. Everything comes
   from `src/constants/`, `src/messages/`, `src/config/` or a `SystemSetting`. The
-  rules are in the spec.
+  rules are in [CONVENTIONS.md](docs/CONVENTIONS.md).
 - **Comments** — English, and they explain *why*. Four forms: a route marker
   (`/** POST /auth/register */`), a doc block (summary, blank line, then why), an
   inline `//` note, and a section banner. Anything longer than one line is a doc
   block, never a second `//`. A comment that narrates what was broken is not a
-  comment — it goes stale and then misleads. Full rules in the spec under
-  Comment Structure; `npm run comments:check` enforces them.
+  comment — it goes stale and then misleads. Full rules in
+  [CONVENTIONS.md](docs/CONVENTIONS.md) under Comment Structure;
+  `npm run comments:check` enforces them.
 - **Feature flags** — behaviour that can be switched off reads its setting at call
   time (`getSetting`), never from a module-level constant.
 
@@ -471,6 +490,12 @@ A code is used for: registration, OTP login, forgot/reset password, email and
 phone verification, and changing a password. It is only ever valid for the
 identifier it was sent to, and the record is keyed by the channel that identifier
 implies, so an SMS code cannot be redeemed as though it arrived by email.
+
+Registration verifies a code in step 2 and returns a single-use
+`verificationToken`; step 3 spends it to create the account. The token is bound
+to the one contact that was proven, so it cannot be spent on a different email or
+phone. OTP login does not need one — the code and the session arrive in the same
+call. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for both flows end to end.
 
 ### Delivery
 

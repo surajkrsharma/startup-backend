@@ -9,6 +9,7 @@ import {
 } from '../../constants/roles';
 import { PASSWORD, NAME, PHONE } from '../../config/password.config';
 import { OTP } from '../../config/otp.config';
+import { VERIFICATION } from '../../config/verification.config';
 import { EMAIL_REGEX, PHONE_REGEX } from '../../constants/countries';
 import { VALIDATION } from '../../messages/validation';
 
@@ -49,7 +50,13 @@ const deviceData = z
   .strict()
   .optional();
 
-const registerOtp = z.string().trim().length(OTP.LENGTH, VALIDATION.INVALID_OTP_FORMAT).optional();
+const verificationToken = z
+  .string()
+  .trim()
+  .min(VERIFICATION.MIN_TOKEN_LENGTH, VALIDATION.INVALID_VERIFICATION_TOKEN)
+  .max(VERIFICATION.MAX_TOKEN_LENGTH, VALIDATION.INVALID_VERIFICATION_TOKEN);
+
+const registerOtp = z.string().trim().length(OTP.LENGTH, VALIDATION.INVALID_OTP_FORMAT);
 
 const registerUnion = z.discriminatedUnion('type', [
   z
@@ -63,7 +70,7 @@ const registerUnion = z.discriminatedUnion('type', [
       email,
       phone,
       password,
-      otp: registerOtp,
+      verificationToken,
       deviceData,
     })
     .strict(),
@@ -78,7 +85,7 @@ const registerUnion = z.discriminatedUnion('type', [
       email,
       phone,
       password,
-      otp: registerOtp,
+      verificationToken,
       shopName: z.string().trim().min(NAME.SHOP_MIN_LENGTH).max(NAME.SHOP_MAX_LENGTH),
       slug: z
         .string()
@@ -127,15 +134,10 @@ export const loginSchema = z
   .object({
     email: email.optional(),
     phone,
-    password: z.string().min(1, VALIDATION.REQUIRED('password')).optional(),
-    otp: z.string().trim().length(OTP.LENGTH, VALIDATION.INVALID_OTP_FORMAT).optional(),
-    type: z.nativeEnum(OTP_TYPE).optional(),
+    password: z.string().min(1, VALIDATION.REQUIRED('password')),
     deviceData,
   })
   .strict()
-  .refine((v) => v.password || v.otp, {
-    message: VALIDATION.REQUIRED('password or otp'),
-  })
   .refine((v) => v.email || v.phone, {
     message: VALIDATION.REQUIRED('email or phone'),
   });
@@ -156,14 +158,37 @@ export const sendOtpSchema = z
   })
   .strict();
 
+export const registrationSendOtpSchema = z
+  .object({
+    identifier: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
+    channel: z.nativeEnum(OTP_CHANNEL).optional(),
+  })
+  .strict();
+
+export const registrationVerifyOtpSchema = z
+  .object({
+    identifier: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
+    otp: registerOtp,
+    channel: z.nativeEnum(OTP_CHANNEL).optional(),
+  })
+  .strict();
+
+export const loginVerifyOtpSchema = z
+  .object({
+    identifier: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
+    otp: registerOtp,
+    channel: z.nativeEnum(OTP_CHANNEL).optional(),
+  })
+  .strict();
+
 export const verifyOtpSchema = z
   .object({
-    type: z.nativeEnum(OTP_TYPE),
+    type: z.nativeEnum(OTP_TYPE).refine((v) => v !== OTP_TYPE.LOGIN && v !== OTP_TYPE.REGISTER, {
+      message: ERROR.AUTH.INVALID_OTP_TYPE,
+    }),
     identifier: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
-    otp: z.string().trim().length(OTP.LENGTH, VALIDATION.INVALID_OTP_FORMAT),
+    otp: registerOtp,
     channel: z.nativeEnum(OTP_CHANNEL).optional(),
-
-    isLoginFlow: z.boolean().optional().default(false),
     deviceData,
   })
   .strict();

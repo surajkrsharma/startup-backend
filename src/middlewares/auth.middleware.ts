@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { AppError } from '../utils/AppError';
 import { ApiResponse } from '../utils/ApiResponse';
-import { verifyAccessToken } from '../utils/crypto';
+import { verifyAccessToken, isSessionToken } from '../utils/crypto';
 import { prisma } from '../services/prisma.service';
 import { ERROR } from '../messages/error';
 import { ERROR_CODE, HTTP_STATUS } from '../constants/http';
@@ -26,6 +26,14 @@ export const authenticate: RequestHandler = asyncHandler(async (req, res, next) 
   }
 
   const payload = verifyAccessToken(token);
+
+  if (!isSessionToken(payload)) {
+    throw new AppError(
+      ERROR.AUTH.TWO_FA_REQUIRED,
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODE.TWO_FA_REQUIRED,
+    );
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
@@ -70,6 +78,8 @@ export const optionalAuth: RequestHandler = asyncHandler(async (req, res, next) 
 
   try {
     const payload = verifyAccessToken(token);
+    if (!isSessionToken(payload)) return next();
+
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
