@@ -572,6 +572,10 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | PATCH | `/api/v1/tickets/close/:id` | ✅ | Any | Close |
 | DELETE | `/api/v1/tickets/delete/:id` | ✅ | ADMIN | Delete |
 | GET | `/api/v1/tickets/getCategories` | ❌ | Public | Categories |
+| GET | /api/v1/cannedResponses/getAll | ? | ADMIN | List canned responses |
+| POST | /api/v1/cannedResponses/create | ? | ADMIN | Create canned response |
+| PATCH | /api/v1/cannedResponses/update/:id | ? | ADMIN | Update canned response |
+| DELETE | /api/v1/cannedResponses/delete/:id | ? | ADMIN | Delete canned response |
 | POST | `/api/v1/pages/create` | ✅ | ADMIN | Create page |
 | GET | `/api/v1/pages/getAll` | ❌ | Public | List pages |
 | GET | `/api/v1/pages/getBySlug/:slug` | ❌ | Public | Detail |
@@ -1445,7 +1449,31 @@ export const PASSWORD = {
   BCRYPT_ROUNDS: 12,
   RESET_TOKEN_EXPIRY_MIN: 30,
 };
+
+export const WARRANTY = {
+  MAX_MONTHS: 120,
+  MAX_TAGS_PER_ORDER: 20,
+  MAX_TAG_LENGTH: 40,
+};
+
+export const DELIVERY_INSTRUCTIONS = {
+  MAX_LENGTH: 500,
+};
 ```
+
+**Password history.** `security.passwordHistoryCount` (default `3`) is how many
+previous hashes are retained per user, in `PasswordHistory`. Both
+`POST /auth/changePassword` and `POST /auth/resetPassword` push the outgoing
+hash into that table and refuse a new password that matches the live hash or any
+retained one — 422 `PASSWORD_REUSED`. Setting the count to `0` turns the check
+off. The trim runs in the same transaction as the write, so the retained set is
+a ceiling and not a backlog.
+
+**Consent / Terms Acceptance.** `UserConsent` table logs when a user accepts
+TERMS, PRIVACY, or MARKETING consent. `POST /auth/acceptConsent` writes a row
+with type, version, IP, and user-agent; `GET /auth/getMyConsents` returns all
+accepted consents for the user. The unique constraint on (userId, type, version)
+prevents duplicate accepts. DPDP compliance for audit trail.
 
 ### OTP — `src/config/otp.config.ts`
 
@@ -1795,6 +1823,7 @@ export const SOCKET = {
 | `return.reasonRequired` | `true` | return |
 | `return.imagesRequired` | `true` | return |
 | `return.maxQtyPerOrder` | `0` | return |
+| `review.editWindowDays` | `7` | return |
 | `refund.processingDays` | `5` | refund |
 | `refund.mode` | `"original"` | refund |
 
@@ -1895,6 +1924,7 @@ export const SOCKET = {
 | `security.maxLoginAttempts` | `5` | security |
 | `security.lockoutMinutes` | `15` | security |
 | `security.passwordMinLength` | `8` | security |
+| `security.passwordHistoryCount` | `3` | security |
 | `security.requireEmailVerify` | `false` | security |
 | `security.requirePhoneVerify` | `true` | security |
 | `security.sessionDays` | `7` | security |
@@ -2045,6 +2075,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'return.reasonRequired',  value: true,       category: 'return', isPublic: true  },
   { key: 'return.imagesRequired',  value: true,       category: 'return', isPublic: true  },
   { key: 'return.maxQtyPerOrder',  value: 0,          category: 'return', isPublic: false },
+  { key: 'review.editWindowDays', value: 7,          category: 'return', isPublic: true  },
   { key: 'refund.processingDays',  value: 5,          category: 'refund', isPublic: true  },
   { key: 'refund.mode',            value: 'original', category: 'refund', isPublic: true  },
 
@@ -2119,6 +2150,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'security.maxLoginAttempts',   value: 5,     category: 'security', isPublic: false },
   { key: 'security.lockoutMinutes',     value: 15,    category: 'security', isPublic: false },
   { key: 'security.passwordMinLength',  value: 8,     category: 'security', isPublic: false },
+  { key: 'security.passwordHistoryCount', value: 3,   category: 'security', isPublic: false },
   { key: 'security.requireEmailVerify', value: false, category: 'security', isPublic: false },
   { key: 'security.requirePhoneVerify', value: true,  category: 'security', isPublic: false },
   { key: 'security.sessionDays',        value: 7,     category: 'security', isPublic: false },
@@ -2260,12 +2292,40 @@ function calcTokenAmount(orderTotal: number, cfg: {
 }
 ```
 
-**Observe:**
+### Catalog & Order Rules
 
-- `result` order → Singles (`orderId`, `total`, `tokenRequired`, `tokenAmount`, `balanceAmount`, `balanceDueDays`, `status`, `createdAt`) → Object (`paymentData`, `addressData`) → Array (`subOrderList`)
-- Token amount settings se calculate hua
+Rules jo schema se khud nahi padhchi jaatin, is liye yahan likhi hain.
 
----
+**Product condition and warranty.** `Product.condition` is one of
+`NEW` / `USED` / `REFURBISHED` / `OPEN_BOX` and defaults to `NEW`.
+`warrantyMonths` is capped at `WARRANTY.MAX_MONTHS`, and `0` means no warranty
+is offered. All of them are set through the same product create and update
+payload, and the CSV bulk-import schema carries them too.
+
+**Non-returnable items.** `Product.isNonReturnable` is read from the **live
+product**, not from a copy on the order line, so a seller who changes the policy
+after a purchase still governs what may be sent back.
+`POST /returns/createRequest` answers 422 `NON_RETURNABLE` when any requested
+line belongs to such a product.
+
+**Review edit window.** `review.editWindowDays` (default `7`) bounds
+`PATCH /reviews/updateReview/:id`; past it the call is 422
+`EDIT_WINDOW_PASSED`. `0` disables the window.
+
+**Order tags.** An order carries at most `WARRANTY.MAX_TAGS_PER_ORDER` labels.
+Labels are upper-cased and unique per order, so re-posting an existing one
+updates its colour instead of failing. All three tag routes are admin-only and
+accept an order id *or* an order number in the `:id` segment.
+
+**Delivery instructions.** `Address.deliveryInstructions` rides along with the
+address everywhere it is echoed - order detail, packing slip and the checkout
+address preview.
+
+**Order internal notes.** `OrderNote` table lets admin and vendor attach
+private comments to an order. `POST /orders/addNote/:id` adds a note with the
+caller's userId and IP; `GET /orders/getNotes/:id` lists them newest-first;
+`DELETE /orders/removeNote/:id/:noteId` removes one. Notes are not visible to
+the customer and appear in the order detail alongside tags and timeline.
 
 ---
 
@@ -2404,12 +2464,12 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - `Brand` (name, slug, logo, description)
 - `Tag` (name)
 - `Attribute` (name, type, options[])
-- `Product` (vendorId, categoryId, brandId, name, slug, price, stock, images[], status)
+- `Product` (vendorId, categoryId, brandId, name, slug, price, stock, images[], status, condition, warrantyMonths, warrantySummary, isNonReturnable)
 - `ProductVariant` (productId, attributes{}, price, stock, sku)
 - `Collection` (name, slug, type, productIds[], rules{})
 - `Cart` / `CartItem`
 - `Wishlist` / `WishlistItem`
-- `Order`, `SubOrder`, `OrderItem`, `OrderTimeline`
+- `Order`, `SubOrder`, `OrderItem`, `OrderTimeline`, `OrderTag`, `OrderNote`
 - `Payment` (method, status, reference)
 - `Refund`
 - `Payout` (vendorId, amount, status, period)
@@ -2425,7 +2485,8 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - `GiftCard`
 - `Notification` / `NotificationPreference`
 - `Conversation` / `Message`
-- `Ticket` / `TicketMessage` / `TicketCategory`
+- `Ticket` / `TicketMessage` / `TicketCategory` / `TicketNote`
+- `CannedResponse`
 - `Page` / `Blog` / `Faq` / `ContactSubmission` / `NewsletterSubscriber`
 - `AuditLog` / `ActivityLog`
 - `TaxConfig`
@@ -2439,6 +2500,8 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - **`Translation`** (locale, key, value)
 - **`Dropdown`** (type, options Json)
 - **`RefreshToken`** (userId, tokenHash, expiresAt, revokedAt)
+- **`PasswordHistory`** (userId, passwordHash) — the last N hashes, for the reuse check
+- **`UserConsent`** (userId, type, version) — TERMS/PRIVACY/MARKETING audit trail
 - **`Otp`** (id, identifier, type, channel, otpHash, expiresAt, attempts, createdAt)
 - **`Session`** (id, userId, deviceId, ip, userAgent, geo{}, startedAt, endedAt, isActive)
 - **`Device`** (id, deviceId, userId?, platform, os, osVersion, browser, model, fcmToken, isBlocked, isTrusted, lastSeenAt)
@@ -2524,6 +2587,8 @@ live Express router, whereas a hand-written list drifts.
     GET            /auditLogs/getById/{id}
 /auth
     DELETE         /auth/sessions/{id}
+    GET            /auth/acceptConsent
+    GET            /auth/getMyConsents
     GET            /auth/getMe
     GET            /auth/sessions
     POST           /auth/changePassword
@@ -2727,11 +2792,16 @@ live Express router, whereas a hand-written list drifts.
     POST           /notifications/sendBulk
     POST           /notifications/unregisterDevice
 /orders
+    DELETE         /orders/removeTag/{id}/{tagId}
     GET            /orders/getAll
     GET            /orders/getById/{id}
     GET            /orders/getInvoice/{id}
     GET            /orders/getPackingSlip/{id}
     GET            /orders/getShippingLabel/{subOrderId}
+    GET            /orders/getTags/{id}
+    GET            /orders/getNotes/{id}
+    POST           /orders/addNote/{id}
+    DELETE         /orders/removeNote/{id}/{noteId}
     GET            /orders/getTimeline/{id}
     GET            /orders/getVendorOrders
     GET            /orders/track/{id}
@@ -2740,6 +2810,7 @@ live Express router, whereas a hand-written list drifts.
     PATCH          /orders/rejectReturn/{returnId}
     PATCH          /orders/updateStatus/{id}
     PATCH          /orders/updateVendorStatus/{subOrderId}
+    POST           /orders/addTags/{id}
     POST           /orders/cancelOrder/{id}
     POST           /orders/placeOrder
     POST           /orders/reorder/{id}
@@ -2912,6 +2983,13 @@ live Express router, whereas a hand-written list drifts.
     POST           /templates/sms/{key}/render
 /tickets
     DELETE         /tickets/delete/{id}
+    POST           /cannedResponses/getAll
+    POST           /cannedResponses/create
+    PATCH          /cannedResponses/update/:id
+    DELETE         /cannedResponses/delete/:id
+    POST           /tickets/addNote/{id}
+    GET            /tickets/getNotes/{id}
+    DELETE         /tickets/removeNote/{id}/{noteId}
     GET            /tickets/getAll
     GET            /tickets/getById/{id}
     GET            /tickets/getCategories
@@ -3028,13 +3106,17 @@ Type column me do marker hain:
 | 🔴 | Truly Missing — koi endpoint, model ya setting exist hi nahi karti |
 | 🟡 | Partial/Stub — endpoint ya setting hai, par actual kaam nahi karta |
 
+Jin gaps ka kaam poora ho chuka hai, unhe is table se hata diya gaya hai — unka
+naya behaviour ab [Catalog & Order Rules](#catalog--order-rules) aur
+[Password](#password--srcconfigpasswordconfigts) mai documented hai. Jo row
+ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
+
 ### 1. Auth & Security
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
 | **Login with Phone + Password** | 🔴 | Sirf email + password login. Phone sirf OTP ke liye. | Phone + password login endpoint, phone-based user lookup, phone normalization. | India me 60% users phone-first hain. Email bhool jate hain. |
 | **Account Recovery (no email)** | 🔴 | Email kho gaya to koi recovery nahi. | Alternate recovery (phone OTP, security questions, backup codes). | User permanently locked out ho jata hai. Support load badhta hai. |
-| **Password History** | 🔴 | Purana password reuse allowed. | Last N passwords ka hash store, reuse pe reject. | Security compliance (PCI-DSS, ISO 27001). |
 | **Password Expiry Policy** | 🔴 | Password kabhi expire nahi hota. | `passwordChangedAt` + N days force change. | Enterprise/B2B clients ki requirement. |
 | **Concurrent Session Limit** | 🟡 | Sessions list + revoke hai. Max devices enforcement nahi. | Per-user max active sessions, oldest auto-revoke. | Account sharing rokne ke liye (Netflix model). |
 | **Suspicious Login Alert** | 🔴 | Koi alert nahi. | New device/IP/country pe email + push alert. | Account takeover detect karne ke liye. |
@@ -3043,13 +3125,11 @@ Type column me do marker hain:
 | **Email Change Flow** | 🔴 | `verifyEmail` hai, par change flow nahi. | Old email pe notify + new email pe OTP + confirm link. | Email change security ke liye. |
 | **Phone Change Flow** | 🔴 | Phone change flow nahi. | Old phone pe OTP + new phone pe OTP. | Phone change security. |
 | **Account Deletion Grace Period** | 🟡 | `deleteAccount` soft delete hai. Purge job nahi. | 30-day recovery window + nightly purge cron. | DPDP compliance + accidental delete recovery. |
-| **Consent / Terms Acceptance** | 🔴 | Koi consent log nahi. | Terms, privacy policy, marketing consent ka timestamped log. | DPDP legal requirement. |
 
 ### 2. Customer / User
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Multiple Address Types** | 🟡 | Sirf default flag hai. | Home/Office/Other tag, delivery instructions per address. | Checkout UX improve hota hai. |
 | **Saved Payment Methods** | 🔴 | Har baar card/UPI dobara daalna padta hai. | Tokenized card/UPI save, 1-click pay. | Conversion rate 20-30% badhta hai. |
 | **Customer Preferences** | 🟡 | Language/currency partial. | Notification channel prefs, timezone, digest frequency. | Personalization ke liye. |
 | **Customer Segments** | 🔴 | Koi segment/tag nahi. | VIP, wholesale, blocked, new, repeat tags. | Targeted marketing ke liye. |
@@ -3133,8 +3213,6 @@ Type column me do marker hain:
 | **Product Feed (Google/Facebook)** | 🔴 | Koi feed nahi. | Shopping feed XML/CSV. | Google Shopping. |
 | **Product Recall / Ban** | 🔴 | Admin ban nahi kar sakta. | Recall flag, notification to buyers. | Safety/compliance. |
 | **Category Restrictions** | 🔴 | Koi restriction nahi. | Category-wise vendor allow/block. | Marketplace policy. |
-| **Product Condition** | 🔴 | Koi condition nahi. | New/Used/Refurbished. | Refurb marketplace. |
-| **Product Warranty** | 🔴 | Koi warranty info nahi. | Warranty period, terms. | Electronics ke liye. |
 | **Product Expiry / Batch** | 🔴 | Koi batch nahi. | Batch no, expiry, manufacturing date. | Pharma/food compliance. |
 | **Product Serial / IMEI** | 🔴 | Koi serial nahi. | Serial tracking, warranty activation. | Electronics. |
 | **Product Reviews with Media** | 🔴 | Sirf text review. | Image/video upload. | Trust + conversion. |
@@ -3169,9 +3247,6 @@ Type column me do marker hain:
 | **Order Split** | 🔴 | Ek order split nahi. | Split into multiple. | Warehouse ops. |
 | **Order Hold / On-hold** | 🔴 | Koi hold state nahi. | Payment issue pe hold. | Fraud prevention. |
 | **Order Priority** | 🔴 | Koi priority nahi. | VIP order priority. | Premium customers. |
-| **Order Notes (Customer)** | 🟡 | Partial. | Delivery note field. | Delivery accuracy. |
-| **Order Notes (Admin/Vendor)** | 🔴 | Internal notes nahi. | Internal comments. | Coordination. |
-| **Order Tags** | 🔴 | Koi tag nahi. | urgent, gift, fragile tags. | Filtering. |
 | **Order Attachments** | 🔴 | Koi attach nahi. | PO, prescription, KYC doc. | B2B orders. |
 | **Order Credit Note** | 🔴 | Koi credit note nahi. | Return ke baad credit note. | GST compliance. |
 | **Order Debit Note** | 🔴 | Koi debit note nahi. | Additional charge note. | GST compliance. |
@@ -3240,7 +3315,6 @@ Type column me do marker hain:
 | **Return Pickup Scheduling** | 🔴 | Manual. | Auto pickup. | UX. |
 | **Return Window per Category** | 🔴 | Global window. | Category-wise. | Flexibility. |
 | **Return Policy per Vendor** | 🔴 | Global. | Vendor-specific. | Vendor control. |
-| **Non-returnable Items** | 🔴 | Koi flag nahi. | Per-product flag. | Policy. |
 | **Return Credit Note** | 🔴 | Koi credit note nahi. | GST credit note. | Compliance. |
 
 ### 10. Reviews / Q&A
@@ -3251,7 +3325,6 @@ Type column me do marker hain:
 | **Review Verification Badge** | 🟡 | Partial. | Verified purchase badge. | Trust. |
 | **Review Moderation Queue** | 🟡 | Approve/reject. Bulk nahi. | Bulk moderation. | Admin efficiency. |
 | **Review Reply Threading** | 🟡 | Flat reply. | Nested threads. | Conversation. |
-| **Review Edit Window** | 🟡 | Edit hai, limit nahi. | N days edit window. | Abuse rokne ke liye. |
 | **Review Fraud Detection** | 🔴 | Koi detection nahi. | Fake review detection. | Trust. |
 | **Q&A Follow** | 🔴 | Koi follow nahi. | Follow question. | Engagement. |
 | **Q&A Notification** | 🟡 | Partial. | Answer aane pe notify. | Engagement. |
@@ -3313,14 +3386,12 @@ Type column me do marker hain:
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
 | **Chat File/Image Upload** | 🔴 | Sirf text. | File/image upload. | Support. |
-| **Chat Canned Responses** | 🔴 | Koi canned nahi. | Pre-written replies. | Agent speed. |
 | **Chat Assignment** | 🔴 | Koi assignment nahi. | Agent assign. | Ops. |
 | **Chat SLA Tracking** | 🔴 | Koi SLA nahi. | Response time SLA. | Quality. |
 | **Chat CSAT Survey** | 🔴 | Koi CSAT nahi. | Post-chat survey. | Quality. |
 | **Ticket SLA / Escalation** | 🔴 | Koi SLA nahi. | Auto escalation. | Quality. |
 | **Ticket Canned Responses** | 🔴 | Koi canned nahi. | Pre-written. | Speed. |
 | **Ticket Attachments** | 🔴 | Koi attach nahi. | File upload. | Support. |
-| **Ticket Internal Notes** | 🔴 | Koi internal notes nahi. | Agent-only notes. | Coordination. |
 | **Ticket Merge** | 🔴 | Koi merge nahi. | Merge duplicates. | Ops. |
 | **Ticket CSAT** | 🔴 | Koi CSAT nahi. | Post-resolution survey. | Quality. |
 | **Knowledge Base / Help Center** | 🔴 | Koi KB nahi. | Self-service docs. | Support load. |

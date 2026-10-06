@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { PRODUCT_STATUS, ATTRIBUTE_TYPE } from '../../constants/roles';
-import { NAME } from '../../config/password.config';
+import { PRODUCT_STATUS, ATTRIBUTE_TYPE, PRODUCT_CONDITION } from '../../constants/roles';
+import { NAME, WARRANTY } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 
@@ -61,6 +61,10 @@ export const createProductSchema = z
     lowStockThreshold: z.coerce.number().int().min(0).optional(),
     weight: z.coerce.number().min(0).optional(),
     allowBackorder: z.boolean().optional(),
+    condition: z.nativeEnum(PRODUCT_CONDITION).optional(),
+    warrantyMonths: z.coerce.number().int().min(0).max(WARRANTY.MAX_MONTHS).optional(),
+    warrantySummary: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+    isNonReturnable: z.boolean().optional(),
     status: z.nativeEnum(PRODUCT_STATUS).optional(),
     isFeatured: z.boolean().optional(),
     images: z.array(imageInput).max(20).optional(),
@@ -111,6 +115,10 @@ const bulkItemSchema = z
     lowStockThreshold: z.coerce.number().int().optional(),
     weight: z.coerce.number().optional(),
     allowBackorder: z.boolean().optional(),
+    condition: z.nativeEnum(PRODUCT_CONDITION).optional(),
+    warrantyMonths: z.coerce.number().int().min(0).max(WARRANTY.MAX_MONTHS).optional(),
+    warrantySummary: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+    isNonReturnable: z.boolean().optional(),
     status: z.nativeEnum(PRODUCT_STATUS).optional(),
     isFeatured: z.boolean().optional(),
     images: z.array(imageInput).max(20).optional(),

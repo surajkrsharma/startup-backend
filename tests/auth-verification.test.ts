@@ -43,6 +43,7 @@ vi.mock('../src/services/settings.service', () => ({
     twoFactorEnabled: false,
     requirePhoneVerify: false,
     requireEmailVerify: false,
+    passwordHistoryCount: 3,
   }),
   getVendorAutoApprove: async () => false,
   getCommissionDefault: async () => 10,
@@ -849,5 +850,51 @@ describe('two-factor challenge', () => {
     });
     const claims = JSON.parse(Buffer.from(session.split('.')[1], 'base64').toString());
     expect(claims.purpose).toBe('session');
+  });
+});
+
+describe('password history', () => {
+  beforeEach(() => {
+    store.db.users.push(makeUser());
+  });
+
+  it('refuses the password the account is using right now', async () => {
+    seedOtp({ type: 'CHANGE_PASSWORD' });
+
+    expect(
+      await codeOf(() =>
+        authService.changePassword('user-1', 'Secret@123', 'Secret@123', false, CODE),
+      ),
+    ).toBe(ERROR_CODE.PASSWORD_REUSED);
+  });
+
+  it('retains the outgoing hash and refuses it on the next change', async () => {
+    seedOtp({ type: 'CHANGE_PASSWORD' });
+    await authService.changePassword('user-1', 'Secret@123', 'Second@123', false, CODE);
+
+    expect(store.db.passwordHistory.map((r) => r.passwordHash)).toEqual(['Secret@123$bcrypt$']);
+
+    seedOtp({ type: 'CHANGE_PASSWORD' });
+    expect(
+      await codeOf(() =>
+        authService.changePassword('user-1', 'Second@123', 'Secret@123', false, CODE),
+      ),
+    ).toBe(ERROR_CODE.PASSWORD_REUSED);
+  });
+
+  it('keeps the retained set at the configured count', async () => {
+    for (const next of ['Second@123', 'Third@123', 'Fourth@123', 'Fifth@123']) {
+      seedOtp({ type: 'CHANGE_PASSWORD' });
+      await authService.changePassword(
+        'user-1',
+        String(store.db.users[0].passwordHash).replace('$bcrypt$', ''),
+        next,
+        false,
+        CODE,
+      );
+    }
+
+    expect(store.db.passwordHistory).toHaveLength(3);
+    expect(store.db.passwordHistory[0].passwordHash).toBe('Second@123$bcrypt$');
   });
 });

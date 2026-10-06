@@ -201,6 +201,9 @@ export const getCurrencySymbol = () => getSetting<string>(SETTING_KEY.CURRENCY_S
 export const getCurrencyDecimals = () => getSetting<number>(SETTING_KEY.CURRENCY_DECIMALS, 2);
 export const getSiteName = () => getSetting<string>(SETTING_KEY.SITE_NAME, 'ProjectName');
 
+export const getReviewEditWindowDays = () =>
+  getSetting<number>(SETTING_KEY.REVIEW_EDIT_WINDOW_DAYS, 7);
+
 export const getMaintenanceStatus = async (): Promise<{
   enabled: boolean;
   message: string;
@@ -432,6 +435,7 @@ export const getSecurityConfig = async () => {
     twoFactorEnabled,
     requirePhoneVerify,
     requireEmailVerify,
+    passwordHistoryCount,
   ] = await Promise.all([
     getSetting<number>(SETTING_KEY.SECURITY_MAX_LOGIN_ATTEMPTS, 5),
     getSetting<number>(SETTING_KEY.SECURITY_LOCKOUT_MINUTES, 15),
@@ -440,6 +444,7 @@ export const getSecurityConfig = async () => {
     getSetting<boolean>(SETTING_KEY.SECURITY_TWO_FACTOR_ENABLED, false),
     getSetting<boolean>(SETTING_KEY.SECURITY_REQUIRE_PHONE_VERIFY, true),
     getSetting<boolean>(SETTING_KEY.SECURITY_REQUIRE_EMAIL_VERIFY, false),
+    getSetting<number>(SETTING_KEY.SECURITY_PASSWORD_HISTORY_COUNT, 3),
   ]);
   return {
     maxAttempts: Number(maxAttempts ?? 5),
@@ -449,6 +454,7 @@ export const getSecurityConfig = async () => {
     twoFactorEnabled: Boolean(twoFactorEnabled),
     requirePhoneVerify: Boolean(requirePhoneVerify),
     requireEmailVerify: Boolean(requireEmailVerify),
+    passwordHistoryCount: Number(passwordHistoryCount ?? 3),
   };
 };
 

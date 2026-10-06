@@ -1069,3 +1069,202 @@ export const deleteTicket = async (ticketId: string, req?: any): Promise<void> =
 
   void writeActivityLog({ req, action: 'DELETE', entity: 'Ticket', entityId: ticketId });
 };
+
+export const addTicketNote = async (
+  ticketId: string,
+  userId: string,
+  input: { note: string },
+  req?: any,
+): Promise<any> => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true },
+  });
+
+  if (!ticket) throw AppError.notFound(ERROR.TICKET.NOT_FOUND);
+
+  const note = await prisma.ticketNote.create({
+    data: {
+      ticketId,
+      userId,
+      note: D.str(input.note),
+    },
+    select: { id: true, ticketId: true, userId: true, note: true, createdAt: true },
+  });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'TICKET_NOTE_ADDED',
+    entity: 'Ticket',
+    entityId: ticketId,
+    meta: { noteId: note.id },
+  });
+
+  return note;
+};
+
+export const listTicketNotes = async (ticketId: string, userId: string): Promise<any[]> => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true },
+  });
+
+  if (!ticket) throw AppError.notFound(ERROR.TICKET.NOT_FOUND);
+
+  return prisma.ticketNote.findMany({
+    where: { ticketId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, ticketId: true, userId: true, note: true, createdAt: true },
+  });
+};
+
+export const deleteTicketNote = async (
+  ticketId: string,
+  noteId: string,
+  userId: string,
+  req?: any,
+): Promise<boolean> => {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true },
+  });
+
+  if (!ticket) throw AppError.notFound(ERROR.TICKET.NOT_FOUND);
+
+  const note = await prisma.ticketNote.findFirst({ where: { id: noteId, ticketId } });
+  if (!note) throw AppError.notFound(ERROR.NOTIFICATION.NOTE_NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  await prisma.ticketNote.delete({ where: { id: noteId } });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'TICKET_NOTE_DELETED',
+    entity: 'Ticket',
+    entityId: ticketId,
+    meta: { noteId },
+  });
+
+  return true;
+};
+
+export const listCannedResponses = async (
+  query: Record<string, any>,
+): Promise<{ rows: any[]; total: number }> => {
+  const where: Prisma.CannedResponseWhereInput = {};
+
+  if (D.str(query.isActive) === 'true') where.isActive = true;
+  else if (D.str(query.isActive) === 'false') where.isActive = false;
+
+  const [rows, total] = await Promise.all([
+    prisma.cannedResponse.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: D.num(query.skip),
+      take: D.num(query.take),
+    }),
+    prisma.cannedResponse.count({ where }),
+  ]);
+
+  return { rows, total };
+};
+
+export const createCannedResponse = async (
+  input: { title: string; body: string },
+  userId: string,
+  req?: any,
+): Promise<any> => {
+  const response = await prisma.cannedResponse.create({
+    data: {
+      title: D.str(input.title),
+      body: D.str(input.body),
+      createdBy: userId,
+    },
+    select: {
+      id: true,
+      title: true,
+      body: true,
+      isActive: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CANNED_RESPONSE_CREATED',
+    entity: 'CannedResponse',
+    entityId: response.id,
+    meta: { title: response.title },
+  });
+
+  return response;
+};
+
+export const updateCannedResponse = async (
+  responseId: string,
+  input: { title?: string; body?: string; isActive?: boolean },
+  userId: string,
+  req?: any,
+): Promise<any> => {
+  const existing = await prisma.cannedResponse.findUnique({
+    where: { id: responseId },
+    select: { id: true, title: true, body: true, isActive: true },
+  });
+
+  if (!existing)
+    throw AppError.notFound(ERROR.NOTIFICATION.CANNED_RESPONSE_NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  const response = await prisma.cannedResponse.update({
+    where: { id: responseId },
+    data: {
+      ...(input.title !== undefined ? { title: D.str(input.title) } : {}),
+      ...(input.body !== undefined ? { body: D.str(input.body) } : {}),
+      ...(input.isActive !== undefined ? { isActive: Boolean(input.isActive) } : {}),
+    },
+    select: {
+      id: true,
+      title: true,
+      body: true,
+      isActive: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CANNED_RESPONSE_UPDATED',
+    entity: 'CannedResponse',
+    entityId: responseId,
+    meta: { fields: Object.keys(input) },
+  });
+
+  return response;
+};
+
+export const deleteCannedResponse = async (responseId: string, req?: any): Promise<boolean> => {
+  const existing = await prisma.cannedResponse.findUnique({
+    where: { id: responseId },
+    select: { id: true },
+  });
+
+  if (!existing)
+    throw AppError.notFound(ERROR.NOTIFICATION.CANNED_RESPONSE_NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  await prisma.cannedResponse.delete({ where: { id: responseId } });
+
+  void writeActivityLog({
+    req,
+    action: 'CANNED_RESPONSE_DELETED',
+    entity: 'CannedResponse',
+    entityId: responseId,
+  });
+
+  return true;
+};

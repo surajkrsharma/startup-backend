@@ -7,7 +7,13 @@ import { D, money, round } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE } from '../../constants/http';
 import { VALIDATION } from '../../messages/validation';
-import { ADMIN_ACTION, PRODUCT_STATUS, ProductStatus, isAdminRole } from '../../constants/roles';
+import {
+  ADMIN_ACTION,
+  PRODUCT_CONDITION,
+  PRODUCT_STATUS,
+  ProductStatus,
+  isAdminRole,
+} from '../../constants/roles';
 import { getPagination } from '../../utils/pagination';
 import { uniqueProductSlug, generateAwb, toSlug } from '../../utils/slug';
 import { toDayKey } from '../../utils/dates';
@@ -85,6 +91,9 @@ const PRODUCT_SUMMARY_SELECT = {
   price: true,
   mrpPrice: true,
   stock: true,
+  condition: true,
+  warrantyMonths: true,
+  isNonReturnable: true,
   status: true,
   isFeatured: true,
   soldCount: true,
@@ -145,6 +154,10 @@ const buildCreateData = async (
     lowStockThreshold: D.num(input.lowStockThreshold ?? 5),
     weight: Number(input.weight ?? 0),
     allowBackorder: Boolean(input.allowBackorder),
+    condition: D.str(input.condition) || PRODUCT_CONDITION.NEW,
+    warrantyMonths: D.num(input.warrantyMonths),
+    warrantySummary: D.str(input.warrantySummary),
+    isNonReturnable: Boolean(input.isNonReturnable),
     status,
     isFeatured: Boolean(input.isFeatured),
   };
@@ -290,6 +303,9 @@ export const updateProduct = async (productId: string, input: any, req?: any): P
       stock: true,
       status: true,
       isFeatured: true,
+      condition: true,
+      warrantyMonths: true,
+      isNonReturnable: true,
       categoryId: true,
       brandId: true,
       taxPercent: true,
@@ -310,6 +326,10 @@ export const updateProduct = async (productId: string, input: any, req?: any): P
     data.lowStockThreshold = D.num(input.lowStockThreshold);
   if (input.weight !== undefined) data.weight = Number(input.weight);
   if (input.allowBackorder !== undefined) data.allowBackorder = Boolean(input.allowBackorder);
+  if (input.condition !== undefined) data.condition = D.str(input.condition);
+  if (input.warrantyMonths !== undefined) data.warrantyMonths = D.num(input.warrantyMonths);
+  if (input.warrantySummary !== undefined) data.warrantySummary = D.str(input.warrantySummary);
+  if (input.isNonReturnable !== undefined) data.isNonReturnable = Boolean(input.isNonReturnable);
   if (input.status !== undefined) data.status = input.status as ProductStatus;
   if (input.isFeatured !== undefined) data.isFeatured = Boolean(input.isFeatured);
   if (input.categoryId !== undefined) data.categoryId = D.str(input.categoryId) || null;

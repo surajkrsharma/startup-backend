@@ -29,6 +29,7 @@ import { notifyUser } from '../../services/notification.service';
 import { getOrCreateCart, calculateTotals, getWalletBalance } from '../cart/cart.service';
 import { recordEarning, requestReturn, updateReturnStatus } from '../payment/payment.service';
 import { addMinutes, daysBetween } from '../../utils/dates';
+import { WARRANTY } from '../../config/password.config';
 
 export const ORDER_INCLUDE = {
   user: { select: { id: true, name: true, email: true, phone: true } },
@@ -45,12 +46,38 @@ export const ORDER_INCLUDE = {
     },
   },
   timelines: { orderBy: { createdAt: 'asc' } },
+  tags: { orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.OrderInclude;
 
 type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
 const withRelations = (id: string): Promise<OrderRow> =>
   prisma.order.findUnique({ where: { id }, include: ORDER_INCLUDE }) as Promise<OrderRow>;
+
+/**
+ * Resolves an id-or-number reference to an order id without pulling the whole
+ * relation tree, which tag writes would otherwise pay for on every call.
+ */
+const resolveOrderIdForActor = async (orderRef: string, userId?: string): Promise<string> => {
+  const byId = await prisma.order.findFirst({
+    where: { id: orderRef, deletedAt: null },
+    select: { id: true, userId: true },
+  });
+
+  const order =
+    byId ??
+    (await prisma.order.findFirst({
+      where: { orderNumber: D.str(orderRef), deletedAt: null },
+      select: { id: true, userId: true },
+    }));
+
+  if (!order) throw AppError.notFound(ERROR.ORDER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+  if (userId && order.userId !== userId) {
+    throw AppError.notFound(ERROR.ORDER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+  }
+
+  return order.id;
+};
 
 const pushTimeline = async (
   tx: Prisma.TransactionClient | typeof prisma,
@@ -1239,6 +1266,163 @@ export const getSubOrderForVendor = async (subOrderId: string, vendorId: string)
   if (!sub) throw AppError.notFound(ERROR.ORDER.SUB_ORDER_NOT_FOUND);
 
   return sub;
+};
+
+export const listOrderTags = async (orderRef: string, userId?: string): Promise<any[]> => {
+  const orderId = await resolveOrderIdForActor(orderRef, userId);
+  return prisma.orderTag.findMany({
+    where: { orderId },
+    orderBy: { createdAt: 'asc' },
+  });
+};
+
+export const addOrderTags = async (
+  orderRef: string,
+  input: { labels: string[]; color?: string },
+  userId?: string,
+  req?: any,
+): Promise<any[]> => {
+  const orderId = await resolveOrderIdForActor(orderRef, userId);
+  const labels = D.arr(input.labels)
+    .map((label: any) => D.str(label).trim().toUpperCase())
+    .filter((label: string) => label !== '');
+
+  if (!labels.length) {
+    throw AppError.badRequest(ERROR.ORDER.TAG_REQUIRED, ERROR_CODE.VALIDATION_ERROR);
+  }
+
+  const total = (await prisma.orderTag.count({ where: { orderId } })) + labels.length;
+
+  if (total > WARRANTY.MAX_TAGS_PER_ORDER) {
+    throw AppError.unprocessable(ERROR.ORDER.TAG_LIMIT, ERROR_CODE.VALIDATION_ERROR);
+  }
+
+  const created = await prisma.$transaction(
+    labels.map((label: string) =>
+      prisma.orderTag.upsert({
+        where: { orderId_label: { orderId, label } },
+        create: {
+          orderId,
+          label,
+          color: D.str(input.color),
+          createdBy: D.str(req?.auth?.userId),
+        },
+        update: { color: D.str(input.color) || undefined },
+      }),
+    ),
+  );
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'ORDER_TAGGED',
+    entity: 'Order',
+    entityId: orderId,
+    meta: { labels },
+  });
+
+  return created;
+};
+
+export const removeOrderTag = async (
+  orderRef: string,
+  tagId: string,
+  userId?: string,
+  req?: any,
+): Promise<boolean> => {
+  const orderId = await resolveOrderIdForActor(orderRef, userId);
+
+  const tag = await prisma.orderTag.findFirst({ where: { id: tagId, orderId } });
+  if (!tag) throw AppError.notFound(ERROR.ORDER.TAG_NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  await prisma.orderTag.delete({ where: { id: tag.id } });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'ORDER_TAG_REMOVED',
+    entity: 'Order',
+    entityId: orderId,
+    meta: { label: tag.label },
+  });
+
+  return true;
+};
+
+export const addOrderNote = async (
+  orderRef: string,
+  userId: string,
+  input: { note: string },
+  req?: any,
+): Promise<any> => {
+  const orderId = await resolveOrderIdForActor(orderRef, userId);
+
+  const note = await prisma.orderNote.create({
+    data: {
+      orderId,
+      userId,
+      note: D.str(input.note),
+    },
+    select: {
+      id: true,
+      orderId: true,
+      userId: true,
+      note: true,
+      createdAt: true,
+    },
+  });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'ORDER_NOTE_ADDED',
+    entity: 'Order',
+    entityId: orderId,
+    meta: { noteId: note.id },
+  });
+
+  return note;
+};
+
+export const listOrderNotes = async (orderRef: string, userId: string): Promise<any[]> => {
+  const orderId = await resolveOrderIdForActor(orderRef, userId);
+
+  return prisma.orderNote.findMany({
+    where: { orderId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      orderId: true,
+      userId: true,
+      note: true,
+      createdAt: true,
+    },
+  });
+};
+
+export const deleteOrderNote = async (
+  orderRef: string,
+  noteId: string,
+  userId: string,
+  req?: any,
+): Promise<boolean> => {
+  const orderId = await resolveOrderIdForActor(orderRef, userId);
+
+  const note = await prisma.orderNote.findFirst({ where: { id: noteId, orderId } });
+  if (!note) throw AppError.notFound(ERROR.ORDER.NOTE_NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  await prisma.orderNote.delete({ where: { id: noteId } });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'ORDER_NOTE_DELETED',
+    entity: 'Order',
+    entityId: orderId,
+    meta: { noteId },
+  });
+
+  return true;
 };
 
 export const requestReturnForOrder = async (

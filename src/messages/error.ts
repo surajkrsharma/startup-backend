@@ -1,4 +1,4 @@
-export const ERROR = {
+﻿export const ERROR = {
   AUTH: {
     INVALID_CREDENTIALS: 'Invalid email or password.',
     UNAUTHORIZED: 'You are not authorized.',
@@ -32,6 +32,7 @@ export const ERROR = {
     INVALID_BACKUP_CODES: 'Backup codes are not valid.',
     MISSING_REFRESH_TOKEN: 'Refresh token missing.',
     PASSWORD_MISMATCH: 'Current password is incorrect.',
+    PASSWORD_REUSED: 'Choose a password you have not used recently.',
     RESET_TOKEN_INVALID: 'Password reset token is invalid or expired.',
     EMAIL_NOT_VERIFIED: 'Email is not verified.',
     PHONE_NOT_VERIFIED: 'Phone is not verified.',
@@ -123,6 +124,10 @@ export const ERROR = {
     SUB_ORDER_NOT_FOUND: 'Sub order not found.',
     MAX_DAILY_ORDERS: 'Daily order limit reached.',
     ADDRESS_INPUT_REQUIRED: 'Provide addressId or an inline address.',
+    TAG_REQUIRED: 'Provide at least one tag label.',
+    TAG_LIMIT: 'This order already carries the maximum number of tags.',
+    TAG_NOT_FOUND: 'Order tag not found.',
+    NOTE_NOT_FOUND: 'Order note not found.',
   },
   PAYMENT: {
     FAILED: 'Payment failed.',
@@ -143,7 +148,7 @@ export const ERROR = {
   PAYOUT: {
     NOT_FOUND: 'Payout not found.',
     MIN_AMOUNT: 'Payout amount is below minimum.',
-    PENDING_ORDERS: 'Payout blocked — pending orders exist.',
+    PENDING_ORDERS: 'Payout blocked ÔÇö pending orders exist.',
     ALREADY_PROCESSED: 'Payout already processed.',
     BANK_DETAILS_REQUIRED: 'Add bank or UPI details before requesting payout.',
     INVALID_STATUS_TRANSITION: 'This payout status change is not allowed.',
@@ -159,6 +164,7 @@ export const ERROR = {
     REASON_INPUT_REQUIRED: 'Provide reasonId or reasonText.',
     IMAGES_REQUIRED: 'Return images are required.',
     ITEM_NOT_PURCHASED: 'Item was not purchased in this order.',
+    ITEM_NON_RETURNABLE: 'This item is marked non-returnable by the seller.',
     ORDER_NOT_DELIVERED: 'Only a delivered order can be returned.',
     VENDOR_MISMATCH: 'That item does not belong to the chosen vendor.',
     MULTI_VENDOR_AMBIGUOUS: 'This order spans several shops - choose which one to return to.',
@@ -169,6 +175,7 @@ export const ERROR = {
     PURCHASE_REQUIRED: 'Only delivered purchases can be reviewed.',
     OWN_PRODUCT: 'You cannot review your own product.',
     RATING_INVALID: 'Rating must be between 1 and 5.',
+    EDIT_WINDOW_PASSED: 'The edit window for this review has passed.',
   },
   QUESTION: {
     NOT_FOUND: 'Question not found.',
@@ -179,6 +186,8 @@ export const ERROR = {
     TEMPLATE_NOT_FOUND: 'Notification template not found.',
     TEMPLATE_KEY_TAKEN: 'A template with this key already exists.',
     RECIPIENT_INPUT_REQUIRED: 'Provide userIds or set toAll.',
+    CANNED_RESPONSE_NOT_FOUND: 'Canned response not found.',
+    NOTE_NOT_FOUND: 'Ticket note not found.',
   },
   CHAT: {
     NOT_FOUND: 'Conversation not found.',

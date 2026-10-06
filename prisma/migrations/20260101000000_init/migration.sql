@@ -2883,3 +2883,139 @@ ALTER TABLE "FunnelStep" ADD CONSTRAINT "FunnelStep_funnelId_fkey" FOREIGN KEY (
 -- AddForeignKey
 ALTER TABLE "FunnelConversion" ADD CONSTRAINT "FunnelConversion_stepId_fkey" FOREIGN KEY ("stepId") REFERENCES "FunnelStep"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+
+-- -- Password history ------------------------------------------
+
+-- CreateTable
+CREATE TABLE "PasswordHistory" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordHistory_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OrderTag" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "color" TEXT NOT NULL DEFAULT '',
+    "createdBy" TEXT NOT NULL DEFAULT '',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OrderTag_pkey" PRIMARY KEY ("id")
+);
+
+-- AlterTable
+ALTER TABLE "Product" ADD COLUMN     "condition" TEXT NOT NULL DEFAULT 'NEW',
+ADD COLUMN     "warrantyMonths" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "warrantySummary" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "isNonReturnable" BOOLEAN NOT NULL DEFAULT false;
+
+-- AlterTable
+ALTER TABLE "Address" ADD COLUMN     "deliveryInstructions" TEXT NOT NULL DEFAULT '';
+
+-- CreateIndex
+CREATE INDEX "PasswordHistory_userId_createdAt_idx" ON "PasswordHistory"("userId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "OrderTag_orderId_idx" ON "OrderTag"("orderId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OrderTag_orderId_label_key" ON "OrderTag"("orderId", "label");
+
+-- AddForeignKey
+ALTER TABLE "PasswordHistory" ADD CONSTRAINT "PasswordHistory_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OrderTag" ADD CONSTRAINT "OrderTag_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- -- User Consent ------------------------------------------
+
+-- CreateTable
+CREATE TABLE "UserConsent" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "version" TEXT NOT NULL DEFAULT '1',
+    "acceptedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "ip" TEXT NOT NULL DEFAULT '',
+    "userAgent" TEXT NOT NULL DEFAULT '',
+
+    CONSTRAINT "UserConsent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "UserConsent_userId_type_idx" ON "UserConsent"("userId", "type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UserConsent_userId_type_version_key" ON "UserConsent"("userId", "type", "version");
+
+-- AddForeignKey
+ALTER TABLE "UserConsent" ADD CONSTRAINT "UserConsent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- -- Order Internal Notes ------------------------------------------
+
+-- CreateTable
+CREATE TABLE "OrderNote" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "note" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OrderNote_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "OrderNote_orderId_createdAt_idx" ON "OrderNote"("orderId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "OrderNote_userId_idx" ON "OrderNote"("userId");
+
+-- AddForeignKey
+ALTER TABLE "OrderNote" ADD CONSTRAINT "OrderNote_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OrderNote" ADD CONSTRAINT "OrderNote_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- -- Ticket Internal Notes ------------------------------------------
+
+-- CreateTable
+CREATE TABLE "TicketNote" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "note" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TicketNote_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "TicketNote_ticketId_createdAt_idx" ON "TicketNote"("ticketId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "TicketNote_userId_idx" ON "TicketNote"("userId");
+
+-- AddForeignKey
+ALTER TABLE "TicketNote" ADD CONSTRAINT "TicketNote_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "Ticket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TicketNote" ADD CONSTRAINT "TicketNote_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- -- Chat Canned Responses ------------------------------------------
+
+-- CreateTable
+CREATE TABLE "CannedResponse" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CannedResponse_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "CannedResponse_isActive_idx" ON "CannedResponse"("isActive");

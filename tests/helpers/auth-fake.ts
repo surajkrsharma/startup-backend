@@ -12,7 +12,13 @@ const matches = (row: Row, where: Row = {}): boolean => {
     const actual = row[key] ?? null;
 
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
-      const { gt, gte, lt, lte } = expected as Row;
+      const { gt, gte, lt, lte, in: allowed } = expected as Row;
+
+      if (allowed !== undefined) {
+        if (!allowed.some((value: unknown) => value === actual)) return false;
+        continue;
+      }
+
       if (gt !== undefined && !(actual > gt)) return false;
       if (gte !== undefined && !(actual >= gte)) return false;
       if (lt !== undefined && !(actual < lt)) return false;
@@ -51,8 +57,13 @@ const collection = (rows: Row[], nextId: () => string) => ({
     if (!hit) throw new Error(`findUniqueOrThrow matched no row: ${JSON.stringify(where)}`);
     return { ...hit };
   },
-  findMany: async ({ where }: Row = {}) =>
-    rows.filter((r) => matches(r, where)).map((r) => ({ ...r })),
+  findMany: async ({ where, orderBy, skip, take }: Row = {}) => {
+    let hits = rows.filter((r) => matches(r, where)).map((r) => ({ ...r }));
+    if (orderBy?.createdAt) hits.reverse();
+    if (skip !== undefined) hits = hits.slice(Number(skip));
+    if (take !== undefined) hits = hits.slice(0, Number(take));
+    return hits;
+  },
   create: async ({ data }: Row) => {
     const row = { id: nextId(), attempts: 0, isVerified: false, createdAt: new Date(), ...data };
     rows.push(row);
@@ -107,6 +118,7 @@ export interface FakeStore {
     otps: Row[];
     verifications: Row[];
     refreshTokens: Row[];
+    passwordHistory: Row[];
     vendors: Row[];
     seq: number;
   };
@@ -120,6 +132,7 @@ export const createFakeStore = (): FakeStore => {
     otps: [] as Row[],
     verifications: [] as Row[],
     refreshTokens: [] as Row[],
+    passwordHistory: [] as Row[],
     vendors: [] as Row[],
     seq: 0,
   };
@@ -137,6 +150,7 @@ export const createFakeStore = (): FakeStore => {
     otp: collection(db.otps, id),
     authVerification: collection(db.verifications, id),
     refreshToken: collection(db.refreshTokens, id),
+    passwordHistory: collection(db.passwordHistory, id),
     vendorProfile: collection(db.vendors, id),
 
     $transaction: async (arg: any) => {
@@ -153,6 +167,7 @@ export const createFakeStore = (): FakeStore => {
       db.otps.length = 0;
       db.verifications.length = 0;
       db.refreshTokens.length = 0;
+      db.passwordHistory.length = 0;
       db.vendors.length = 0;
       db.seq = 0;
     },

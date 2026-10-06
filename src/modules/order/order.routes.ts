@@ -51,6 +51,54 @@ router.get(
 );
 
 router.get(
+  '/getTags/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.orderIdParamSchema }),
+  controller.getTags,
+);
+
+router.post(
+  '/addTags/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.orderIdParamSchema, body: schema.addOrderTagsSchema }),
+  controller.addTags,
+);
+
+router.delete(
+  '/removeTag/:id/:tagId',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.orderTagParamSchema }),
+  controller.removeTag,
+);
+
+router.post(
+  '/addNote/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.orderIdParamSchema, body: schema.addOrderNoteSchema }),
+  controller.addNote,
+);
+
+router.get(
+  '/getNotes/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.orderIdParamSchema }),
+  controller.getNotes,
+);
+
+router.delete(
+  '/removeNote/:id/:noteId',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.orderNoteParamSchema }),
+  controller.removeNote,
+);
+
+router.get(
   '/getInvoice/:id',
   authenticate,
   validate({ params: schema.orderIdParamSchema, query: schema.invoiceQuerySchema }),

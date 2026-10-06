@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { ERROR } from '../../messages/error';
 import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
-import { NAME } from '../../config/password.config';
+import { NAME, WARRANTY } from '../../config/password.config';
 import { PHONE_REGEX } from '../../constants/countries';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 import { ORDER_STATUS } from '../../constants/statuses';
@@ -36,6 +36,26 @@ export const listOrdersSchema = z
   .strict();
 
 export const orderIdParamSchema = z.object({ id });
+
+export const addOrderTagsSchema = z
+  .object({
+    labels: z
+      .array(z.string().trim().min(1).max(WARRANTY.MAX_TAG_LENGTH))
+      .min(1, ERROR.ORDER.TAG_REQUIRED)
+      .max(WARRANTY.MAX_TAGS_PER_ORDER),
+    color: z.string().trim().max(20).optional(),
+  })
+  .strict();
+
+export const orderTagParamSchema = z.object({ id, tagId: id });
+
+export const addOrderNoteSchema = z
+  .object({
+    note: z.string().trim().min(1, VALIDATION.REQUIRED('note')).max(NAME.COMMENT_MAX_LENGTH),
+  })
+  .strict();
+
+export const orderNoteParamSchema = z.object({ id, noteId: id });
 
 export const orderNumberParamSchema = z.object({ orderNumber: z.string().trim().min(4).max(32) });
 

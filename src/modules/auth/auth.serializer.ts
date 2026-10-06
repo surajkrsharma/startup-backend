@@ -122,3 +122,16 @@ export const serializeAvailability = (input: {
   phoneExists: D.bool(input.phoneExists),
   isAvailable: D.bool(input.isAvailable),
 });
+
+export const serializeConsent = (c: any): Record<string, any> => ({
+  consentId: D.str(c?.id),
+  type: D.str(c?.type),
+  version: D.str(c?.version),
+  acceptedAt: D.date(c?.acceptedAt),
+  ip: D.str(c?.ip),
+  userAgent: D.str(c?.userAgent),
+});
+
+export const serializeConsentList = (rows: any[]): Record<string, any[]> => ({
+  consentList: D.arr(rows).map(serializeConsent),
+});

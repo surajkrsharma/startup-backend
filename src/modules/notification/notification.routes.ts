@@ -239,6 +239,67 @@ ticket.delete(
   controller.deleteTicket,
 );
 
+ticket.post(
+  '/addNote/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.ticketIdParamSchema, body: schema.addTicketNoteSchema }),
+  controller.addTicketNote,
+);
+
+ticket.get(
+  '/getNotes/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.ticketIdParamSchema }),
+  controller.getTicketNotes,
+);
+
+ticket.delete(
+  '/removeNote/:id/:noteId',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.ticketNoteParamSchema }),
+  controller.removeTicketNote,
+);
+
 export const ticketRoutes = ticket;
+
+// Canned Responses
+const cannedResponse = Router();
+
+cannedResponse.get(
+  '/getAll',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ query: schema.listCannedResponsesSchema }),
+  controller.listCannedResponses,
+);
+
+cannedResponse.post(
+  '/create',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ body: schema.createCannedResponseSchema }),
+  controller.createCannedResponse,
+);
+
+cannedResponse.patch(
+  '/update/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.cannedResponseIdParamSchema, body: schema.updateCannedResponseSchema }),
+  controller.updateCannedResponse,
+);
+
+cannedResponse.delete(
+  '/delete/:id',
+  authenticate,
+  ...controller.guards.admin,
+  validate({ params: schema.cannedResponseIdParamSchema }),
+  controller.deleteCannedResponse,
+);
+
+export const cannedResponseRoutes = cannedResponse;
 
 export default notificationRoutes;

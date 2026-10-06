@@ -320,6 +320,8 @@ model User {
   contactSubmissions      ContactSubmission[]
   sessions                Session[]
   refreshTokens           RefreshToken[]
+  passwordHistory         PasswordHistory[]
+  consents                UserConsent[]
   devices                 Device[]
   activityLogs            ActivityLog[]
   auditLogs               AuditLog[]
@@ -328,6 +330,8 @@ model User {
   recentlyViewed          RecentlyViewed[]
   searchLogs              SearchLog[]
   couponUsages            CouponUsage[]
+  orderNotes              OrderNote[]
+  ticketNotes             TicketNote[]
   loyaltyTier             String                    @default("")
   referredById            String?
   referralsMade           Referral[]                @relation("ReferrerReferrals")
@@ -363,6 +367,32 @@ model RefreshToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model UserConsent {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String   // "TERMS", "PRIVACY", "MARKETING"
+  version      String   @default("1")
+  acceptedAt   DateTime @default(now())
+  ip           String   @default("")
+  userAgent    String   @default("")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@unique([userId, type, version])
 }
 
 model Otp {
@@ -477,6 +507,7 @@ model Address {
   line1       String      @default("")
   line2       String      @default("")
   landmark    String      @default("")
+  deliveryInstructions String @default("")
   city        String      @default("")
   state       String      @default("")
   stateCode   String      @default("")
@@ -673,6 +704,10 @@ model Product {
   stock             Int           @default(0)
   lowStockThreshold Int           @default(5)
   allowBackorder    Boolean       @default(false)
+  condition         String        @default("NEW")
+  warrantyMonths    Int           @default(0)
+  warrantySummary   String        @default("")
+  isNonReturnable   Boolean       @default(false)
   weight            Float         @default(0.0)
   status            ProductStatus @default(DRAFT)
   isFeatured        Boolean       @default(false)
@@ -919,12 +954,42 @@ model Order {
   timelines      OrderTimeline[]
   shipments      Shipment[]
   returnRequests ReturnRequest[]
+  tags           OrderTag[]
+  internalNotes  OrderNote[]
 
   @@index([userId, status])
   @@index([status])
   @@index([createdAt])
   @@index([orderNumber])
   @@index([deletedAt])
+}
+
+model OrderTag {
+  id        String   @id @default(cuid())
+  orderId   String
+  label     String
+  color     String   @default("")
+  createdBy String   @default("")
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, label])
+  @@index([orderId])
+}
+
+model OrderNote {
+  id        String   @id @default(cuid())
+  orderId   String
+  userId    String
+  note      String
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([userId])
 }
 
 model OrderItem {
@@ -1554,6 +1619,18 @@ model Message {
   @@index([senderId])
 }
 
+model CannedResponse {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  isActive  Boolean  @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
 model UserBlock {
   id        String   @id @default(cuid())
   blockerId String
@@ -1599,6 +1676,7 @@ model Ticket {
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   category TicketCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   messages TicketMessage[]
+  internalNotes TicketNote[]
 
   @@index([userId, status])
   @@index([status])
@@ -1620,7 +1698,20 @@ model TicketMessage {
   @@index([ticketId, createdAt])
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+model TicketNote {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  note      String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([userId])
+}
+
 //  CONTENT
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -13,6 +13,10 @@ import {
   serializeMessage,
   serializeTicket,
   serializeTicketCategory,
+  serializeTicketNote,
+  serializeTicketNoteList,
+  serializeCannedResponse,
+  serializeCannedResponseList,
 } from '../../utils/serialize';
 
 const userId = (req: Request): string => req.auth!.userId;
@@ -625,5 +629,162 @@ export const deleteTicket = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     message: SUCCESS.TICKET.DELETED,
     result: { ticketId: D.str(req.params.id), isDeleted: true },
+  });
+});
+
+/**
+ * @openapi
+ * /tickets/addNote/:id:
+ *   post:
+ *     tags: [Tickets]
+ *     summary: Add an internal note to a ticket
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Note added }
+ *       400: { description: Note is required }
+ *       404: { description: Ticket not found }
+ */
+export const addTicketNote = asyncHandler(async (req, res) => {
+  const note = await service.addTicketNote(D.str(req.params.id), req.auth!.userId, req.body, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.TICKET.NOTE_ADDED,
+    result: serializeTicketNote(note),
+  });
+});
+
+/**
+ * @openapi
+ * /tickets/getNotes/:id:
+ *   get:
+ *     tags: [Tickets]
+ *     summary: List internal notes for a ticket
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Note list, newest first }
+ *       404: { description: Ticket not found }
+ */
+export const getTicketNotes = asyncHandler(async (req, res) => {
+  const notes = await service.listTicketNotes(D.str(req.params.id), req.auth!.userId);
+  return ApiResponse.success(res, {
+    message: SUCCESS.TICKET.NOTES_FETCHED,
+    result: serializeTicketNoteList(notes),
+  });
+});
+
+/**
+ * @openapi
+ * /tickets/removeNote/:id/:noteId:
+ *   delete:
+ *     tags: [Tickets]
+ *     summary: Remove an internal note from a ticket
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Note removed }
+ *       404: { description: Ticket or note not found }
+ */
+export const removeTicketNote = asyncHandler(async (req, res) => {
+  await service.deleteTicketNote(
+    D.str(req.params.id),
+    D.str(req.params.noteId),
+    req.auth!.userId,
+    req,
+  );
+  return ApiResponse.success(res, {
+    message: SUCCESS.TICKET.NOTE_REMOVED,
+    result: { isRemoved: true },
+  });
+});
+
+/**
+ * @openapi
+ * /cannedResponses/getAll:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: List canned responses
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Paginated canned responses }
+ */
+export const listCannedResponses = asyncHandler(async (req, res) => {
+  const { page, limit, skip, take } = getPagination(req.query as any);
+  const { rows, total } = await service.listCannedResponses({
+    ...(req.query as any),
+    skip,
+    take,
+  });
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.NOTIFICATION.CANNED_RESPONSES_FETCHED,
+    result: serializeCannedResponseList(rows),
+    totalRecord: total,
+    totalPage: Math.ceil(total / limit),
+    currentPage: page,
+    limit,
+    hasNext: page * limit < total,
+    hasPrevious: page > 1,
+    nextPage: page * limit < total ? page + 1 : 0,
+    previousPage: page > 1 ? page - 1 : 0,
+  });
+});
+
+/**
+ * @openapi
+ * /cannedResponses/create:
+ *   post:
+ *     tags: [Notifications]
+ *     summary: Create a canned response
+ *     description: Admin only.
+ *     responses:
+ *       201: { description: Canned response created }
+ *       400: { description: Title and body are required }
+ */
+export const createCannedResponse = asyncHandler(async (req, res) => {
+  const response = await service.createCannedResponse(req.body, req.auth!.userId, req);
+  return ApiResponse.created(
+    res,
+    SUCCESS.NOTIFICATION.CANNED_RESPONSE_CREATED,
+    serializeCannedResponse(response),
+  );
+});
+
+/**
+ * @openapi
+ * /cannedResponses/update/:id:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Update a canned response
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Canned response updated }
+ *       404: { description: Canned response not found }
+ */
+export const updateCannedResponse = asyncHandler(async (req, res) => {
+  const response = await service.updateCannedResponse(
+    D.str(req.params.id),
+    req.body,
+    req.auth!.userId,
+    req,
+  );
+  return ApiResponse.success(res, {
+    message: SUCCESS.NOTIFICATION.CANNED_RESPONSE_UPDATED,
+    result: serializeCannedResponse(response),
+  });
+});
+
+/**
+ * @openapi
+ * /cannedResponses/delete/:id:
+ *   delete:
+ *     tags: [Notifications]
+ *     summary: Delete a canned response
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Canned response deleted }
+ *       404: { description: Canned response not found }
+ */
+export const deleteCannedResponse = asyncHandler(async (req, res) => {
+  await service.deleteCannedResponse(D.str(req.params.id), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.NOTIFICATION.CANNED_RESPONSE_DELETED,
+    result: { isDeleted: true },
   });
 });

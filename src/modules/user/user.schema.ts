@@ -7,7 +7,7 @@ import {
   COUNTRY_CODE,
   DEFAULT_DIAL_CODE,
 } from '../../constants/countries';
-import { NAME, PHONE } from '../../config/password.config';
+import { DELIVERY_INSTRUCTIONS, NAME, PHONE } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 
@@ -52,6 +52,7 @@ const addressBody = z
     line1: z.string().trim().min(1, VALIDATION.REQUIRED('line1')).max(NAME.ADDRESS_MAX_LENGTH),
     line2: z.string().trim().max(NAME.ADDRESS_MAX_LENGTH).optional(),
     landmark: z.string().trim().max(200).optional(),
+    deliveryInstructions: z.string().trim().max(DELIVERY_INSTRUCTIONS.MAX_LENGTH).optional(),
     city: z.string().trim().min(1, VALIDATION.REQUIRED('city')).max(80),
     state: z.string().trim().min(1, VALIDATION.REQUIRED('state')).max(80),
     stateCode: z.string().trim().max(10).optional(),

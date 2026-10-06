@@ -7,9 +7,9 @@ import { ERROR_CODE } from '../../constants/http';
 import { ReviewStatus, type CouponType } from '@prisma/client';
 import { ORDER_STATUS } from '../../constants/statuses';
 import { calcCouponDiscount } from '../../utils/calculations';
-import { getCouponConfig } from '../../services/settings.service';
+import { getCouponConfig, getReviewEditWindowDays } from '../../services/settings.service';
 import { writeActivityLog } from '../../services/audit.service';
-import { isFuture, isPast } from '../../utils/dates';
+import { daysBetween, isFuture, isPast } from '../../utils/dates';
 import { uniqueFlashSaleSlug } from '../../utils/slug';
 
 const REVIEW_INCLUDE = {
@@ -108,10 +108,15 @@ export const updateReview = async (
 ): Promise<any> => {
   const review = await prisma.review.findFirst({
     where: { id: reviewId, userId },
-    select: { id: true, productId: true },
+    select: { id: true, productId: true, createdAt: true },
   });
 
   if (!review) throw AppError.notFound(ERROR.REVIEW.NOT_FOUND);
+
+  const editWindowDays = D.num(await getReviewEditWindowDays());
+  if (editWindowDays > 0 && daysBetween(review.createdAt) > editWindowDays) {
+    throw AppError.unprocessable(ERROR.REVIEW.EDIT_WINDOW_PASSED, ERROR_CODE.EDIT_WINDOW_PASSED);
+  }
 
   const updated = await prisma.review.update({
     where: { id: review.id },

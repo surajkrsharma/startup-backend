@@ -279,3 +279,12 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type SendOtpInput = z.infer<typeof sendOtpSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type SocialLoginInput = z.infer<typeof socialLoginSchema>;
+
+export const acceptConsentSchema = z
+  .object({
+    type: z.enum(['TERMS', 'PRIVACY', 'MARKETING']),
+    version: z.string().trim().min(1).max(20).default('1'),
+  })
+  .strict();
+
+export const getMyConsentsSchema = z.object({}).strict();

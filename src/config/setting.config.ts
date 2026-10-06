@@ -76,6 +76,7 @@ export const SETTING_KEY = {
   RETURN_REASON_REQUIRED: 'return.reasonRequired',
   RETURN_IMAGES_REQUIRED: 'return.imagesRequired',
   RETURN_MAX_QTY_PER_ORDER: 'return.maxQtyPerOrder',
+  REVIEW_EDIT_WINDOW_DAYS: 'review.editWindowDays',
   REFUND_PROCESSING_DAYS: 'refund.processingDays',
   REFUND_MODE: 'refund.mode',
 
@@ -142,6 +143,7 @@ export const SETTING_KEY = {
   SECURITY_MAX_LOGIN_ATTEMPTS: 'security.maxLoginAttempts',
   SECURITY_LOCKOUT_MINUTES: 'security.lockoutMinutes',
   SECURITY_PASSWORD_MIN_LENGTH: 'security.passwordMinLength',
+  SECURITY_PASSWORD_HISTORY_COUNT: 'security.passwordHistoryCount',
   SECURITY_REQUIRE_EMAIL_VERIFY: 'security.requireEmailVerify',
   SECURITY_REQUIRE_PHONE_VERIFY: 'security.requirePhoneVerify',
   SECURITY_SESSION_DAYS: 'security.sessionDays',

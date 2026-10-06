@@ -32,6 +32,7 @@ import {
   notificationRoutes,
   chatRoutes,
   ticketRoutes,
+  cannedResponseRoutes,
 } from '../modules/notification/notification.routes';
 import {
   shippingRoutes,
@@ -113,6 +114,7 @@ apiRoutes.use('/apiKeys', apiKeyRoutes);
 apiRoutes.use('/notifications', notificationRoutes);
 apiRoutes.use('/chat', chatRoutes);
 apiRoutes.use('/tickets', ticketRoutes);
+apiRoutes.use('/cannedResponses', cannedResponseRoutes);
 apiRoutes.use('/shipping', shippingRoutes);
 apiRoutes.use('/deliveryBoys', deliveryBoyRoutes);
 apiRoutes.use('/settings', settingsRoutes);

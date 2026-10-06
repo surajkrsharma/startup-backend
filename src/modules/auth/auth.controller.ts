@@ -18,6 +18,8 @@ import {
   serializeTwoFactor,
   serializeAvailability,
   serializeAuthUser,
+  serializeConsent,
+  serializeConsentList,
 } from './auth.serializer';
 
 const deviceFrom = (req: Request, input?: any): DeviceContext =>
@@ -378,6 +380,22 @@ export const revokeSession = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     message: SUCCESS.AUTH.SESSION_REVOKED,
     result: { sessionId: req.params.id, isRevoked: true },
+  });
+});
+
+export const acceptConsent = asyncHandler(async (req, res) => {
+  const consent = await authService.acceptConsent(req.auth!.userId, req.body, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.CONSENT_ACCEPTED,
+    result: serializeConsent(consent),
+  });
+});
+
+export const getMyConsents = asyncHandler(async (req, res) => {
+  const consents = await authService.getMyConsents(req.auth!.userId);
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.CONSENTS_FETCHED,
+    result: serializeConsentList(consents),
   });
 });
 

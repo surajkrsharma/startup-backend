@@ -31,6 +31,7 @@ export const serializeAddress = (a: any) => ({
   line1: D.str(a?.line1),
   line2: D.str(a?.line2),
   landmark: D.str(a?.landmark),
+  deliveryInstructions: D.str(a?.deliveryInstructions),
   city: D.str(a?.city),
   state: D.str(a?.state),
   stateCode: D.str(a?.stateCode),
@@ -278,6 +279,10 @@ export const serializeProduct = (p: any) => {
     taxPercent: D.float(p?.taxPercent),
     stock: D.num(p?.variant?.stock ?? p?.stock),
     lowStockThreshold: D.num(p?.lowStockThreshold),
+    condition: D.str(p?.condition),
+    warrantyMonths: D.num(p?.warrantyMonths),
+    warrantySummary: D.str(p?.warrantySummary),
+    isNonReturnable: D.bool(p?.isNonReturnable),
     weight: D.float(p?.weight),
     status: D.str(p?.status),
     isActive,
@@ -365,6 +370,9 @@ export const serializeProductSummary = (p: any) => ({
   price: D.float(p?.price),
   mrpPrice: D.float(p?.mrpPrice),
   stock: D.num(p?.stock),
+  condition: D.str(p?.condition),
+  warrantyMonths: D.num(p?.warrantyMonths),
+  isNonReturnable: D.bool(p?.isNonReturnable),
   isActive: D.str(p?.status) === 'ACTIVE',
   isFeatured: D.bool(p?.isFeatured),
   rating: D.float(p?.rating),
@@ -561,6 +569,7 @@ export const serializeOrder = (o: any) => ({
         line1: D.str(o.address.line1),
         line2: D.str(o.address.line2),
         landmark: D.str(o.address.landmark),
+        deliveryInstructions: D.str(o.address.deliveryInstructions),
         city: D.str(o.address.city),
         state: D.str(o.address.state),
         country: D.str(o.address.country),
@@ -583,6 +592,7 @@ export const serializeOrder = (o: any) => ({
 
   itemList: D.arr(o?.items).map(serializeOrderItem),
   subOrderList: D.arr(o?.subOrders).map(serializeSubOrder),
+  tagList: D.arr(o?.tags).map((t: any) => serializeOrderTag(t)),
 });
 
 export const serializeOrderTimeline = (t: any) => ({
@@ -594,6 +604,55 @@ export const serializeOrderTimeline = (t: any) => ({
   remark: D.str(t?.remark),
   location: D.str(t?.location),
   createdAt: D.date(t?.createdAt),
+});
+
+export const serializeOrderTag = (t: any) => ({
+  tagId: D.str(t?.id),
+  label: D.str(t?.label),
+  color: D.str(t?.color),
+  createdAt: D.date(t?.createdAt),
+});
+
+export const serializeOrderTagList = (rows: any[]) => ({
+  tagList: D.arr(rows).map(serializeOrderTag),
+});
+
+export const serializeOrderNote = (n: any) => ({
+  noteId: D.str(n?.id),
+  orderId: D.str(n?.orderId),
+  userId: D.str(n?.userId),
+  note: D.str(n?.note),
+  createdAt: D.date(n?.createdAt),
+});
+
+export const serializeOrderNoteList = (rows: any[]) => ({
+  noteList: D.arr(rows).map(serializeOrderNote),
+});
+
+export const serializeTicketNote = (n: any) => ({
+  noteId: D.str(n?.id),
+  ticketId: D.str(n?.ticketId),
+  userId: D.str(n?.userId),
+  note: D.str(n?.note),
+  createdAt: D.date(n?.createdAt),
+});
+
+export const serializeTicketNoteList = (rows: any[]) => ({
+  noteList: D.arr(rows).map(serializeTicketNote),
+});
+
+export const serializeCannedResponse = (c: any) => ({
+  responseId: D.str(c?.id),
+  title: D.str(c?.title),
+  body: D.str(c?.body),
+  isActive: D.bool(c?.isActive),
+  createdBy: D.str(c?.createdBy),
+  createdAt: D.date(c?.createdAt),
+  updatedAt: D.date(c?.updatedAt),
+});
+
+export const serializeCannedResponseList = (rows: any[]) => ({
+  responseList: D.arr(rows).map(serializeCannedResponse),
 });
 
 export const serializePayment = (p: any) => ({

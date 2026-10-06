@@ -1079,11 +1079,24 @@ export const requestReturn = async (
   const requested = D.arr(input.items);
   const orderItems = await prisma.orderItem.findMany({
     where: { orderId: order.id, id: { in: requested.map((i) => D.str(i.orderItemId)) } },
-    include: { subOrder: { select: { id: true, vendorId: true } } },
+    include: {
+      subOrder: { select: { id: true, vendorId: true } },
+      product: { select: { name: true, isNonReturnable: true } },
+    },
   });
 
   if (orderItems.length !== requested.length) {
     throw AppError.unprocessable(ERROR.RETURN.ITEM_NOT_PURCHASED, ERROR_CODE.PURCHASE_REQUIRED);
+  }
+
+  /**
+   * The flag is read from the live product rather than snapshotted onto the
+   * order line, so a policy the seller sets after the purchase still governs
+   * what may be sent back.
+   */
+  const blocked = orderItems.find((i) => i.product?.isNonReturnable);
+  if (blocked) {
+    throw AppError.unprocessable(ERROR.RETURN.ITEM_NON_RETURNABLE, ERROR_CODE.NON_RETURNABLE);
   }
 
   const alreadyReturned = await prisma.returnItem.findMany({

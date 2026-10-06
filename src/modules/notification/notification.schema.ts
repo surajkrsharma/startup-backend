@@ -142,6 +142,14 @@ export const ticketCategorySchema = z
 
 export const ticketIdParamSchema = z.object({ id });
 
+export const addTicketNoteSchema = z
+  .object({
+    note: z.string().trim().min(1, VALIDATION.REQUIRED('note')).max(NAME.COMMENT_MAX_LENGTH),
+  })
+  .strict();
+
+export const ticketNoteParamSchema = z.object({ id, noteId: id });
+
 export const broadcastSchema = z
   .object({
     userIds: z.array(id).max(OPS.BULK_MAX_ROWS).optional(),
@@ -179,6 +187,31 @@ export const templateSchema = z
     isActive: z.boolean().optional().default(true),
   })
   .strict();
+
+export const listCannedResponsesSchema = z
+  .object({
+    isActive: z.enum(['true', 'false']).optional(),
+  })
+  .merge(paginationSchema)
+  .strict();
+
+export const createCannedResponseSchema = z
+  .object({
+    title: z.string().trim().min(1, VALIDATION.REQUIRED('title')).max(120),
+    body: z.string().trim().min(1, VALIDATION.REQUIRED('body')).max(NAME.COMMENT_MAX_LENGTH),
+  })
+  .strict();
+
+export const updateCannedResponseSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120).optional(),
+    body: z.string().trim().min(1).max(NAME.COMMENT_MAX_LENGTH).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
+
+export const cannedResponseIdParamSchema = z.object({ id });
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;

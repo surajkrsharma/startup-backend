@@ -826,6 +826,64 @@ const assertVerified = (user: {
   );
 };
 
+/**
+ * Compares the candidate against the live hash plus the retained ones, so a
+ * password cannot be walked back to inside the configured window.
+ */
+const assertNotReused = async (
+  userId: string,
+  currentHash: string,
+  candidate: string,
+): Promise<void> => {
+  const security = await getSecurityConfig();
+  const keep = Math.max(0, D.num(security.passwordHistoryCount));
+  if (!keep) return;
+
+  const previous = await prisma.passwordHistory.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: keep,
+    select: { id: true, passwordHash: true },
+  });
+
+  for (const hash of [currentHash, ...previous.map((row) => row.passwordHash)]) {
+    if (await comparePassword(candidate, D.str(hash))) {
+      throw new AppError(
+        ERROR.AUTH.PASSWORD_REUSED,
+        HTTP_STATUS.UNPROCESSABLE,
+        ERROR_CODE.PASSWORD_REUSED,
+      );
+    }
+  }
+};
+
+/**
+ * The outgoing hash goes in as the newest row and the surplus is trimmed in the
+ * same transaction, so the retained count is a ceiling rather than a backlog.
+ */
+const retainPassword = async (
+  tx: any,
+  userId: string,
+  outgoingHash: string,
+  keep: number,
+): Promise<void> => {
+  await tx.passwordHistory.create({ data: { userId, passwordHash: outgoingHash } });
+  if (!keep) return;
+
+  const surplus = await tx.passwordHistory.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    skip: keep,
+    select: { id: true },
+  });
+
+  if (surplus.length) {
+    await tx.passwordHistory.deleteMany({
+      where: { id: { in: surplus.map((row: any) => row.id) } },
+    });
+  }
+};
+
 export const resetPassword = async (input: {
   email?: string;
   phone?: string;
@@ -841,7 +899,7 @@ export const resetPassword = async (input: {
   const isEmail = EMAIL_REGEX.test(identifier);
   const user = await prisma.user.findFirst({
     where: isEmail ? { email: identifier } : { phone: identifier },
-    select: { id: true },
+    select: { id: true, passwordHash: true },
   });
 
   if (!user) {
@@ -852,19 +910,28 @@ export const resetPassword = async (input: {
     );
   }
 
-  const passwordHash = await hashPassword(input.newPassword);
+  await assertNotReused(user.id, D.str(user.passwordHash), input.newPassword);
 
-  await prisma.$transaction([
-    prisma.user.update({
+  const passwordHash = await hashPassword(input.newPassword);
+  const security = await getSecurityConfig();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
       where: { id: user.id },
       data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null },
-    }),
-    prisma.refreshToken.updateMany({
+    });
+    await tx.refreshToken.updateMany({
       where: { userId: user.id, revokedAt: null },
       data: { revokedAt: new Date() },
-    }),
-    prisma.otp.deleteMany({ where: { identifier, type: type as any } }),
-  ]);
+    });
+    await tx.otp.deleteMany({ where: { identifier, type: type as any } });
+    await retainPassword(
+      tx,
+      user.id,
+      D.str(user.passwordHash),
+      D.num(security.passwordHistoryCount),
+    );
+  });
 
   return true;
 };
@@ -912,9 +979,17 @@ export const changePassword = async (
     );
   }
 
-  const passwordHash = await hashPassword(newPassword);
+  const outgoingHash = D.str(user.passwordHash);
 
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  await assertNotReused(userId, outgoingHash, newPassword);
+
+  const passwordHash = await hashPassword(newPassword);
+  const security = await getSecurityConfig();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+    await retainPassword(tx, userId, outgoingHash, D.num(security.passwordHistoryCount));
+  });
 
   if (logoutOtherDevices) await revokeAllTokens(userId);
 
@@ -1288,4 +1363,43 @@ export const getCurrentUser = async (userId: string): Promise<any | null> =>
   prisma.user.findUnique({
     where: { id: userId },
     select: { ...AUTH_USER_SELECT, socialAccounts: { select: { id: true, provider: true } } },
+  });
+
+export const acceptConsent = async (
+  userId: string,
+  input: { type: 'TERMS' | 'PRIVACY' | 'MARKETING'; version: string },
+  req?: any,
+): Promise<any> => {
+  const existing = await prisma.userConsent.findUnique({
+    where: { userId_type_version: { userId, type: input.type, version: input.version } },
+  });
+
+  if (existing) return existing;
+
+  const consent = await prisma.userConsent.create({
+    data: {
+      userId,
+      type: input.type,
+      version: input.version,
+      ip: D.str(req?.ip),
+      userAgent: D.str(req?.headers?.['user-agent']),
+    },
+  });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CONSENT_ACCEPTED',
+    entity: 'UserConsent',
+    entityId: consent.id,
+    meta: { type: input.type, version: input.version },
+  });
+
+  return consent;
+};
+
+export const getMyConsents = async (userId: string): Promise<any[]> =>
+  prisma.userConsent.findMany({
+    where: { userId },
+    orderBy: { acceptedAt: 'desc' },
   });

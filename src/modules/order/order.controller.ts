@@ -14,6 +14,9 @@ import {
   serializePlaceOrderResult,
   serializeTrackOrder,
   serializeOrderTimeline,
+  serializeOrderTagList,
+  serializeOrderNote,
+  serializeOrderNoteList,
   serializeSubOrder,
 } from './order.serializer';
 
@@ -119,6 +122,126 @@ export const getTimeline = asyncHandler(async (req, res) => {
       itemCount: timeline.length,
       timelineList: timeline.map(serializeOrderTimeline),
     },
+  });
+});
+
+/**
+ * @openapi
+ * /orders/getTags/:id:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Tags carried by an order
+ *     responses:
+ *       200: { description: Tag list, oldest first }
+ */
+export const getTags = asyncHandler(async (req, res) => {
+  const tags = await service.listOrderTags(D.str(req.params.id), userId(req));
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.TAGS_FETCHED,
+    result: serializeOrderTagList(tags),
+  });
+});
+
+/**
+ * @openapi
+ * /orders/addTags/:id:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Attach labels to an order
+ *     description: >
+ *       Admin or vendor only. Labels are upper-cased, and re-posting one that
+ *       already exists updates its colour instead of failing.
+ *     responses:
+ *       200: { description: Tags now on the order }
+ *       400: { description: No usable label supplied }
+ *       422: { description: Tag ceiling for the order reached }
+ */
+export const addTags = asyncHandler(async (req, res) => {
+  const tags = await service.addOrderTags(D.str(req.params.id), req.body, req.auth!.userId, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.TAGS_ADDED,
+    result: serializeOrderTagList(tags),
+  });
+});
+
+/**
+ * @openapi
+ * /orders/removeTag/:id/:tagId:
+ *   delete:
+ *     tags: [Orders]
+ *     summary: Detach one label from an order
+ *     responses:
+ *       200: { description: Tag removed }
+ *       404: { description: Order or tag not found }
+ */
+export const removeTag = asyncHandler(async (req, res) => {
+  await service.removeOrderTag(D.str(req.params.id), D.str(req.params.tagId), userId(req), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.TAG_REMOVED,
+    result: { isRemoved: true },
+  });
+});
+
+/**
+ * @openapi
+ * /orders/addNote/:id:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Add an internal note to an order
+ *     description: Admin or vendor only.
+ *     responses:
+ *       200: { description: Note added }
+ *       400: { description: Note is required }
+ *       404: { description: Order not found }
+ */
+export const addNote = asyncHandler(async (req, res) => {
+  const note = await service.addOrderNote(D.str(req.params.id), req.auth!.userId, req.body, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.NOTE_ADDED,
+    result: serializeOrderNote(note),
+  });
+});
+
+/**
+ * @openapi
+ * /orders/getNotes/:id:
+ *   get:
+ *     tags: [Orders]
+ *     summary: List internal notes for an order
+ *     description: Admin or vendor only.
+ *     responses:
+ *       200: { description: Note list, newest first }
+ *       404: { description: Order not found }
+ */
+export const getNotes = asyncHandler(async (req, res) => {
+  const notes = await service.listOrderNotes(D.str(req.params.id), req.auth!.userId);
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.NOTES_FETCHED,
+    result: serializeOrderNoteList(notes),
+  });
+});
+
+/**
+ * @openapi
+ * /orders/removeNote/:id/:noteId:
+ *   delete:
+ *     tags: [Orders]
+ *     summary: Remove an internal note from an order
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Note removed }
+ *       404: { description: Order or note not found }
+ */
+export const removeNote = asyncHandler(async (req, res) => {
+  await service.deleteOrderNote(
+    D.str(req.params.id),
+    D.str(req.params.noteId),
+    req.auth!.userId,
+    req,
+  );
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.NOTE_REMOVED,
+    result: { isRemoved: true },
   });
 });
 

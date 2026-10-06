@@ -211,6 +211,7 @@ const toAddressData = (
   line1: D.str(input.line1),
   line2: D.str(input.line2),
   landmark: D.str(input.landmark),
+  deliveryInstructions: D.str(input.deliveryInstructions),
   city: D.str(input.city),
   state: D.str(input.state),
   stateCode: D.str(input.stateCode).toUpperCase(),

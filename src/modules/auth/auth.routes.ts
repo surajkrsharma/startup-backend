@@ -312,4 +312,18 @@ router.delete(
   controller.revokeSession,
 );
 
+router.post(
+  '/acceptConsent',
+  authenticate,
+  validate({ body: schema.acceptConsentSchema }),
+  controller.acceptConsent,
+);
+
+router.get(
+  '/getMyConsents',
+  authenticate,
+  validate({ body: schema.getMyConsentsSchema }),
+  controller.getMyConsents,
+);
+
 export default router;

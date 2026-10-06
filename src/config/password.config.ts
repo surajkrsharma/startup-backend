@@ -32,3 +32,13 @@ export const PHONE = {
   MAX_LENGTH: 15,
   DEFAULT_COUNTRY_CODE: '+91',
 };
+
+export const WARRANTY = {
+  MAX_MONTHS: 120,
+  MAX_TAGS_PER_ORDER: 20,
+  MAX_TAG_LENGTH: 40,
+};
+
+export const DELIVERY_INSTRUCTIONS = {
+  MAX_LENGTH: 500,
+};

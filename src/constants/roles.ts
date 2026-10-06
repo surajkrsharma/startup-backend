@@ -133,6 +133,30 @@ export const PRODUCT_STATUS = {
 
 export type ProductStatus = keyof typeof PRODUCT_STATUS;
 
+export const PRODUCT_CONDITION = {
+  NEW: 'NEW',
+  USED: 'USED',
+  REFURBISHED: 'REFURBISHED',
+  OPEN_BOX: 'OPEN_BOX',
+} as const;
+
+export type ProductCondition = keyof typeof PRODUCT_CONDITION;
+
+export const PRODUCT_CONDITION_VALUES = Object.values(PRODUCT_CONDITION) as ProductCondition[];
+
+export const ORDER_TAG = {
+  URGENT: 'URGENT',
+  GIFT: 'GIFT',
+  FRAGILE: 'FRAGILE',
+  PRIORITY: 'PRIORITY',
+  HOLD: 'HOLD',
+  FOLLOW_UP: 'FOLLOW_UP',
+} as const;
+
+export type OrderTag = keyof typeof ORDER_TAG;
+
+export const ORDER_TAG_VALUES = Object.values(ORDER_TAG) as OrderTag[];
+
 export const PAYOUT_STATUS = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',

@@ -20,6 +20,7 @@ export interface AddressWrite {
   line1: string;
   line2: string;
   landmark: string;
+  deliveryInstructions: string;
   city: string;
   state: string;
   stateCode: string;

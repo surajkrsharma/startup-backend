@@ -108,6 +108,7 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'return.reasonRequired', value: true, category: 'return', isPublic: true },
   { key: 'return.imagesRequired', value: true, category: 'return', isPublic: true },
   { key: 'return.maxQtyPerOrder', value: 0, category: 'return', isPublic: false },
+  { key: 'review.editWindowDays', value: 7, category: 'return', isPublic: true },
   { key: 'refund.processingDays', value: 5, category: 'refund', isPublic: true },
   { key: 'refund.mode', value: 'original', category: 'refund', isPublic: true },
 
@@ -184,6 +185,7 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'security.maxLoginAttempts', value: 5, category: 'security', isPublic: false },
   { key: 'security.lockoutMinutes', value: 15, category: 'security', isPublic: false },
   { key: 'security.passwordMinLength', value: 8, category: 'security', isPublic: false },
+  { key: 'security.passwordHistoryCount', value: 3, category: 'security', isPublic: false },
   { key: 'security.requireEmailVerify', value: false, category: 'security', isPublic: false },
   { key: 'security.requirePhoneVerify', value: true, category: 'security', isPublic: false },
   { key: 'security.sessionDays', value: 7, category: 'security', isPublic: false },
