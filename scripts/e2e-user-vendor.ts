@@ -681,6 +681,82 @@ const main = async (): Promise<void> => {
     .send({});
   record('customer cannot approve vendors -> 403', approveDenied.status === 403);
 
+  const addNote = await request(app)
+    .post(`/api/v1/users/addNote/${customer.userId}`)
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({ note: 'Asked for a refund twice, then settled.' });
+  record(
+    'POST /users/addNote -> 200',
+    addNote.status === 200 && assertEnvelope(addNote.body, true),
+    `status=${addNote.status} detail=${addNote.body?.result?.note}`,
+  );
+
+  const noteId = addNote.body?.result?.noteId;
+  record(
+    'the note records who wrote it',
+    addNote.body?.result?.createdBy === adminUserId,
+    `createdBy=${addNote.body?.result?.createdBy}`,
+  );
+
+  const emptyNote = await request(app)
+    .post(`/api/v1/users/addNote/${customer.userId}`)
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({ note: '' });
+  record('empty note rejected -> 400', emptyNote.status === 400, `status=${emptyNote.status}`);
+
+  const noteForMissing = await request(app)
+    .post('/api/v1/users/addNote/does-not-exist')
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({ note: 'orphan' });
+  record(
+    'note on unknown customer -> 404',
+    noteForMissing.status === 404 && assertEnvelope(noteForMissing.body, false),
+    `status=${noteForMissing.status}`,
+  );
+
+  const customerNoteDenied = await request(app)
+    .post(`/api/v1/users/addNote/${customer.userId}`)
+    .set('Authorization', `Bearer ${customer.token}`)
+    .send({ note: 'should not work' });
+  record('customer cannot write an internal note -> 403', customerNoteDenied.status === 403);
+
+  const listNotes = await request(app)
+    .get(`/api/v1/users/getNotes/${customer.userId}`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  record(
+    'GET /users/getNotes -> 200',
+    listNotes.status === 200 && Array.isArray(listNotes.body?.result?.noteList),
+    `status=${listNotes.status}`,
+  );
+
+  const customerListDenied = await request(app)
+    .get(`/api/v1/users/getNotes/${customer.userId}`)
+    .set('Authorization', `Bearer ${customer.token}`);
+  record('customer cannot read internal notes -> 403', customerListDenied.status === 403);
+
+  const removeNote = await request(app)
+    .delete(`/api/v1/users/removeNote/${customer.userId}/${noteId}`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  record(
+    'DELETE /users/removeNote -> 200',
+    removeNote.status === 200 && removeNote.body?.result?.isRemoved === true,
+    `status=${removeNote.status}`,
+  );
+
+  const afterRemove = await request(app)
+    .get(`/api/v1/users/getNotes/${customer.userId}`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  record(
+    'the note is gone after removal',
+    (afterRemove.body?.result?.noteList ?? []).every((n: any) => n.noteId !== noteId),
+    `remaining=${(afterRemove.body?.result?.noteList ?? []).length}`,
+  );
+
+  const removeAgain = await request(app)
+    .delete(`/api/v1/users/removeNote/${customer.userId}/${noteId}`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  record('removing it twice -> 404', removeAgain.status === 404);
+
   const failed = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
   if (failed.length) {

@@ -367,6 +367,9 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | DELETE | `/api/v1/users/deleteUser/:id` | ✅ | SUPER_ADMIN | Hard delete |
 | GET | `/api/v1/users/getActivity/:id` | ✅ | ADMIN | User activity |
 | GET | `/api/v1/users/getOrders/:id` | ✅ | ADMIN | User orders |
+| POST | `/api/v1/users/addNote/:id` | ✅ | ADMIN | Internal note add |
+| GET | `/api/v1/users/getNotes/:id` | ✅ | ADMIN | Internal notes list |
+| DELETE | `/api/v1/users/removeNote/:id/:noteId` | ✅ | ADMIN | Internal note remove |
 | POST | `/api/v1/users/impersonate/:id` | ✅ | SUPER_ADMIN | Login as user |
 | GET | `/api/v1/vendors/getProfile` | ✅ | VENDOR | My vendor profile |
 | PATCH | `/api/v1/vendors/updateProfile` | ✅ | VENDOR | Update vendor profile |
@@ -3275,10 +3278,12 @@ live Express router, whereas a hand-written list drifts.
     DELETE         /users/deleteAccount
     DELETE         /users/deleteAddress/{id}
     DELETE         /users/deleteUser/{id}
+    DELETE         /users/removeNote/{id}/{noteId}
     GET            /users/getActivity/{id}
     GET            /users/getAddresses
     GET            /users/getAll
     GET            /users/getById/{id}
+    GET            /users/getNotes/{id}
     GET            /users/getOrders/{id}
     GET            /users/getProfile
     PATCH          /users/setDefaultAddress/{id}
@@ -3288,6 +3293,7 @@ live Express router, whereas a hand-written list drifts.
     PATCH          /users/updateProfile
     PATCH          /users/updateUser/{id}
     POST           /users/addAddress
+    POST           /users/addNote/{id}
     POST           /users/impersonate/{id}
 /vendors
     GET            /vendors/getAll
@@ -3374,7 +3380,6 @@ Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 | **Saved Payment Methods** | 🔴 | Har baar card/UPI dobara daalna padta hai. | Tokenized card/UPI save, 1-click pay. | Conversion rate 20-30% badhta hai. |
 | **Customer Preferences** | 🟡 | Language/currency partial. | Notification channel prefs, timezone, digest frequency. | Personalization ke liye. |
 | **Customer Segments** | 🔴 | Koi segment/tag nahi. | VIP, wholesale, blocked, new, repeat tags. | Targeted marketing ke liye. |
-| **Customer Notes** | 🔴 | Admin customer pe note nahi likh sakta. | Internal notes with author + timestamp. | Support team coordination. |
 | **Customer Timeline** | 🔴 | Orders, returns, tickets alag-alag. | Unified timeline (orders + returns + tickets + chats + logins). | Support agent ko full context milta hai. |
 | **Customer Merge** | 🔴 | Duplicate accounts merge nahi. | Merge API with conflict resolution. | Duplicate accounts se data mess. |
 | **Customer Export** | 🟡 | Reports me hai, per-customer nahi. | Single customer ka full data export (JSON/CSV). | DPDP right to access. |

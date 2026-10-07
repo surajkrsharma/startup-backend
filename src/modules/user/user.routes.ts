@@ -211,4 +211,52 @@ router.post(
   controller.impersonate,
 );
 
+/**
+ * @openapi
+ * /users/addNote/:id:
+ *   post:
+ *     tags: [Users]
+ *     summary: Add an internal note about a customer
+ *     description: Admin only. Never exposed to the customer.
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  '/addNote/:id',
+  ...controller.guards.adminView,
+  validate({ params: schema.getUserByIdSchema, body: schema.addCustomerNoteSchema }),
+  controller.addCustomerNote,
+);
+
+/**
+ * @openapi
+ * /users/getNotes/:id:
+ *   get:
+ *     tags: [Users]
+ *     summary: List internal notes for a customer
+ *     description: Admin only.
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get(
+  '/getNotes/:id',
+  ...controller.guards.adminView,
+  validate({ params: schema.getUserByIdSchema }),
+  controller.getCustomerNotes,
+);
+
+/**
+ * @openapi
+ * /users/removeNote/:id/:noteId:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Remove an internal note from a customer
+ *     description: Admin only.
+ *     security: [{ bearerAuth: [] }]
+ */
+router.delete(
+  '/removeNote/:id/:noteId',
+  ...controller.guards.adminView,
+  validate({ params: schema.customerNoteParamSchema }),
+  controller.removeCustomerNote,
+);
+
 export default router;

@@ -32,6 +32,9 @@ export const SUCCESS = {
     DELETED: 'User deleted successfully.',
     STATUS_UPDATED: 'User status updated successfully.',
     AVATAR_UPDATED: 'Avatar updated successfully.',
+    NOTE_ADDED: 'Customer note added.',
+    NOTES_FETCHED: 'Customer notes fetched.',
+    NOTE_REMOVED: 'Customer note removed.',
   },
   ADDRESS: {
     ADDED: 'Address added successfully.',

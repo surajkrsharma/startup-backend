@@ -740,3 +740,86 @@ export const impersonateUser = async (
 
   return { accessToken, expiresIn, target };
 };
+
+// ── Internal customer notes ──────────────────────────────────────────
+
+export const addCustomerNote = async (
+  targetUserId: string,
+  actorId: string,
+  input: { note: string },
+  req?: any,
+): Promise<any> => {
+  const user = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true },
+  });
+
+  if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND);
+
+  const note = await prisma.customerNote.create({
+    data: {
+      userId: targetUserId,
+      createdById: D.str(actorId) || null,
+      note: D.str(input.note),
+    },
+    select: { id: true, userId: true, createdById: true, note: true, createdAt: true },
+  });
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'CUSTOMER_NOTE_ADDED',
+    entity: 'User',
+    entityId: targetUserId,
+    meta: { noteId: note.id },
+  });
+
+  return note;
+};
+
+export const listCustomerNotes = async (targetUserId: string): Promise<any[]> => {
+  const user = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true },
+  });
+
+  if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND);
+
+  return prisma.customerNote.findMany({
+    where: { userId: targetUserId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, userId: true, createdById: true, note: true, createdAt: true },
+  });
+};
+
+export const deleteCustomerNote = async (
+  targetUserId: string,
+  noteId: string,
+  actorId: string,
+  req?: any,
+): Promise<boolean> => {
+  const user = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true },
+  });
+
+  if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND);
+
+  const note = await prisma.customerNote.findFirst({
+    where: { id: noteId, userId: targetUserId },
+  });
+  if (!note) throw AppError.notFound(ERROR.COMMON.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  await prisma.customerNote.delete({ where: { id: noteId } });
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'CUSTOMER_NOTE_DELETED',
+    entity: 'User',
+    entityId: targetUserId,
+    meta: { noteId },
+  });
+
+  return true;
+};

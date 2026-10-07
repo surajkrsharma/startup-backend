@@ -19,6 +19,7 @@ import {
   serializeOrderSummaryList,
   serializeImpersonation,
 } from './user.serializer';
+import { serializeCustomerNote, serializeCustomerNoteList } from '../../utils/serialize';
 
 const userId = (req: Request): string => req.auth!.userId;
 const adminOnly = requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN);
@@ -92,6 +93,64 @@ export const setDefaultAddress = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     message: SUCCESS.ADDRESS.DEFAULT_SET,
     result: serializeAddress(address),
+  });
+});
+
+/**
+ * @openapi
+ * /users/addNote/:id:
+ *   post:
+ *     tags: [Users]
+ *     summary: Add an internal note about a customer
+ *     description: Admin only. Never exposed to the customer.
+ *     responses:
+ *       200: { description: Note added }
+ *       400: { description: Note is required }
+ *       404: { description: Customer not found }
+ */
+export const addCustomerNote = asyncHandler(async (req, res) => {
+  const note = await service.addCustomerNote(req.params.id, userId(req), req.body, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.NOTE_ADDED,
+    result: serializeCustomerNote(note),
+  });
+});
+
+/**
+ * @openapi
+ * /users/getNotes/:id:
+ *   get:
+ *     tags: [Users]
+ *     summary: List internal notes for a customer
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Note list, newest first }
+ *       404: { description: Customer not found }
+ */
+export const getCustomerNotes = asyncHandler(async (req, res) => {
+  const notes = await service.listCustomerNotes(req.params.id);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.NOTES_FETCHED,
+    result: serializeCustomerNoteList(notes),
+  });
+});
+
+/**
+ * @openapi
+ * /users/removeNote/:id/:noteId:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Remove an internal note from a customer
+ *     description: Admin only.
+ *     responses:
+ *       200: { description: Note removed }
+ *       404: { description: Customer or note not found }
+ */
+export const removeCustomerNote = asyncHandler(async (req, res) => {
+  await service.deleteCustomerNote(req.params.id, req.params.noteId, userId(req), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.NOTE_REMOVED,
+    result: { isRemoved: true },
   });
 });
 

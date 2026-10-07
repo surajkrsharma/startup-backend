@@ -355,6 +355,8 @@ model User {
   couponUsages            CouponUsage[]
   orderNotes              OrderNote[]
   ticketNotes             TicketNote[]
+  customerNotes           CustomerNote[]
+  customerNotesAuthored   CustomerNote[]            @relation("CustomerNoteAuthor")
   loyaltyTier             String                    @default("")
   referredById            String?
   referralsMade           Referral[]                @relation("ReferrerReferrals")
@@ -1852,6 +1854,20 @@ model TicketNote {
 
   @@index([ticketId, createdAt])
   @@index([userId])
+}
+
+model CustomerNote {
+  id          String   @id @default(cuid())
+  userId      String
+  createdById String?
+  note        String
+  createdAt   DateTime @default(now())
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("CustomerNoteAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([createdById])
 }
 
 //  CONTENT

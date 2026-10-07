@@ -6,8 +6,8 @@ doc your task needs. Do not load the others speculatively — they are large.
 ## What this is
 
 Multi-vendor marketplace REST API. Node 20+, Express 4, TypeScript (strict),
-Prisma + PostgreSQL, Redis, Zod, JWT. 527 operations across 17 module
-directories, 109 Prisma models.
+Prisma + PostgreSQL, Redis, Zod, JWT. 530 operations across 17 module
+directories, 110 Prisma models.
 
 ## Read exactly one of these
 

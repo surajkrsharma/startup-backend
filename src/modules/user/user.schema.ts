@@ -149,6 +149,14 @@ export const avatarSchema = z.object({
 
 export const setDefaultAddressSchema = z.object({ id: common.cuid });
 
+export const addCustomerNoteSchema = z
+  .object({
+    note: z.string().trim().min(1, VALIDATION.REQUIRED('note')).max(NAME.COMMENT_MAX_LENGTH),
+  })
+  .strict();
+
+export const customerNoteParamSchema = z.object({ id: common.cuid, noteId: common.cuid });
+
 export const UPLOAD_FIELD = 'avatar';
 export const DEFAULT_DIAL = DEFAULT_DIAL_CODE;
 export const CUSTOMER_ROLE = ROLES.CUSTOMER;
