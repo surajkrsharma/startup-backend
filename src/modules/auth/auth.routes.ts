@@ -58,7 +58,7 @@ router.post(
  *     summary: Registration step 1 — request a code
  *     description: >
  *       Returns the same shape whether or not the identifier is already taken,
- *       so it cannot be used to enumerate accounts.
+ *       so the response never reveals whether an account exists.
  *     responses:
  *       200: { description: Code dispatched }
  *       400: { description: Identifier is not a valid email or phone }

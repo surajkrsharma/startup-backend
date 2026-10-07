@@ -1104,7 +1104,7 @@ export const addTicketNote = async (
   return note;
 };
 
-export const listTicketNotes = async (ticketId: string, userId: string): Promise<any[]> => {
+export const listTicketNotes = async (ticketId: string, _userId: string): Promise<any[]> => {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
     select: { id: true },
