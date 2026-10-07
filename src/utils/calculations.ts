@@ -175,4 +175,36 @@ export const calcShippingCharge = (input: {
 export const calcLoyaltyPoints = (orderValue: number, pointsPerRupee: number): number =>
   Math.max(0, Math.floor(money(orderValue) * (Number(pointsPerRupee) || 0)));
 
+/**
+ * A share of a whole on a 0-100 scale. Callers that hand this to a template
+ * such as `width: {percentage}%` need the percentage itself, not the fraction
+ * the ratio happens to be.
+ */
+export const toPercent = (part: number, total: number, decimals = 1): number => {
+  const whole = Number(total) || 0;
+  if (whole <= 0) return 0;
+  return round((Number(part) || 0) * (100 / whole), decimals);
+};
+
+/**
+ * The same, but the returned shares always total exactly 100. Rounding each
+ * share on its own drifts — three equal shares round to 33.3 + 33.3 + 33.3 —
+ * and a distribution that falls short is what makes a stacked bar render with
+ * a gap, so the residual lands on the largest share.
+ */
+export const toPercentDistribution = (parts: number[], decimals = 1): number[] => {
+  const total = parts.reduce((sum, n) => sum + (Number(n) || 0), 0);
+  if (total <= 0) return parts.map(() => 0);
+
+  const out = parts.map((part) => toPercent(part, total, decimals));
+  const residual = round(100 - out.reduce((sum, n) => sum + n, 0), decimals);
+  if (residual === 0) return out;
+
+  let largest = 0;
+  for (let i = 1; i < out.length; i += 1) if (out[i] > out[largest]) largest = i;
+  out[largest] = round(out[largest] + residual, decimals);
+
+  return out;
+};
+
 export { clamp, money, round };

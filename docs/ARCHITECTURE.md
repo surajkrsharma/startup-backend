@@ -2473,6 +2473,34 @@ default 24).
 
 ---
 
+### Percentage Rules
+
+Har field jiska naam `percentage` hai, wo **0-100** pe hai, fraction nahi. Ye
+contract hai — clients ise directly template me lagate hain (`width: {percentage}%`),
+isliye `0.2` ka matlab hai `0.2%`, `20` ka matlab hai `20%`.
+
+Do helper `src/utils/calculations.ts` me hain:
+
+| Helper | Kahan | Behaviour |
+| --- | --- | --- |
+| `toPercent(part, total)` | Share-of-total lists | 0-100, 1 decimal, `0` jab total `0` ho |
+| `toPercentDistribution(parts)` | Fixed-bucket columns | Ye bhi 0-100, aur list **exactly 100** kaati hai |
+
+`toPercentDistribution` ka residual sabse bade share pe jaata hai. Ye zaroori
+hai kyunki har share ko alag round karne se drift hota hai — teen barabar
+shares `33.3 + 33.3 + 33.3 = 99.9` ban jaate hain — aur jo distribution 100 se
+kam ho, usse stacked bar me gap dikhta hai.
+
+**Call sites:** `reviews/getSummary/:productId` ka `distributionList` (5 star
+buckets, fixed column) → `toPercentDistribution`. Baaki chaar
+(`analytics/getTopPages`, `getTrafficSources`, device breakdown, app versions)
+→ `toPercent`, kyunki wo ranked lists hain, fixed column nahi, aur unhe exactly
+100 kaatne ki zaroorat nahi.
+
+`tests/percentage.test.ts` ye scale lock karta hai.
+
+---
+
 ### Job Retry & Dead Letter Rules
 
 **Retry.** Every job carries `attempts` and an exponential `backoff`, applied per
@@ -3327,7 +3355,8 @@ naya behaviour ab [Catalog & Order Rules](#catalog--order-rules),
 [Password](#password--srcconfigpasswordconfigts),
 [Account Security Rules](#account-security-rules),
 [Cart Rules](#cart-rules),
-[Payment Rules](#payment-rules) and
+[Payment Rules](#payment-rules),
+[Percentage Rules](#percentage-rules) and
 [Job Retry & Dead Letter Rules](#job-retry--dead-letter-rules) mai documented hai.
 Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 

@@ -9,6 +9,7 @@ import { ERROR_CODE } from '../../constants/http';
 import { Platform } from '@prisma/client';
 import { assertAllowedEvent } from '../../services/notification.service';
 import { uniqueFunnelSlug } from '../../utils/slug';
+import { toPercent } from '../../utils/calculations';
 import { startOfDay, endOfDay, subtractDays, toDayKey } from '../../utils/dates';
 import {
   uploadToCloudinary,
@@ -735,7 +736,7 @@ export const getTopPages = async (query: Record<string, any>): Promise<any[]> =>
   return grouped.map((g) => ({
     pageUrl: D.str(g.pageUrl),
     views: D.num(g._count._all),
-    percentage: totalViews > 0 ? D.float(round(D.num(g._count._all) / totalViews, 1)) : 0,
+    percentage: toPercent(D.num(g._count._all), totalViews),
   }));
 };
 
@@ -776,7 +777,7 @@ export const getTrafficSources = async (query: Record<string, any>): Promise<any
       source,
       views: data.views,
       visitors: data.sessions.size,
-      percentage: totalViews > 0 ? D.float(round(data.views / totalViews, 1)) : 0,
+      percentage: toPercent(data.views, totalViews),
     }))
     .sort((a, b) => b.views - a.views);
 };
@@ -1163,7 +1164,7 @@ export const getDeviceBreakdown = async (
       .map(([key, count]) => ({
         key,
         count,
-        percentage: D.float(round(count / total, 1)),
+        percentage: toPercent(count, total),
       }));
 
   const os = tally((r) => D.str(r.os));
@@ -1433,7 +1434,7 @@ export const getAppVersions = async (query: Record<string, any>): Promise<Record
         platform,
         appVersion,
         deviceCount: count,
-        percentage: D.float(round(count / total, 1)),
+        percentage: toPercent(count, total),
       };
     })
     .sort((a, b) => b.deviceCount - a.deviceCount);
