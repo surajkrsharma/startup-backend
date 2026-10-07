@@ -41,6 +41,16 @@
     "verify": "npm run env:check && npm run typecheck && npm run lint && npm run test",
     "e2e:content": "tsx scripts/e2e-content.ts",
     "e2e:engagement": "tsx scripts/e2e-engagement.ts",
+    "e2e:order": "tsx scripts/e2e-order.ts",
+    "e2e:payment": "tsx scripts/e2e-payment.ts",
+    "e2e:review": "tsx scripts/e2e-review.ts",
+    "e2e:analytics": "tsx scripts/e2e-analytics.ts",
+    "e2e:cart": "tsx scripts/e2e-cart.ts",
+    "e2e:product": "tsx scripts/e2e-product.ts",
+    "e2e:shipping": "tsx scripts/e2e-shipping.ts",
+    "e2e:notification": "tsx scripts/e2e-notification.ts",
+    "e2e:user-vendor": "tsx scripts/e2e-user-vendor.ts",
+    "e2e:catalog": "tsx scripts/e2e-catalog.ts",
     "prepare": "husky"
   },
   "keywords": [

@@ -42,9 +42,22 @@ export const HEADER = {
   SESSION_ID: 'x-session-id',
   API_KEY: 'x-api-key',
   SIGNATURE: 'x-signature',
+  IDEMPOTENCY_KEY: 'idempotency-key',
+  IDEMPOTENCY_REPLAYED: 'x-idempotency-replayed',
   REFRESH_TOKEN: 'refreshToken',
 } as const;
 
 export const SKIP_ENCRYPTION_PATHS = ['/health', '/docs', '/docs.json', '/webhooks', '/track'];
+
+/**
+ * Retained keys outlive the window a client is expected to retry in, so a late
+ * retry is still answered from the stored response rather than double-charging.
+ */
+export const IDEMPOTENCY = {
+  KEY_MIN_LENGTH: 8,
+  KEY_MAX_LENGTH: 120,
+  RETENTION_HOURS: 24,
+  IN_PROGRESS_MAX_AGE_SEC: 120,
+} as const;
 export const MAINTENANCE_ALLOW_PATHS = ['/health', '/docs', '/docs.json', '/version'];
 export const MAINTENANCE_ADMIN_PATHS = ['/admin'];

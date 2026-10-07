@@ -1,4 +1,4 @@
-﻿export const ERROR = {
+export const ERROR = {
   AUTH: {
     INVALID_CREDENTIALS: 'Invalid email or password.',
     UNAUTHORIZED: 'You are not authorized.',
@@ -22,6 +22,15 @@
     ACCOUNT_SUSPENDED: 'Your account is suspended.',
     ACCOUNT_LOCKED: 'Account temporarily locked. Try again later.',
     SESSION_EXPIRED: 'Session expired, please log in again.',
+    SESSION_LIMIT_REACHED: 'Too many active devices. The oldest session was signed out.',
+    PASSWORD_EXPIRED: 'Your password has expired. Please change it to continue.',
+    PASSWORD_EXPIRY_DAYS: 'New password must be different from the current one.',
+    EMAIL_CHANGED: 'Email changed successfully.',
+    PHONE_CHANGED: 'Phone changed successfully.',
+    EMAIL_CHANGE_COOLDOWN: 'Please wait before requesting another email change code.',
+    PHONE_CHANGE_COOLDOWN: 'Please wait before requesting another phone change code.',
+    ACCOUNT_PENDING_DELETION: 'This account is scheduled for deletion.',
+    ACCOUNT_PURGE_WINDOW: 'The recovery window for this account has closed.',
     SOCIAL_PROVIDER_INVALID: 'Social provider not supported.',
     SOCIAL_ALREADY_LINKED: 'This social account is already linked.',
     SOCIAL_NOT_LINKED: 'Social account is not linked.',
@@ -101,6 +110,9 @@
     MAX_ITEMS: 'Maximum cart items reached.',
     VENDOR_NOT_APPROVED: 'One or more cart vendors are not approved.',
     ITEM_IDENTIFIER_REQUIRED: 'Provide id or productId.',
+    SAVED_ITEM_NOT_FOUND: 'Saved item not found.',
+    WATCH_NOT_FOUND: 'Price watch not found.',
+    WATCH_PRICE_REQUIRED: 'Enter a target price greater than zero.',
   },
   COUPON: {
     NOT_FOUND: 'Coupon not found.',
@@ -143,12 +155,15 @@
     MAX_LIMIT: 'Payment amount exceeds the maximum limit.',
     NOTHING_TO_REFUND: 'There is nothing left to refund.',
     REFUND_PROCESSED: 'This refund has already been processed.',
+    IDEMPOTENCY_KEY_INVALID: 'Idempotency-Key must be 8 to 120 characters.',
+    IDEMPOTENCY_KEY_REUSED: 'This Idempotency-Key was already used with a different request.',
+    IDEMPOTENCY_IN_PROGRESS: 'A request with this Idempotency-Key is still in progress.',
     REASON_INPUT_REQUIRED: 'Provide reasonId or reasonText.',
   },
   PAYOUT: {
     NOT_FOUND: 'Payout not found.',
     MIN_AMOUNT: 'Payout amount is below minimum.',
-    PENDING_ORDERS: 'Payout blocked ÔÇö pending orders exist.',
+    PENDING_ORDERS: 'Payout blocked — pending orders exist.',
     ALREADY_PROCESSED: 'Payout already processed.',
     BANK_DETAILS_REQUIRED: 'Add bank or UPI details before requesting payout.',
     INVALID_STATUS_TRANSITION: 'This payout status change is not allowed.',

@@ -51,15 +51,19 @@ const register = async (
   shopName?: string,
 ): Promise<{ token: string; userId: string; vendorId: string; status: number }> => {
   await request(app)
-    .post('/api/v1/auth/sendOtp')
-    .send({ type: 'REGISTER', channel: 'EMAIL', identifier: email(tag) });
+    .post('/api/v1/auth/register/sendOtp')
+    .send({ identifier: email(tag) });
+
+  const verified = await request(app)
+    .post('/api/v1/auth/register/verifyOtp')
+    .send({ identifier: email(tag), otp: OTP });
 
   const res = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type,
       name: `UV ${tag}`,
-      otp: OTP,
+      verificationToken: verified.body?.result?.verificationToken ?? '',
       email: email(tag),
       phone: phoneFor(tag),
       password: 'Secret@123',

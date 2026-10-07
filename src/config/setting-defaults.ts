@@ -155,6 +155,8 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'cart.maxItems', value: 50, category: 'cart', isPublic: true },
   { key: 'cart.holdMinutes', value: 30, category: 'cart', isPublic: false },
   { key: 'cart.persistAcrossDevices', value: true, category: 'cart', isPublic: true },
+  { key: 'cart.giftWrapCharge', value: 49, category: 'cart', isPublic: true },
+  { key: 'cart.giftWrapNoteMaxLength', value: 200, category: 'cart', isPublic: false },
 
   { key: 'vendor.autoApprove', value: false, category: 'vendor', isPublic: false },
   { key: 'vendor.maxProducts', value: 500, category: 'vendor', isPublic: false },
@@ -189,6 +191,11 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'security.requireEmailVerify', value: false, category: 'security', isPublic: false },
   { key: 'security.requirePhoneVerify', value: true, category: 'security', isPublic: false },
   { key: 'security.sessionDays', value: 7, category: 'security', isPublic: false },
+  { key: 'security.passwordExpiryDays', value: 0, category: 'security', isPublic: false },
+  { key: 'security.maxActiveSessions', value: 0, category: 'security', isPublic: false },
+  { key: 'security.loginAlerts', value: true, category: 'security', isPublic: false },
+  { key: 'security.newDeviceAlerts', value: true, category: 'security', isPublic: false },
+  { key: 'security.accountPurgeDays', value: 30, category: 'security', isPublic: false },
 
   { key: 'maintenance.enabled', value: false, category: 'system', isPublic: false },
   { key: 'maintenance.message', value: "We'll be back soon.", category: 'system', isPublic: true },

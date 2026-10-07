@@ -64,6 +64,64 @@ cart.post(
   controller.mergeGuestCart,
 );
 
+cart.patch(
+  '/updateItemOptions/:cartItemId',
+  authenticate,
+  customerOnly,
+  validate({ params: schema.cartItemIdParamSchema, body: schema.updateItemOptionsSchema }),
+  controller.updateItemOptions,
+);
+
+cart.get('/getSavedForLater', authenticate, customerOnly, controller.getSavedForLater);
+
+cart.post(
+  '/saveForLater',
+  authenticate,
+  customerOnly,
+  validate({ body: schema.saveForLaterSchema }),
+  controller.saveForLater,
+);
+
+cart.post(
+  '/savedForLater/:id/moveToCart',
+  authenticate,
+  customerOnly,
+  validate({ params: schema.savedItemParamSchema, body: schema.savedToCartSchema }),
+  controller.moveSavedItemToCart,
+);
+
+cart.delete(
+  '/savedForLater/:id',
+  authenticate,
+  customerOnly,
+  validate({ params: schema.savedItemParamSchema }),
+  controller.removeSavedItem,
+);
+
+cart.delete('/savedForLater', authenticate, customerOnly, controller.clearSavedForLater);
+
+const priceWatch = Router();
+
+priceWatch.get('/getAll', authenticate, customerOnly, controller.getPriceWatches);
+
+priceWatch.post(
+  '/watch',
+  authenticate,
+  customerOnly,
+  validate({ body: schema.watchPriceSchema }),
+  controller.watchPrice,
+);
+
+priceWatch.delete(
+  '/remove/:id',
+  authenticate,
+  customerOnly,
+  validate({ params: schema.savedItemParamSchema }),
+  controller.removePriceWatch,
+);
+
+export const priceWatchRoutes = priceWatch;
+
 export const cartRoutes = cart;
 
 const wishlist = Router();

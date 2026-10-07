@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validate, idParamSchema, paginationSchema } from '../../middlewares/validate.middleware';
 import { authenticate } from '../../middlewares/auth.middleware';
+import { idempotency } from '../../middlewares/idempotency.middleware';
 import * as controller from './payment.controller';
 import * as schema from './payment.schema';
 
@@ -26,6 +27,7 @@ payment.get(
 payment.post(
   '/payToken/:orderId',
   authenticate,
+  idempotency('payment.payToken'),
   validate({
     params: schema.paymentOrderParamSchema,
     body: schema.verifyTokenPaymentSchema.omit({ orderId: true }),
@@ -36,6 +38,7 @@ payment.post(
 payment.post(
   '/payBalance/:orderId',
   authenticate,
+  idempotency('payment.payBalance'),
   validate({
     params: schema.paymentOrderParamSchema,
     body: schema.payBalanceSchema.omit({ orderId: true }),
@@ -46,6 +49,7 @@ payment.post(
 payment.post(
   '/verifyUpi/:orderId',
   authenticate,
+  idempotency('payment.verifyUpi'),
   validate({ params: schema.paymentOrderParamSchema, body: schema.manualPaymentSchema }),
   controller.verifyUpi,
 );
@@ -53,6 +57,7 @@ payment.post(
 payment.post(
   '/verifyBank/:orderId',
   authenticate,
+  idempotency('payment.verifyBank'),
   validate({ params: schema.paymentOrderParamSchema, body: schema.manualPaymentSchema }),
   controller.verifyBank,
 );
@@ -60,6 +65,7 @@ payment.post(
 payment.patch(
   '/markCodCollected/:orderId',
   authenticate,
+  idempotency('payment.markCodCollected'),
   validate({
     params: schema.paymentOrderParamSchema,
     body: schema.codCollectSchema.omit({ orderId: true }),
@@ -71,6 +77,7 @@ payment.patch(
   '/confirmPayment/:id',
   authenticate,
   ...controller.guards.admin,
+  idempotency('payment.confirmPayment'),
   validate({ params: idParamSchema }),
   controller.confirmPayment,
 );
@@ -79,6 +86,7 @@ payment.post(
   '/refund/:id',
   authenticate,
   ...controller.guards.admin,
+  idempotency('payment.createRefund'),
   validate({ params: idParamSchema, body: schema.initiateRefundSchema.omit({ paymentId: true }) }),
   controller.createRefund,
 );

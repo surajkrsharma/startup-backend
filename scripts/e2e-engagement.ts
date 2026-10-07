@@ -65,15 +65,19 @@ const envelope = (res: any, label: string): boolean => {
 
 const register = async (tag: string): Promise<{ token: string; userId: string }> => {
   await request(app)
-    .post('/api/v1/auth/sendOtp')
-    .send({ type: 'REGISTER', channel: 'EMAIL', identifier: email(tag) });
+    .post('/api/v1/auth/register/sendOtp')
+    .send({ identifier: email(tag) });
+
+  const verified = await request(app)
+    .post('/api/v1/auth/register/verifyOtp')
+    .send({ identifier: email(tag), otp: OTP });
 
   const res = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type: 'CUSTOMER',
       name: `EG ${tag}`,
-      otp: OTP,
+      verificationToken: verified.body?.result?.verificationToken ?? '',
       email: email(tag),
       phone: phoneFor(tag),
       password: 'Secret@123',

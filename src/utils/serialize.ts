@@ -480,6 +480,9 @@ export const serializeOrderItem = (item: any) => ({
   total: D.float(item?.total),
   commission: D.float(item?.commission),
   vendorEarning: D.float(item?.vendorEarning),
+  isGiftWrap: D.bool(item?.isGiftWrap),
+  giftWrapNote: D.str(item?.giftWrapNote),
+  deliveryNote: D.str(item?.deliveryNote),
 });
 
 export const serializeSubOrder = (s: any) => ({

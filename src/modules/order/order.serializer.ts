@@ -30,6 +30,7 @@ export const serializeOrderSummary = (o: any) => {
     couponDiscount: D.float(o?.couponDiscount),
     taxAmount: D.float(o?.taxAmount),
     shippingAmount: D.float(o?.shippingAmount),
+    giftWrapAmount: D.float(o?.giftWrapAmount),
     walletAmount: D.float(o?.walletAmount),
     total: D.float(o?.total),
     balanceAmount: D.float(o?.balanceAmount),

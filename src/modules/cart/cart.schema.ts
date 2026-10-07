@@ -5,6 +5,8 @@ import { PAYMENT_METHOD } from '../../constants/roles';
 import { VALIDATION } from '../../messages/validation';
 import { COUPON_CODE_REGEX } from '../../constants/countries';
 import { common } from '../../middlewares/validate.middleware';
+import { GIFT_WRAP } from '../../config/gift-wrap.config';
+import { DELIVERY_INSTRUCTIONS } from '../../config/password.config';
 
 const id = common.cuid;
 
@@ -87,6 +89,45 @@ export const mergeGuestCartSchema = z
 export const clearCartSchema = z
   .object({
     keepFavourites: z.boolean().optional().default(false),
+  })
+  .strict();
+
+export const updateItemOptionsSchema = z
+  .object({
+    isGiftWrap: z.boolean().optional(),
+    giftWrapNote: z.string().trim().max(GIFT_WRAP.NOTE_MAX_LENGTH).optional(),
+    deliveryNote: z.string().trim().max(DELIVERY_INSTRUCTIONS.MAX_LENGTH).optional(),
+  })
+  .strict()
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: VALIDATION.REQUIRED('giftWrapNote, isGiftWrap or deliveryNote'),
+  });
+
+export const saveForLaterSchema = z
+  .object({
+    cartItemId: id.optional(),
+    productId: id.optional(),
+    variantId: id.optional().or(z.literal('')),
+    qty: z.coerce.number().int().min(1).max(999).optional(),
+  })
+  .strict()
+  .refine((v) => Boolean(v.cartItemId || v.productId), {
+    message: ERROR.CART.ITEM_IDENTIFIER_REQUIRED,
+  });
+
+export const savedItemParamSchema = z.object({ id: z.string().trim().min(1).max(40) });
+
+export const savedToCartSchema = z
+  .object({
+    qty: z.coerce.number().int().min(1).max(999).optional(),
+  })
+  .strict();
+
+export const watchPriceSchema = z
+  .object({
+    productId: id,
+    variantId: id.optional().or(z.literal('')),
+    targetPrice: z.coerce.number().positive(VALIDATION.INVALID_NUMBER),
   })
   .strict();
 

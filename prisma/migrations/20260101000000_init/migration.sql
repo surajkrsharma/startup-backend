@@ -20,7 +20,10 @@ CREATE TYPE "PaymentMethod" AS ENUM ('COD', 'UPI', 'BANK', 'CARD', 'NETBANKING',
 CREATE TYPE "PayoutStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'PROCESSING', 'PAID', 'FAILED');
 
 -- CreateEnum
-CREATE TYPE "ReturnStatus" AS ENUM ('REQUESTED', 'APPROVED', 'REJECTED', 'PICKED_UP', 'RECEIVED', 'REFUNDED');
+CREATE TYPE "ReturnStatus" AS ENUM ('REQUESTED', 'APPROVED', 'REJECTED', 'PICKED_UP', 'RECEIVED', 'REFUNDED', 'EXCHANGE_PENDING', 'EXCHANGE_SHIPPED', 'EXCHANGE_COMPLETED');
+
+-- CreateEnum
+CREATE TYPE "ReturnType" AS ENUM ('REFUND', 'EXCHANGE', 'REPLACEMENT');
 
 -- CreateEnum
 CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED');
@@ -29,13 +32,13 @@ CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')
 CREATE TYPE "TicketPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 
 -- CreateEnum
-CREATE TYPE "OtpType" AS ENUM ('REGISTER', 'FORGOT_PASSWORD', 'LOGIN', 'CHANGE_PASSWORD', 'PHONE_VERIFY', 'EMAIL_VERIFY', 'TWO_FA');
+CREATE TYPE "OtpType" AS ENUM ('REGISTER', 'FORGOT_PASSWORD', 'LOGIN', 'CHANGE_PASSWORD', 'PHONE_VERIFY', 'EMAIL_VERIFY', 'TWO_FA', 'EMAIL_CHANGE', 'PHONE_CHANGE');
 
 -- CreateEnum
 CREATE TYPE "OtpChannel" AS ENUM ('EMAIL', 'SMS', 'BOTH');
 
 -- CreateEnum
-CREATE TYPE "VerificationPurpose" AS ENUM ('REGISTER', 'LOGIN');
+CREATE TYPE "VerificationPurpose" AS ENUM ('REGISTER', 'LOGIN', 'EMAIL_CHANGE', 'PHONE_CHANGE');
 
 -- CreateEnum
 CREATE TYPE "SocialProvider" AS ENUM ('GOOGLE', 'APPLE', 'FACEBOOK');
@@ -107,9 +110,16 @@ CREATE TABLE "User" (
     "twoFactorSecret" TEXT,
     "twoFactorBackupCodes" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "lastLoginAt" TIMESTAMP(3),
+    "lastLoginIp" TEXT NOT NULL DEFAULT '',
     "failedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
     "lockedUntil" TIMESTAMP(3),
+    "passwordChangedAt" TIMESTAMP(3),
     "deletedAt" TIMESTAMP(3),
+    "purgeAfter" TIMESTAMP(3),
+    "deletionReason" TEXT NOT NULL DEFAULT '',
+    "deletionTokenHash" TEXT NOT NULL DEFAULT '',
+    "deletionEmailHash" TEXT NOT NULL DEFAULT '',
+    "deletionPhone" TEXT NOT NULL DEFAULT '',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "loyaltyTier" TEXT NOT NULL DEFAULT '',
@@ -501,10 +511,42 @@ CREATE TABLE "CartItem" (
     "qty" INTEGER NOT NULL DEFAULT 1,
     "price" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "userId" TEXT NOT NULL DEFAULT '',
+    "isGiftWrap" BOOLEAN NOT NULL DEFAULT false,
+    "giftWrapNote" TEXT NOT NULL DEFAULT '',
+    "deliveryNote" TEXT NOT NULL DEFAULT '',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "CartItem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SavedCartItem" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "variantId" TEXT,
+    "qty" INTEGER NOT NULL DEFAULT 1,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SavedCartItem_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PriceWatch" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "variantId" TEXT,
+    "targetPrice" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "lastSeenPrice" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "lastNotifiedAt" TIMESTAMP(3),
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PriceWatch_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -543,6 +585,7 @@ CREATE TABLE "Order" (
     "couponDiscount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "taxAmount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "shippingAmount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "giftWrapAmount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "walletAmount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "total" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "tokenRequired" BOOLEAN NOT NULL DEFAULT false,
@@ -581,6 +624,9 @@ CREATE TABLE "OrderItem" (
     "total" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "vendorEarning" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "commission" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "isGiftWrap" BOOLEAN NOT NULL DEFAULT false,
+    "giftWrapNote" TEXT NOT NULL DEFAULT '',
+    "deliveryNote" TEXT NOT NULL DEFAULT '',
 
     CONSTRAINT "OrderItem_pkey" PRIMARY KEY ("id")
 );
@@ -645,6 +691,23 @@ CREATE TABLE "Payment" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Payment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "IdempotencyKey" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "scope" TEXT NOT NULL DEFAULT '',
+    "userId" TEXT NOT NULL DEFAULT '',
+    "requestHash" TEXT NOT NULL DEFAULT '',
+    "responseStatus" INTEGER,
+    "responseBody" TEXT,
+    "state" TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "IdempotencyKey_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -728,6 +791,7 @@ CREATE TABLE "ReturnRequest" (
     "userId" TEXT NOT NULL,
     "reasonId" TEXT,
     "reasonText" TEXT NOT NULL DEFAULT '',
+    "type" "ReturnType" NOT NULL DEFAULT 'REFUND',
     "status" "ReturnStatus" NOT NULL DEFAULT 'REQUESTED',
     "images" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "comment" TEXT NOT NULL DEFAULT '',
@@ -740,6 +804,8 @@ CREATE TABLE "ReturnRequest" (
     "pickedUpAt" TIMESTAMP(3),
     "receivedAt" TIMESTAMP(3),
     "refundedAt" TIMESTAMP(3),
+    "exchangeShippedAt" TIMESTAMP(3),
+    "exchangeDeliveredAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -747,16 +813,26 @@ CREATE TABLE "ReturnRequest" (
 );
 
 -- CreateTable
-CREATE TABLE "ReturnItem" (
+CREATE TABLE "ExchangeItem" (
     "id" TEXT NOT NULL,
     "returnRequestId" TEXT NOT NULL,
-    "orderItemId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "variantId" TEXT,
     "qty" INTEGER NOT NULL DEFAULT 1,
-    "refundAmount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
-    "isApproved" BOOLEAN NOT NULL DEFAULT true,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "shippedAt" TIMESTAMP(3),
+    "deliveredAt" TIMESTAMP(3),
+    "userId" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "orderItemId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "ReturnItem_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ExchangeItem_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateTable
+CREATE TABLE "ReturnItem" (
 
 -- CreateTable
 CREATE TABLE "Review" (
@@ -1751,6 +1827,7 @@ CREATE INDEX "User_createdAt_idx" ON "User"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "User_deletedAt_idx" ON "User"("deletedAt");
+CREATE INDEX "User_purgeAfter_idx" ON "User"("purgeAfter");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "RefreshToken_tokenHash_key" ON "RefreshToken"("tokenHash");
@@ -1975,7 +2052,22 @@ CREATE INDEX "CartItem_cartId_idx" ON "CartItem"("cartId");
 CREATE INDEX "CartItem_productId_idx" ON "CartItem"("productId");
 
 -- CreateIndex
+CREATE INDEX "CartItem_userId_createdAt_idx" ON "CartItem"("userId", "createdAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "CartItem_cartId_productId_variantId_key" ON "CartItem"("cartId", "productId", "variantId");
+
+-- CreateIndex
+CREATE INDEX "SavedCartItem_userId_createdAt_idx" ON "SavedCartItem"("userId", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SavedCartItem_userId_productId_variantId_key" ON "SavedCartItem"("userId", "productId", "variantId");
+
+-- CreateIndex
+CREATE INDEX "PriceWatch_isActive_productId_idx" ON "PriceWatch"("isActive", "productId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PriceWatch_userId_productId_variantId_key" ON "PriceWatch"("userId", "productId", "variantId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Wishlist_userId_key" ON "Wishlist"("userId");
@@ -2053,6 +2145,15 @@ CREATE INDEX "Payment_createdAt_idx" ON "Payment"("createdAt");
 CREATE INDEX "Refund_paymentId_idx" ON "Refund"("paymentId");
 
 -- CreateIndex
+CREATE INDEX "IdempotencyKey_expiresAt_idx" ON "IdempotencyKey"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "IdempotencyKey_state_idx" ON "IdempotencyKey"("state");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "IdempotencyKey_userId_key_key" ON "IdempotencyKey"("userId", "key");
+
+-- CreateIndex
 CREATE INDEX "Refund_orderId_idx" ON "Refund"("orderId");
 
 -- CreateIndex
@@ -2105,6 +2206,24 @@ CREATE INDEX "ReturnItem_returnRequestId_idx" ON "ReturnItem"("returnRequestId")
 
 -- CreateIndex
 CREATE INDEX "ReturnItem_orderItemId_idx" ON "ReturnItem"("orderItemId");
+
+-- CreateIndex
+CREATE INDEX "ExchangeItem_returnRequestId_idx" ON "ExchangeItem"("returnRequestId");
+
+-- CreateIndex
+CREATE INDEX "ExchangeItem_productId_idx" ON "ExchangeItem"("productId");
+
+-- CreateIndex
+CREATE INDEX "ExchangeItem_variantId_idx" ON "ExchangeItem"("variantId");
+
+-- CreateIndex
+CREATE INDEX "ExchangeItem_userId_idx" ON "ExchangeItem"("userId");
+
+-- CreateIndex
+CREATE INDEX "ExchangeItem_orderId_idx" ON "ExchangeItem"("orderId");
+
+-- CreateIndex
+CREATE INDEX "ExchangeItem_orderItemId_idx" ON "ExchangeItem"("orderItemId");
 
 -- CreateIndex
 CREATE INDEX "Review_productId_status_idx" ON "Review"("productId", "status");
@@ -2654,6 +2773,12 @@ ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_variantId_fkey" FOREIGN KEY ("va
 
 -- AddForeignKey
 ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SavedCartItem" ADD CONSTRAINT "SavedCartItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SavedCartItem" ADD CONSTRAINT "SavedCartItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SavedCartItem" ADD CONSTRAINT "SavedCartItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "PriceWatch" ADD CONSTRAINT "PriceWatch_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PriceWatch" ADD CONSTRAINT "PriceWatch_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PriceWatch" ADD CONSTRAINT "PriceWatch_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Wishlist" ADD CONSTRAINT "Wishlist_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2705,6 +2830,7 @@ ALTER TABLE "Refund" ADD CONSTRAINT "Refund_paymentId_fkey" FOREIGN KEY ("paymen
 
 -- AddForeignKey
 ALTER TABLE "Refund" ADD CONSTRAINT "Refund_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "IdempotencyKey" ADD CONSTRAINT "IdempotencyKey_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "VendorEarning" ADD CONSTRAINT "VendorEarning_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "VendorProfile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -2731,7 +2857,37 @@ ALTER TABLE "ReturnItem" ADD CONSTRAINT "ReturnItem_returnRequestId_fkey" FOREIG
 ALTER TABLE "ReturnItem" ADD CONSTRAINT "ReturnItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Review" ADD CONSTRAINT "Review_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_returnRequestId_fkey" FOREIGN KEY ("returnRequestId") REFERENCES "ReturnRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

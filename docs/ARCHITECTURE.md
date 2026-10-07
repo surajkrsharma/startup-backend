@@ -338,6 +338,11 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | POST | `/api/v1/auth/changePassword` | ✅ | Any | Change own password |
 | POST | `/api/v1/auth/verifyEmail` | ✅ | Any | Verify email |
 | POST | `/api/v1/auth/verifyPhone` | ✅ | Any | Verify phone |
+| POST | `/api/v1/auth/changeEmail/sendOtp` | ✅ | Any | Step 1 of email change — code to the new address |
+| POST | `/api/v1/auth/changeEmail/verifyOtp` | ✅ | Any | Step 2 — code → `verificationToken` |
+| POST | `/api/v1/auth/changeEmail` | ✅ | Any | Swap the sign-in email |
+| POST | `/api/v1/auth/changePhone` | ✅ | Any | Swap the phone number |
+| POST | `/api/v1/auth/restoreAccount` | ❌ | Public | Restore inside the deletion recovery window |
 | POST | `/api/v1/auth/enable2FA` | ✅ | Any | Enable 2FA |
 | POST | `/api/v1/auth/disable2FA` | ✅ | Any | Disable 2FA |
 | POST | `/api/v1/auth/verify2FA` | ❌ | Public | 2FA challenge |
@@ -349,7 +354,7 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | DELETE | `/api/v1/auth/sessions/:id` | ✅ | Any | Revoke session |
 | GET | `/api/v1/users/getProfile` | ✅ | Any | Self profile |
 | PATCH | `/api/v1/users/updateProfile` | ✅ | Any | Update self profile |
-| DELETE | `/api/v1/users/deleteAccount` | ✅ | Any | Soft-delete self |
+| DELETE | `/api/v1/users/deleteAccount` | ✅ | Any | Soft-delete self — recoverable for `security.accountPurgeDays` |
 | GET | `/api/v1/users/getAddresses` | ✅ | CUSTOMER | List addresses |
 | POST | `/api/v1/users/addAddress` | ✅ | CUSTOMER | Add address |
 | PATCH | `/api/v1/users/updateAddress/:id` | ✅ | CUSTOMER | Update address |
@@ -433,6 +438,15 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | DELETE | `/api/v1/cart/removeCoupon` | ✅ | CUSTOMER | Remove coupon |
 | POST | `/api/v1/cart/estimate` | ✅ | CUSTOMER | Pre-checkout totals |
 | POST | `/api/v1/cart/mergeGuestCart` | ✅ | CUSTOMER | Merge after login |
+| PATCH | `/api/v1/cart/updateItemOptions/:cartItemId` | ✅ | CUSTOMER | Gift wrap + per-item delivery note |
+| GET | `/api/v1/cart/getSavedForLater` | ✅ | CUSTOMER | List saved-for-later |
+| POST | `/api/v1/cart/saveForLater` | ✅ | CUSTOMER | Move a cart line aside |
+| POST | `/api/v1/cart/savedForLater/:id/moveToCart` | ✅ | CUSTOMER | Move a saved line back |
+| DELETE | `/api/v1/cart/savedForLater/:id` | ✅ | CUSTOMER | Drop a saved line |
+| DELETE | `/api/v1/cart/savedForLater` | ✅ | CUSTOMER | Clear saved lines |
+| GET | `/api/v1/priceWatches/getAll` | ✅ | CUSTOMER | List price watches |
+| POST | `/api/v1/priceWatches/watch` | ✅ | CUSTOMER | Watch a product price |
+| DELETE | `/api/v1/priceWatches/remove/:id` | ✅ | CUSTOMER | Stop watching |
 | GET | `/api/v1/wishlist/getAll` | ✅ | CUSTOMER | List wishlist |
 | POST | `/api/v1/wishlist/addItem` | ✅ | CUSTOMER | Add to wishlist |
 | DELETE | `/api/v1/wishlist/removeItem/:id` | ✅ | CUSTOMER | Remove |
@@ -572,10 +586,10 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | PATCH | `/api/v1/tickets/close/:id` | ✅ | Any | Close |
 | DELETE | `/api/v1/tickets/delete/:id` | ✅ | ADMIN | Delete |
 | GET | `/api/v1/tickets/getCategories` | ❌ | Public | Categories |
-| GET | /api/v1/cannedResponses/getAll | ? | ADMIN | List canned responses |
-| POST | /api/v1/cannedResponses/create | ? | ADMIN | Create canned response |
-| PATCH | /api/v1/cannedResponses/update/:id | ? | ADMIN | Update canned response |
-| DELETE | /api/v1/cannedResponses/delete/:id | ? | ADMIN | Delete canned response |
+| GET | `/api/v1/cannedResponses/getAll` | ✅ | ADMIN | List canned responses |
+| POST | `/api/v1/cannedResponses/create` | ✅ | ADMIN | Create canned response |
+| PATCH | `/api/v1/cannedResponses/update/:id` | ✅ | ADMIN | Update canned response |
+| DELETE | `/api/v1/cannedResponses/delete/:id` | ✅ | ADMIN | Delete canned response |
 | POST | `/api/v1/pages/create` | ✅ | ADMIN | Create page |
 | GET | `/api/v1/pages/getAll` | ❌ | Public | List pages |
 | GET | `/api/v1/pages/getBySlug/:slug` | ❌ | Public | Detail |
@@ -765,6 +779,7 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | PATCH | `/api/v1/analytics/funnels/:id` | ✅ | ADMIN | Update funnel |
 | GET | `/api/v1/attributes/getById/:id` | ❌ | Public | Single attribute |
 | POST | `/api/v1/auth/sendOtp` | ❌ | Public | Send OTP — `type: REGISTER\|FORGOT_PASSWORD\|LOGIN\|PHONE_VERIFY\|EMAIL_VERIFY\|TWO_FA` |
+| POST | `/api/v1/auth/changeEmail/sendOtp` | ✅ | Any | Send OTP — `type: EMAIL_CHANGE\|PHONE_CHANGE` |
 | GET | `/api/v1/brands/getBySlug/:slug` | ❌ | Public | Brand by slug |
 | POST | `/api/v1/categories/bulkCreate` | ✅ | ADMIN | Bulk create |
 | GET | `/api/v1/categories/getBySlug/:slug` | ❌ | Public | Category by slug |
@@ -1031,10 +1046,16 @@ Content-Type: application/json
 
 Refresh token → HttpOnly cookie, same register jaisa.
 
+`email` ya `phone` — dono chalte hain, jo bhi bhejo.
+
 **Note:** Ye endpoint sirf password leta hai. `otp` ya `type` field isme nahi
 hote — OTP login ke liye 6.1d use karo. `twoFactorRequired: true` aaye to
 response me tokens empty honge aur `twoFactorToken` milega, jise
 `POST /auth/verify2FA` par bhejna hoga.
+
+`revokedSessionCount` batata hai ki `security.maxActiveSessions` cap cross karne
+par kitni purani sessions band hui. `0` default hai. Rules
+[Account Security Rules](#account-security-rules) me hain.
 
 ### Login — OTP
 
@@ -1448,6 +1469,7 @@ export const PASSWORD = {
   REQUIRE_SPECIAL: true,
   BCRYPT_ROUNDS: 12,
   RESET_TOKEN_EXPIRY_MIN: 30,
+  CONTACT_CHANGE_COOLDOWN_MIN: 10,
 };
 
 export const WARRANTY = {
@@ -2327,6 +2349,124 @@ caller's userId and IP; `GET /orders/getNotes/:id` lists them newest-first;
 `DELETE /orders/removeNote/:id/:noteId` removes one. Notes are not visible to
 the customer and appear in the order detail alongside tags and timeline.
 
+### Account Security Rules
+
+Ye rules schema se nahi, code se padhchi jaatin hain.
+
+**Password expiry.** `User.passwordChangedAt` is stamped at registration and on
+every successful `changePassword` / `resetPassword`. When
+`security.passwordExpiryDays` is greater than `0`, a password older than that
+many days blocks `POST /auth/login` with 403 `PASSWORD_EXPIRED`; the default `0`
+means passwords never expire. OTP login is unaffected, since there is no password
+to expire.
+
+**Concurrent session limit.** `security.maxActiveSessions` (`0` = unlimited) is
+enforced inside `issueTokens` on every sign-in. Once a user is at the cap, the
+oldest sessions by `lastSeenAt` are closed and their refresh tokens revoked, and
+the session that just signed in is always kept. The login response returns
+`revokedSessionCount` so the client can say how many devices were signed out.
+
+**Contact change.** Changing the sign-in email or phone is a two-step flow, and
+the code always goes to the contact being *claimed*, never the current one.
+`POST /auth/changeEmail/sendOtp` sends it (rate limited by
+`PASSWORD.CONTACT_CHANGE_COOLDOWN_MIN` per target address), `POST
+/auth/changeEmail/verifyOtp` returns a single-use `verificationToken`, and
+`POST /auth/changeEmail` / `POST /auth/changePhone` need both. On success the new
+contact is marked verified and **every** refresh token is revoked, so a takeover
+cannot ride along on an existing session. The account is notified of the swap
+after the fact.
+
+**Deletion recovery window.** `DELETE /users/deleteAccount` no longer destroys
+anything outright: it sets `deletedAt`, releases the email and phone, and stamps
+`purgeAfter` at `security.accountPurgeDays` (default `30`). The restore token is
+emailed at that moment and stored only as a hash, so `POST /auth/restoreAccount`
+matches on `deletionTokenHash` — the released contacts cannot identify the row.
+The `purge-deleted-accounts` cron deletes accounts whose window has closed, and
+restore returns 410 `ACCOUNT_PURGE_WINDOW` once it has.
+
+**Sign-in alerts.** A login from a device the account has not used before raises
+an in-app `ALERT` notification with the IP and platform, controlled by
+`security.loginAlerts` and `security.newDeviceAlerts`. The first-known device is
+recorded at that moment, so the alert fires once per device rather than once per
+login. `User.lastLoginIp` tracks the previous IP for location comparison.
+
+### Cart Rules
+
+**Gift wrap.** `CartItem.isGiftWrap` is per line, and the charge is
+`cart.giftWrapCharge` (default `49`) counted once per wrapped line - not per
+unit, so three units of one wrapped product still cost one wrap. It lands as
+`giftWrapAmount` on both the cart totals and `Order`, and
+`placeOrder` recomputes it from the lines it is actually fulfilling, so a
+line dropped for stock does not leave the customer paying for its wrap.
+Turning the flag off clears the note rather than keeping it orphaned.
+`cart.giftWrapNoteMaxLength` bounds the note.
+
+**Per-item delivery note.** `CartItem.deliveryNote` is distinct from
+`Address.deliveryInstructions`: the address note applies to the whole delivery,
+this one to a single line. Both survive onto `OrderItem`, so the packing slip and
+the order detail show the line-level note next to the item it belongs to.
+
+**Save for later.** `SavedCartItem` is a separate table rather than a flag on
+`CartItem`. That is deliberate - nothing that totals, checks out, counts against
+`cart.maxItems` or holds stock can see a saved line, which a flag could not
+guarantee. Saving *moves* the line out of the cart rather than copying it.
+`POST /cart/savedForLater/:id/moveToCart` takes an optional `qty`; a partial
+move leaves the remainder saved, and the saved row goes only when the quantity
+reaches zero.
+
+**Price drop alerts.** `PriceWatch` stores `targetPrice` plus the
+`lastSeenPrice` the last scan saw. The `price-drop-scan` cron compares the two
+and notifies only when the price has actually fallen *and* is at or below
+target - so an already-cheap watch stays quiet instead of re-notifying every
+pass. Target must be below the current price at creation.
+`POST /priceWatches/watch` takes a variant id, in which case the variant price
+is watched and `0` means "any drop".
+
+### Payment Rules
+
+**Partial and repeated refunds.** `POST /payments/refund/:id` takes an optional
+`amount`; omitting it refunds whatever is left. The cap is always
+`paidAmount - (sum of already-settled refunds)`, re-read at initiation, and
+exceeding it is 422 `REFUND_EXCEEDS_PAID`. Nhi: `Payment.status` and
+`Order.paymentStatus` only move to `REFUNDED` when the settled total reaches
+`paidAmount`; until then they sit at `PARTIALLY_REFUNDED`. There is no limit on
+how many refunds one order can carry - `GET /payments/getRefundHistory/:orderId`
+lists them all. This is what the old gap table called "multiple refunds per
+order"; it already worked.
+
+**Idempotency keys.** Money-moving routes accept an `Idempotency-Key` header -
+`payToken`, `payBalance`, `verifyUpi`, `verifyBank`, `markCodCollected`,
+`confirmPayment` and `refund`. The header is **optional**: without it the
+request behaves exactly as before, so adopting keys cannot break an older
+client.
+
+The rules the code holds to:
+
+| Situation | Result |
+| --- | --- |
+| No header | Normal handling, nothing recorded |
+| Key shorter than 8 chars | 400 `IDEMPOTENCY_KEY_INVALID` |
+| First use of a key | Handler runs; response stored as `COMPLETED` |
+| Same key, same body | Stored response replayed verbatim, header `x-idempotency-replayed: true` |
+| Same key, different body | 409 `IDEMPOTENCY_KEY_REUSED` |
+| Same key while the first call is still running | 409 `IDEMPOTENCY_IN_PROGRESS` |
+| Any 4xx/5xx outcome | Key **released**, so the client can fix and retry |
+| First attempt died mid-flight | Reclaimed once it is older than `IN_PROGRESS_MAX_AGE_SEC` |
+
+Three details that are easy to get wrong:
+
+- **`responseBody` is text, not `JSONB`.** JSONB does not preserve key order, so
+  a replayed response would come back `result, status, message` and break the
+  fixed `status, message, result` envelope contract.
+- **A key belongs to a call that *succeeded*.** The response is captured on
+  `finish` and any 4xx/5xx deletes the row instead of storing it, so a client
+  that sent a bad body once is not locked out of that key afterwards.
+- **Keys are unique per `(userId, key)`**, not globally, and the unique index is
+  what serialises concurrent retries - a check-then-insert would race.
+
+`cleanup-expired` sweeps rows past `expiresAt` (`IDEMPOTENCY.RETENTION_HOURS`,
+default 24).
+
 ---
 
 ## Folder Structure
@@ -2587,11 +2727,15 @@ live Express router, whereas a hand-written list drifts.
     GET            /auditLogs/getById/{id}
 /auth
     DELETE         /auth/sessions/{id}
-    GET            /auth/acceptConsent
-    GET            /auth/getMyConsents
     GET            /auth/getMe
+    GET            /auth/getMyConsents
     GET            /auth/sessions
+    POST           /auth/acceptConsent
+    POST           /auth/changeEmail
+    POST           /auth/changeEmail/sendOtp
+    POST           /auth/changeEmail/verifyOtp
     POST           /auth/changePassword
+    POST           /auth/changePhone
     POST           /auth/checkAvailability
     POST           /auth/disable2FA
     POST           /auth/enable2FA
@@ -2606,6 +2750,7 @@ live Express router, whereas a hand-written list drifts.
     POST           /auth/register/sendOtp
     POST           /auth/register/verifyOtp
     POST           /auth/resetPassword
+    POST           /auth/restoreAccount
     POST           /auth/sendOtp
     POST           /auth/socialLogin
     POST           /auth/unlinkSocial
@@ -2637,16 +2782,31 @@ live Express router, whereas a hand-written list drifts.
     POST           /bulk/importOrders
     POST           /bulk/importProducts
     POST           /bulk/importUsers
+/cannedResponses
+    DELETE         /cannedResponses/delete/{id}
+    GET            /cannedResponses/getAll
+    PATCH          /cannedResponses/update/{id}
+    POST           /cannedResponses/create
 /cart
     DELETE         /cart/clearCart
     DELETE         /cart/removeCoupon
     DELETE         /cart/removeItem/{cartItemId}
+    DELETE         /cart/savedForLater
+    DELETE         /cart/savedForLater/{id}
     GET            /cart/getCart
+    GET            /cart/getSavedForLater
     PATCH          /cart/updateItem
+    PATCH          /cart/updateItemOptions/{cartItemId}
     POST           /cart/addItem
     POST           /cart/applyCoupon
     POST           /cart/estimate
     POST           /cart/mergeGuestCart
+    POST           /cart/saveForLater
+    POST           /cart/savedForLater/{id}/moveToCart
+/priceWatches
+    DELETE         /priceWatches/remove/{id}
+    GET            /priceWatches/getAll
+    POST           /priceWatches/watch
 /categories
     DELETE         /categories/deleteCategory/{id}
     GET            /categories/getAll
@@ -2792,16 +2952,15 @@ live Express router, whereas a hand-written list drifts.
     POST           /notifications/sendBulk
     POST           /notifications/unregisterDevice
 /orders
+    DELETE         /orders/removeNote/{id}/{noteId}
     DELETE         /orders/removeTag/{id}/{tagId}
     GET            /orders/getAll
     GET            /orders/getById/{id}
     GET            /orders/getInvoice/{id}
+    GET            /orders/getNotes/{id}
     GET            /orders/getPackingSlip/{id}
     GET            /orders/getShippingLabel/{subOrderId}
     GET            /orders/getTags/{id}
-    GET            /orders/getNotes/{id}
-    POST           /orders/addNote/{id}
-    DELETE         /orders/removeNote/{id}/{noteId}
     GET            /orders/getTimeline/{id}
     GET            /orders/getVendorOrders
     GET            /orders/track/{id}
@@ -2810,6 +2969,7 @@ live Express router, whereas a hand-written list drifts.
     PATCH          /orders/rejectReturn/{returnId}
     PATCH          /orders/updateStatus/{id}
     PATCH          /orders/updateVendorStatus/{subOrderId}
+    POST           /orders/addNote/{id}
     POST           /orders/addTags/{id}
     POST           /orders/cancelOrder/{id}
     POST           /orders/placeOrder
@@ -2983,20 +3143,16 @@ live Express router, whereas a hand-written list drifts.
     POST           /templates/sms/{key}/render
 /tickets
     DELETE         /tickets/delete/{id}
-    POST           /cannedResponses/getAll
-    POST           /cannedResponses/create
-    PATCH          /cannedResponses/update/:id
-    DELETE         /cannedResponses/delete/:id
-    POST           /tickets/addNote/{id}
-    GET            /tickets/getNotes/{id}
     DELETE         /tickets/removeNote/{id}/{noteId}
     GET            /tickets/getAll
     GET            /tickets/getById/{id}
     GET            /tickets/getCategories
+    GET            /tickets/getNotes/{id}
     GET            /tickets/getStats
     PATCH          /tickets/assign/{id}
     PATCH          /tickets/close/{id}
     PATCH          /tickets/updateStatus/{id}
+    POST           /tickets/addNote/{id}
     POST           /tickets/categories
     POST           /tickets/create
     POST           /tickets/reply/{id}
@@ -3107,24 +3263,19 @@ Type column me do marker hain:
 | 🟡 | Partial/Stub — endpoint ya setting hai, par actual kaam nahi karta |
 
 Jin gaps ka kaam poora ho chuka hai, unhe is table se hata diya gaya hai — unka
-naya behaviour ab [Catalog & Order Rules](#catalog--order-rules) aur
-[Password](#password--srcconfigpasswordconfigts) mai documented hai. Jo row
+naya behaviour ab [Catalog & Order Rules](#catalog--order-rules),
+[Password](#password--srcconfigpasswordconfigts),
+[Account Security Rules](#account-security-rules),
+[Cart Rules](#cart-rules) and
+[Payment Rules](#payment-rules) mai documented hai. Jo row
 ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
 ### 1. Auth & Security
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Login with Phone + Password** | 🔴 | Sirf email + password login. Phone sirf OTP ke liye. | Phone + password login endpoint, phone-based user lookup, phone normalization. | India me 60% users phone-first hain. Email bhool jate hain. |
-| **Account Recovery (no email)** | 🔴 | Email kho gaya to koi recovery nahi. | Alternate recovery (phone OTP, security questions, backup codes). | User permanently locked out ho jata hai. Support load badhta hai. |
-| **Password Expiry Policy** | 🔴 | Password kabhi expire nahi hota. | `passwordChangedAt` + N days force change. | Enterprise/B2B clients ki requirement. |
-| **Concurrent Session Limit** | 🟡 | Sessions list + revoke hai. Max devices enforcement nahi. | Per-user max active sessions, oldest auto-revoke. | Account sharing rokne ke liye (Netflix model). |
-| **Suspicious Login Alert** | 🔴 | Koi alert nahi. | New device/IP/country pe email + push alert. | Account takeover detect karne ke liye. |
-| **Login Notifications** | 🔴 | Koi notification nahi. | Har login pe email/push with device + IP + location. | User ko pata chale koi aur login kiya. |
-| **Brute-force per account** | 🟡 | IP-based rate limit hai. Per-account lockout nahi. | Failed attempts counter per email/phone, N attempts pe lock. | Attacker IP badal ke brute-force kar sakta hai. |
-| **Email Change Flow** | 🔴 | `verifyEmail` hai, par change flow nahi. | Old email pe notify + new email pe OTP + confirm link. | Email change security ke liye. |
-| **Phone Change Flow** | 🔴 | Phone change flow nahi. | Old phone pe OTP + new phone pe OTP. | Phone change security. |
-| **Account Deletion Grace Period** | 🟡 | `deleteAccount` soft delete hai. Purge job nahi. | 30-day recovery window + nightly purge cron. | DPDP compliance + accidental delete recovery. |
+| **Account Recovery (no email)** | 🔴 | Email kho gaya to koi recovery nahi. | Alternate recovery (security questions, backup codes). Phone OTP recovery chalta hai. | User permanently locked out ho jata hai. Support load badhta hai. |
+| **Login Notifications (every login)** | 🟡 | Sirf first-time-device pe alert. | Har login pe email/push with device + IP + location. | User ko pata chale koi aur login kiya. |
 
 ### 2. Customer / User
 
@@ -3225,15 +3376,11 @@ ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Save for Later** | 🔴 | Cart se remove = gone. | Move to save-for-later list. | Conversion recovery. |
 | **Guest Cart Persistence** | 🟡 | `mergeGuestCart` hai. Storage partial. | Cookie/localStorage strategy. | Guest checkout. |
 | **Cart Expiry Notification** | 🔴 | Koi reminder nahi. | Abandon hone se pehle email/push. | Abandoned cart recovery. |
 | **Cart Sharing** | 🔴 | Cart link share nahi. | Shareable cart URL. | Social commerce. |
-| **Cart Price Drop Alert** | 🔴 | Price drop pe notify nahi. | Watch item, price drop alert. | Conversion. |
 | **Cart Stock Hold** | 🟡 | `cart.holdMinutes` setting. Actual reservation nahi. | Real stock reservation during checkout. | Oversell rokne ke liye. |
 | **Cart Per-Vendor Coupon** | 🔴 | Ek coupon. Multiple nahi. | Per-vendor coupon in multi-vendor cart. | Vendor coupons ke saath. |
-| **Cart Gift Wrap** | 🔴 | Koi gift wrap nahi. | Gift wrap option + charge. | Gifting. |
-| **Cart Delivery Instructions** | 🟡 | Partial. | Per-item delivery note. | Delivery accuracy. |
 | **Cart Scheduled Delivery** | 🔴 | Koi slot nahi. | Date/time slot selection. | Customer convenience. |
 
 ### 6. Order
@@ -3266,14 +3413,11 @@ ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Idempotency Keys** | 🔴 | Koi idempotency nahi. | `Idempotency-Key` header + DB table. | Duplicate payment rokne ke liye. |
 | **Actual Razorpay/Stripe SDK** | 🟡 | Routes hain, SDK call nahi. | Actual SDK integration. | Live payment ke liye. |
 | **Webhook Signature Verification** | 🟡 | Stub hai. | Actual HMAC verify. | Security. |
 | **Webhook Retry + DLQ** | 🔴 | Koi retry nahi. | Failed webhook retry + DLQ. | Reliability. |
 | **Payment Reconciliation** | 🔴 | Koi reconciliation nahi. | Daily settlement vs gateway. | Finance accuracy. |
 | **Refund to Source** | 🟡 | Endpoint hai. Gateway call nahi. | Actual gateway refund API. | Customer trust. |
-| **Partial Refund** | 🟡 | Full refund. Partial nahi. | Partial amount refund. | Flexibility. |
-| **Multiple Refunds per Order** | 🔴 | Ek refund. | Multiple partial refunds. | Complex returns. |
 | **Payment Retry** | 🔴 | Koi retry nahi. | Failed payment retry. | Conversion. |
 | **Payment Link** | 🔴 | Koi link nahi. | Shareable payment link. | B2B invoices. |
 | **Payment Reminder** | 🟡 | `balanceReminderHours` setting. Job nahi. | Actual cron to remind. | Balance recovery. |
@@ -3525,7 +3669,7 @@ ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Idempotency** | 🔴 | Koi idempotency nahi. | Idempotency-Key + DB. | Duplicate rokne ke liye. |
+| **Idempotency** | 🟢 | Payment writes key-protected. | Extend to every write route. | Duplicate rokne ke liye. |
 | **Observability (Sentry, OTel, Prometheus)** | 🔴 | Sirf pino logs. | Full observability. | Debugging. |
 | **Alerting (PagerDuty, Slack)** | 🔴 | Koi alert nahi. | Alert channels. | Ops. |
 | **Backup & DR** | 🔴 | Koi backup nahi. | Automated backup. | Data safety. |

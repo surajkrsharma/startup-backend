@@ -23,6 +23,10 @@ export const serializeCartLine = (item: any): Record<string, any> => {
       D.str(product?.vendor?.status) === 'APPROVED' &&
       (stock >= qty || D.bool(product?.allowBackorder)),
 
+    isGiftWrap: D.bool(item?.isGiftWrap),
+    giftWrapNote: D.str(item?.giftWrapNote),
+    deliveryNote: D.str(item?.deliveryNote),
+
     productData: base.productData
       ? {
           ...base.productData,
@@ -86,6 +90,7 @@ export const serializeCartDetail = (cart: any, totals: any, extras: Record<strin
     taxAmount: D.float(totals?.taxAmount),
     shippingAmount: D.float(totals?.shippingAmount),
     walletAmount: D.float(totals?.walletAmount),
+    giftWrapAmount: D.float(totals?.giftWrapAmount),
     total: D.float(totals?.total),
     hasStockIssue: D.bool(lines.some((l: any) => !l.isAvailable)),
     couponInvalid: D.bool(extras.couponInvalid),
@@ -136,6 +141,7 @@ export const serializeEstimate = (input: {
   shippingAmount: number;
   shippingFree: boolean;
   walletAmount: number;
+  giftWrapAmount: number;
   total: number;
   couponCode: string;
   couponData: Record<string, any>;
@@ -154,6 +160,7 @@ export const serializeEstimate = (input: {
   shippingAmount: D.float(input.shippingAmount),
   shippingFree: D.bool(input.shippingFree),
   walletAmount: D.float(input.walletAmount),
+  giftWrapAmount: D.float(input.giftWrapAmount),
   total: D.float(input.total),
   hasStockIssue: D.bool(input.hasStockIssue),
 
@@ -185,3 +192,57 @@ export const serializeWishlist = (items: any[]) => ({
 
   itemList: D.arr(items).map(serializeWishlistItem),
 });
+
+export const serializeSavedCartItem = (row: any): Record<string, any> => {
+  const product = row?.product;
+  const variant = row?.variant;
+  const unitPrice = variant?.price ?? product?.price ?? 0;
+
+  return {
+    savedItemId: D.str(row?.id),
+    productId: D.str(row?.productId),
+    variantId: D.str(row?.variantId),
+    qty: D.num(row?.qty),
+    unitPrice: D.float(unitPrice),
+    lineTotal: D.float(D.num(row?.qty) * D.float(unitPrice)),
+    availableStock: D.num(variant?.stock ?? product?.stock),
+    createdAt: D.date(row?.createdAt),
+
+    productData: {
+      name: D.str(product?.name),
+      slug: D.str(product?.slug),
+      mrpPrice: D.float(product?.mrpPrice),
+      vendorId: D.str(product?.vendorId),
+      vendorData: {
+        vendorId: D.str(product?.vendor?.id),
+        shopName: D.str(product?.vendor?.shopName),
+        slug: D.str(product?.vendor?.slug),
+      },
+      imageList: D.arr(product?.images)
+        .sort((a: any, b: any) => D.num(a?.sortOrder) - D.num(b?.sortOrder))
+        .map((img: any) => D.str(img?.url)),
+    },
+  };
+};
+
+export const serializePriceWatch = (row: any): Record<string, any> => {
+  const product = row?.product;
+  const variant = row?.variant;
+
+  return {
+    watchId: D.str(row?.id),
+    productId: D.str(row?.productId),
+    variantId: D.str(row?.variantId),
+    targetPrice: D.float(row?.targetPrice),
+    currentPrice: D.float(variant?.price ?? product?.price),
+    lastNotifiedAt: D.date(row?.lastNotifiedAt),
+    createdAt: D.date(row?.createdAt),
+
+    productData: {
+      name: D.str(product?.name),
+      slug: D.str(product?.slug),
+      mrpPrice: D.float(product?.mrpPrice),
+      imageUrl: D.str(D.obj<any>(D.arr(product?.images)[0]).url),
+    },
+  };
+};

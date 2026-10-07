@@ -8,6 +8,7 @@ export const PASSWORD = {
   SPECIAL_CHARACTERS: '!@#$%^&*()_+-=[]{}|;:,.<>?',
   BCRYPT_ROUNDS: 12,
   RESET_TOKEN_EXPIRY_MIN: 30,
+  CONTACT_CHANGE_COOLDOWN_MIN: 10,
 };
 
 export const NAME = {

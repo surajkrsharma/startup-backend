@@ -11,6 +11,7 @@ import {
   getCartMaxItems,
   getCouponConfig,
   getDefaultGstPercent,
+  getGiftWrapConfig,
   getPaymentMethodsConfig,
   getShippingConfig,
   getTaxInclusive,
@@ -18,7 +19,9 @@ import {
 } from '../../services/settings.service';
 import { cacheDel } from '../../services/redis.service';
 import { writeActivityLog } from '../../services/audit.service';
+import { notifyUser } from '../../services/notification.service';
 import { isFuture, isPast } from '../../utils/dates';
+import { DELIVERY_INSTRUCTIONS } from '../../config/password.config';
 
 const CART_INCLUDE = {
   items: {
@@ -93,6 +96,7 @@ export interface CartTotalsResult {
   shippingAmount: number;
   shippingFree: boolean;
   walletAmount: number;
+  giftWrapAmount: number;
   total: number;
   couponCode: string;
 
@@ -116,6 +120,7 @@ export const EMPTY_TOTALS: CartTotalsResult = {
   shippingAmount: 0,
   shippingFree: false,
   walletAmount: 0,
+  giftWrapAmount: 0,
   total: 0,
   couponCode: '',
   coupon: null,
@@ -141,10 +146,11 @@ export const calculateTotals = async (
     return { ...EMPTY_TOTALS, couponCode: D.str(options.couponCode ?? cart?.couponCode) };
   }
 
-  const [taxInclusive, defaultGst, shippingCfg] = await Promise.all([
+  const [taxInclusive, defaultGst, shippingCfg, giftWrap] = await Promise.all([
     getTaxInclusive(),
     getDefaultGstPercent(),
     getShippingConfig(),
+    getGiftWrapConfig(),
   ]);
 
   const lines: CartLine[] = items.map((item) => {
@@ -231,7 +237,12 @@ export const calculateTotals = async (
     }
   }
 
-  const payable = money(Math.max(0, subtotal - couponDiscount + taxAmount + shippingAmount));
+  const giftWrapCount = lines.filter((l) => D.bool(l.item.isGiftWrap)).length;
+  const giftWrapAmount = giftWrapCount ? money(giftWrap.charge * giftWrapCount) : 0;
+
+  const payable = money(
+    Math.max(0, subtotal - couponDiscount + taxAmount + shippingAmount + giftWrapAmount),
+  );
 
   let walletAmount = 0;
   if (options.useWallet) {
@@ -256,6 +267,7 @@ export const calculateTotals = async (
     shippingAmount,
     shippingFree,
     walletAmount,
+    giftWrapAmount,
     total,
     couponCode: requestedCode,
     coupon,
@@ -571,6 +583,383 @@ export const updateItem = async (
   });
 
   return { removed: false, totals: await calculateTotals(await getOrCreateCart(userId)) };
+};
+
+export const updateItemOptions = async (
+  userId: string,
+  cartItemId: string,
+  input: { isGiftWrap?: boolean; giftWrapNote?: string; deliveryNote?: string },
+  req?: any,
+): Promise<{ item: any; totals: CartTotalsResult }> => {
+  const cart = await getOrCreateCart(userId);
+
+  const existing = await prisma.cartItem.findFirst({
+    where: { id: D.str(cartItemId), cartId: cart.id },
+    select: { id: true, isGiftWrap: true, giftWrapNote: true, deliveryNote: true },
+  });
+
+  if (!existing) throw AppError.notFound(ERROR.CART.ITEM_NOT_FOUND, ERROR_CODE.CART_ITEM_NOT_FOUND);
+
+  const giftWrap = await getGiftWrapConfig();
+  const isGiftWrap =
+    input.isGiftWrap === undefined ? existing.isGiftWrap : D.bool(input.isGiftWrap);
+
+  const giftWrapNote = isGiftWrap
+    ? D.str(input.giftWrapNote ?? existing.giftWrapNote).slice(0, giftWrap.noteMaxLength)
+    : '';
+
+  const data = {
+    isGiftWrap,
+    giftWrapNote,
+    deliveryNote: D.str(input.deliveryNote ?? existing.deliveryNote).slice(
+      0,
+      DELIVERY_INSTRUCTIONS.MAX_LENGTH,
+    ),
+  };
+
+  const item = await prisma.cartItem.update({ where: { id: existing.id }, data });
+  await dropCartCache(userId);
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CART_ITEM_UPDATED',
+    entity: 'CartItem',
+    entityId: item.id,
+    meta: data,
+  });
+
+  return { item, totals: await calculateTotals(await getOrCreateCart(userId)) };
+};
+
+const SAVED_INCLUDE = {
+  product: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      mrpPrice: true,
+      stock: true,
+      status: true,
+      vendorId: true,
+      vendor: { select: { id: true, shopName: true, slug: true, status: true } },
+      images: { select: { url: true, sortOrder: true } },
+    },
+  },
+  variant: {
+    select: { id: true, title: true, sku: true, price: true, mrpPrice: true, stock: true },
+  },
+} satisfies Prisma.SavedCartItemInclude;
+
+export const listSavedForLater = async (userId: string): Promise<any[]> =>
+  prisma.savedCartItem.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    include: SAVED_INCLUDE,
+  });
+
+/**
+ * Moves the line out of the active cart rather than copying it, so a saved item
+ * can never be checked out by accident or counted against the cart ceiling.
+ */
+export const saveForLater = async (
+  userId: string,
+  input: { cartItemId?: string; productId?: string; variantId?: string; qty?: number },
+  req?: any,
+): Promise<{ item: any; totals: CartTotalsResult }> => {
+  const cart = await getOrCreateCart(userId);
+
+  const existing = await prisma.cartItem.findFirst({
+    where: {
+      cartId: cart.id,
+      ...(D.str(input.cartItemId)
+        ? { id: D.str(input.cartItemId) }
+        : {
+            productId: D.str(input.productId),
+            variantId: D.str(input.variantId) || null,
+          }),
+    },
+    select: { id: true, productId: true, variantId: true, qty: true },
+  });
+
+  if (!existing) throw AppError.notFound(ERROR.CART.ITEM_NOT_FOUND, ERROR_CODE.CART_ITEM_NOT_FOUND);
+
+  const qty = Math.min(Math.max(1, D.num(input.qty) || D.num(existing.qty)), D.num(existing.qty));
+
+  const prior = await prisma.savedCartItem.findFirst({
+    where: { userId, productId: existing.productId, variantId: existing.variantId },
+    select: { id: true },
+  });
+
+  const item = prior
+    ? await prisma.savedCartItem.update({
+        where: { id: prior.id },
+        data: { qty },
+        include: SAVED_INCLUDE,
+      })
+    : await prisma.savedCartItem.create({
+        data: { userId, productId: existing.productId, variantId: existing.variantId, qty },
+        include: SAVED_INCLUDE,
+      });
+
+  await prisma.cartItem.delete({ where: { id: existing.id } });
+  await dropCartCache(userId);
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CART_ITEM_SAVED',
+    entity: 'SavedCartItem',
+    entityId: item.id,
+    meta: { productId: existing.productId, qty },
+  });
+
+  return { item, totals: await calculateTotals(await getOrCreateCart(userId)) };
+};
+
+export const removeSavedItem = async (
+  userId: string,
+  reference: string,
+  req?: any,
+): Promise<{ removedCount: number }> => {
+  const item = await prisma.savedCartItem.findFirst({
+    where: { userId, OR: [{ id: reference }, { productId: reference }] },
+    select: { id: true },
+  });
+
+  if (!item) throw AppError.notFound(ERROR.CART.SAVED_ITEM_NOT_FOUND);
+
+  await prisma.savedCartItem.delete({ where: { id: item.id } });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CART_SAVED_ITEM_REMOVED',
+    entity: 'SavedCartItem',
+    entityId: item.id,
+  });
+
+  return { removedCount: 1 };
+};
+
+export const moveSavedItemToCart = async (
+  userId: string,
+  reference: string,
+  input: { qty?: number },
+  req?: any,
+): Promise<{ item: any; totals: CartTotalsResult }> => {
+  const saved = await prisma.savedCartItem.findFirst({
+    where: { userId, OR: [{ id: reference }, { productId: reference }] },
+    select: { id: true, productId: true, variantId: true, qty: true },
+  });
+
+  if (!saved) throw AppError.notFound(ERROR.CART.SAVED_ITEM_NOT_FOUND);
+
+  const qty = Math.max(1, D.num(input.qty) || D.num(saved.qty));
+
+  const added = await addItem(
+    userId,
+    { productId: saved.productId, variantId: saved.variantId ?? undefined, qty },
+    req,
+  );
+
+  const remaining = D.num(saved.qty) - qty;
+  if (remaining > 0) {
+    await prisma.savedCartItem.update({ where: { id: saved.id }, data: { qty: remaining } });
+  } else {
+    await prisma.savedCartItem.delete({ where: { id: saved.id } });
+  }
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CART_SAVED_MOVED_TO_CART',
+    entity: 'SavedCartItem',
+    entityId: saved.id,
+    meta: { productId: saved.productId, qty },
+  });
+
+  return added;
+};
+
+export const clearSavedForLater = async (
+  userId: string,
+  req?: any,
+): Promise<{ removedCount: number }> => {
+  const { count } = await prisma.savedCartItem.deleteMany({ where: { userId } });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'CART_SAVED_CLEARED',
+    entity: 'SavedCartItem',
+    meta: { removedCount: count },
+  });
+
+  return { removedCount: count };
+};
+
+const WATCH_INCLUDE = {
+  product: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      price: true,
+      mrpPrice: true,
+      stock: true,
+      status: true,
+      images: { select: { url: true, sortOrder: true } },
+    },
+  },
+  variant: { select: { id: true, title: true, sku: true, price: true, stock: true } },
+} satisfies Prisma.PriceWatchInclude;
+
+const effectiveWatchPrice = (row: { product?: any; variant?: any }): number =>
+  money(row.variant?.price ?? row.product?.price ?? 0);
+
+export const listPriceWatches = async (userId: string): Promise<any[]> =>
+  prisma.priceWatch.findMany({
+    where: { userId, isActive: true },
+    orderBy: { createdAt: 'desc' },
+    include: WATCH_INCLUDE,
+  });
+
+export const watchPrice = async (
+  userId: string,
+  input: { productId: string; variantId?: string; targetPrice: number },
+  req?: any,
+): Promise<any> => {
+  const productId = D.str(input.productId);
+  const variantId = D.str(input.variantId);
+
+  const product = await prisma.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: { id: true, price: true },
+  });
+
+  if (!product) throw AppError.notFound(ERROR.PRODUCT.NOT_FOUND);
+
+  let currentPrice = money(product.price);
+
+  if (variantId) {
+    const variant = await prisma.productVariant.findFirst({
+      where: { id: variantId, productId, isActive: true },
+      select: { id: true, price: true },
+    });
+    if (!variant) throw AppError.notFound(ERROR.PRODUCT.INVALID_VARIANT);
+    currentPrice = money(variant.price) || currentPrice;
+  }
+
+  const target = money(input.targetPrice);
+
+  if (target <= 0) {
+    throw AppError.unprocessable(ERROR.CART.WATCH_PRICE_REQUIRED);
+  }
+
+  if (target >= currentPrice) {
+    throw AppError.unprocessable(
+      `Target price must be below the current price of ${currentPrice}.`,
+    );
+  }
+
+  const prior = await prisma.priceWatch.findFirst({
+    where: { userId, productId, variantId: variantId || null },
+    select: { id: true },
+  });
+
+  const write = {
+    targetPrice: target,
+    lastSeenPrice: currentPrice,
+    isActive: true,
+  };
+
+  const watch = prior
+    ? await prisma.priceWatch.update({
+        where: { id: prior.id },
+        data: write,
+        include: WATCH_INCLUDE,
+      })
+    : await prisma.priceWatch.create({
+        data: { userId, productId, variantId: variantId || null, ...write },
+        include: WATCH_INCLUDE,
+      });
+
+  void writeActivityLog({
+    req,
+    userId,
+    action: 'PRICE_WATCH_ADDED',
+    entity: 'PriceWatch',
+    entityId: watch.id,
+    meta: { productId, targetPrice: target, currentPrice },
+  });
+
+  return watch;
+};
+
+export const removePriceWatch = async (userId: string, reference: string): Promise<boolean> => {
+  const watch = await prisma.priceWatch.findFirst({
+    where: { userId, OR: [{ id: reference }, { productId: reference }] },
+    select: { id: true },
+  });
+
+  if (!watch) throw AppError.notFound(ERROR.CART.WATCH_NOT_FOUND);
+
+  await prisma.priceWatch.update({ where: { id: watch.id }, data: { isActive: false } });
+  return true;
+};
+
+/**
+ * Fires only when the price has fallen since the last scan, so a watch that is
+ * already below target does not re-notify on every pass.
+ */
+export const scanPriceDrops = async (): Promise<{ checked: number; notified: number }> => {
+  const watches = await prisma.priceWatch.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      userId: true,
+      targetPrice: true,
+      lastSeenPrice: true,
+      lastNotifiedAt: true,
+      product: { select: { id: true, name: true, price: true } },
+      variant: { select: { id: true, price: true } },
+    },
+  });
+
+  let notified = 0;
+
+  for (const watch of watches) {
+    const current = effectiveWatchPrice(watch);
+    const dropped = D.float(watch.lastSeenPrice) > 0 && current < D.float(watch.lastSeenPrice);
+
+    if (dropped && current <= D.float(watch.targetPrice)) {
+      await notifyUser({
+        userId: watch.userId,
+        type: 'PROMO',
+        title: 'Price drop on something you are watching',
+        body: `${D.str(watch.product?.name)} is now ${current}, down from ${D.float(watch.lastSeenPrice)}.`,
+        data: {
+          productId: D.str(watch.product?.id),
+          currentPrice: current,
+          previousPrice: D.float(watch.lastSeenPrice),
+          targetPrice: D.float(watch.targetPrice),
+        },
+      }).catch(() => undefined);
+      notified += 1;
+    }
+
+    await prisma.priceWatch.update({
+      where: { id: watch.id },
+      data: {
+        lastSeenPrice: current,
+        ...(dropped ? { lastNotifiedAt: new Date() } : {}),
+      },
+    });
+  }
+
+  return { checked: watches.length, notified };
 };
 
 export const removeItem = async (

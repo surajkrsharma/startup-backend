@@ -49,6 +49,20 @@ export const CRON_JOB_LIST: CronDefinition[] = [
     cron: CRON.CLEANUP_EXPIRED,
     description: 'Purge expired refresh tokens, OTPs and stale sessions',
   },
+  {
+    name: 'purge-deleted-accounts',
+    queue: QUEUE.CLEANUP,
+    job: JOB.PURGE_DELETED_ACCOUNTS,
+    cron: CRON.PURGE_DELETED_ACCOUNTS,
+    description: 'Delete accounts whose deletion recovery window has closed',
+  },
+  {
+    name: 'price-drop-scan',
+    queue: QUEUE.NOTIFICATION,
+    job: JOB.PRICE_DROP_SCAN,
+    cron: CRON.PRICE_DROP_SCAN,
+    description: 'Compare watched product prices and notify on a drop',
+  },
 ];
 
 export const startCronJobs = async (): Promise<number> => {

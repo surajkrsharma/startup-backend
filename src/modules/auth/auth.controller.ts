@@ -5,6 +5,7 @@ import { ERROR } from '../../messages/error';
 import { AppError } from '../../utils/AppError';
 import { ERROR_CODE, HTTP_STATUS } from '../../constants/http';
 import { asyncHandler } from '../../utils/asyncHandler';
+import { D } from '../../utils/defaults';
 import { JWT } from '../../config/jwt.config';
 import { HEADER } from '../../config/app.config';
 import { REGISTER_TYPE, OTP_TYPE } from '../../constants/roles';
@@ -20,6 +21,7 @@ import {
   serializeAuthUser,
   serializeConsent,
   serializeConsentList,
+  serializeContactChange,
 } from './auth.serializer';
 
 const deviceFrom = (req: Request, input?: any): DeviceContext =>
@@ -108,7 +110,10 @@ export const login = asyncHandler(async (req, res) => {
 
   return ApiResponse.success(res, {
     message: SUCCESS.AUTH.LOGGED_IN,
-    result: serializeSession(outcome.user, outcome.tokens),
+    result: {
+      ...serializeSession(outcome.user, outcome.tokens),
+      revokedSessionCount: D.num(outcome.revokedSessionCount),
+    },
   });
 });
 
@@ -277,6 +282,73 @@ export const verifyEmail = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     message: SUCCESS.AUTH.EMAIL_VERIFIED,
     result: result,
+  });
+});
+
+export const requestContactChangeOtp = asyncHandler(async (req, res) => {
+  const result = await authService.requestContactChangeOtp({
+    userId: req.auth!.userId,
+    value: req.body.value,
+    kind: req.body.type,
+  });
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.OTP_SENT,
+    result: serializeOtpResponse(result),
+  });
+});
+
+export const verifyContactChangeOtp = asyncHandler(async (req, res) => {
+  const result = await authService.verifyContactChangeOtp({
+    userId: req.auth!.userId,
+    value: req.body.value,
+    kind: req.body.type,
+    otp: req.body.otp,
+    channel: req.body.channel,
+  });
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.OTP_VERIFIED,
+    result: serializeVerificationResponse(result),
+  });
+});
+
+export const changeEmail = asyncHandler(async (req, res) => {
+  const result = await authService.changeEmail({
+    userId: req.auth!.userId,
+    email: req.body.email,
+    otp: req.body.otp,
+    verificationToken: req.body.verificationToken,
+    channel: req.body.channel,
+  });
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.EMAIL_CHANGED,
+    result: serializeContactChange(result),
+  });
+});
+
+export const changePhone = asyncHandler(async (req, res) => {
+  const result = await authService.changePhone({
+    userId: req.auth!.userId,
+    phone: req.body.phone,
+    otp: req.body.otp,
+    verificationToken: req.body.verificationToken,
+    channel: req.body.channel,
+  });
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.PHONE_CHANGED,
+    result: serializeContactChange(result),
+  });
+});
+
+export const restoreAccount = asyncHandler(async (req, res) => {
+  await authService.restoreDeletedAccount(req.body.restoreToken);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.AUTH.ACCOUNT_RESTORED,
+    result: { isRestored: true },
   });
 });
 

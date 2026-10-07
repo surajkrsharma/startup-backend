@@ -10,6 +10,8 @@ import {
   serializeEstimate,
   serializeWishlist,
   serializeWishlistItem,
+  serializeSavedCartItem,
+  serializePriceWatch,
 } from './cart.serializer';
 
 const userId = (req: Request): string => req.auth!.userId;
@@ -105,6 +107,97 @@ export const updateItem = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     message: removed ? SUCCESS.CART.ITEM_REMOVED : SUCCESS.CART.ITEM_UPDATED,
     result: serializeCartDetail(await service.getCart(userId(req)), totals, couponExtras(totals)),
+  });
+});
+
+export const updateItemOptions = asyncHandler(async (req, res) => {
+  const { totals } = await service.updateItemOptions(
+    userId(req),
+    req.params.cartItemId,
+    req.body,
+    req,
+  );
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.OPTIONS_UPDATED,
+    result: serializeCartDetail(await service.getCart(userId(req)), totals, couponExtras(totals)),
+  });
+});
+
+export const getSavedForLater = asyncHandler(async (req, res) => {
+  const items = await service.listSavedForLater(userId(req));
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.SAVED_FETCHED,
+    result: {
+      itemCount: D.num(items.length),
+      savedItemList: items.map(serializeSavedCartItem),
+    },
+  });
+});
+
+export const saveForLater = asyncHandler(async (req, res) => {
+  const { totals } = await service.saveForLater(userId(req), req.body, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.SAVED,
+    result: {
+      cart: serializeCartDetail(await service.getCart(userId(req)), totals, couponExtras(totals)),
+    },
+  });
+});
+
+export const removeSavedItem = asyncHandler(async (req, res) => {
+  const { removedCount } = await service.removeSavedItem(userId(req), req.params.id, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.SAVED_REMOVED,
+    result: { savedItemId: D.str(req.params.id), removedCount: D.num(removedCount) },
+  });
+});
+
+export const moveSavedItemToCart = asyncHandler(async (req, res) => {
+  const { totals } = await service.moveSavedItemToCart(userId(req), req.params.id, req.body, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.SAVED_MOVED_TO_CART,
+    result: serializeCartDetail(await service.getCart(userId(req)), totals, couponExtras(totals)),
+  });
+});
+
+export const clearSavedForLater = asyncHandler(async (req, res) => {
+  const { removedCount } = await service.clearSavedForLater(userId(req), req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.SAVED_CLEARED,
+    result: { removedCount: D.num(removedCount) },
+  });
+});
+
+export const getPriceWatches = asyncHandler(async (req, res) => {
+  const watches = await service.listPriceWatches(userId(req));
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.WATCH_FETCHED,
+    result: {
+      watchCount: D.num(watches.length),
+      watchList: watches.map(serializePriceWatch),
+    },
+  });
+});
+
+export const watchPrice = asyncHandler(async (req, res) => {
+  const watch = await service.watchPrice(userId(req), req.body, req);
+
+  return ApiResponse.created(res, SUCCESS.CART.WATCH_ADDED, serializePriceWatch(watch));
+});
+
+export const removePriceWatch = asyncHandler(async (req, res) => {
+  await service.removePriceWatch(userId(req), req.params.id);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.CART.WATCH_REMOVED,
+    result: { watchId: D.str(req.params.id), isRemoved: true },
   });
 });
 
@@ -222,6 +315,7 @@ export const estimate = asyncHandler(async (req, res) => {
       shippingAmount: totals.shippingAmount,
       shippingFree: totals.shippingFree,
       walletAmount: totals.walletAmount,
+      giftWrapAmount: totals.giftWrapAmount,
       total: totals.total,
       couponCode: D.str(totals.couponCode),
       couponData: D.str(totals.couponCode) ? couponExtras(totals) : {},

@@ -135,3 +135,11 @@ export const serializeConsent = (c: any): Record<string, any> => ({
 export const serializeConsentList = (rows: any[]): Record<string, any[]> => ({
   consentList: D.arr(rows).map(serializeConsent),
 });
+
+export const serializeContactChange = (input: {
+  previous: string;
+  current: string;
+}): Record<string, any> => ({
+  previousValue: D.str(input.previous),
+  currentValue: D.str(input.current),
+});

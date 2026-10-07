@@ -23,8 +23,9 @@ import { writeActivityLog, writeAuditLog } from '../../services/audit.service';
 const addDays = (date: Date, days: number): Date =>
   new Date(date.getTime() + Math.max(0, D.num(days)) * 24 * 60 * 60 * 1000);
 
-const currentBalance = async (userId: string): Promise<number> => {
-  const total = await prisma.loyaltyTransaction.aggregate({
+const currentBalance = async (userId: string, tx?: Prisma.TransactionClient): Promise<number> => {
+  const client = tx ?? prisma;
+  const total = await client.loyaltyTransaction.aggregate({
     where: { userId },
     _sum: { points: true },
   });
@@ -116,7 +117,7 @@ const writeLoyaltyTxn = async (
   tx?: Prisma.TransactionClient,
 ): Promise<{ balanceAfter: number; row: any }> => {
   const client = tx ?? prisma;
-  const balance = money((await currentBalance(userId)) + D.num(input.points));
+  const balance = money((await currentBalance(userId, tx)) + D.num(input.points));
 
   const row = await client.loyaltyTransaction.create({
     data: {

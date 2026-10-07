@@ -8,7 +8,7 @@ import vendorRoutes from '../modules/vendor/vendor.routes';
 import productRoutes from '../modules/product/product.routes';
 import categoryRoutes from '../modules/category/category.routes';
 import catalogRoutes from '../modules/catalog/catalog.routes';
-import { cartRoutes, wishlistRoutes } from '../modules/cart/cart.routes';
+import { cartRoutes, wishlistRoutes, priceWatchRoutes } from '../modules/cart/cart.routes';
 import orderRoutes from '../modules/order/order.routes';
 import {
   paymentRoutes,
@@ -83,6 +83,7 @@ apiRoutes.use('/categories', categoryRoutes);
 apiRoutes.use(catalogRoutes);
 apiRoutes.use('/cart', cartRoutes);
 apiRoutes.use('/wishlist', wishlistRoutes);
+apiRoutes.use('/priceWatches', priceWatchRoutes);
 apiRoutes.use('/orders', orderRoutes);
 apiRoutes.use('/payments', paymentRoutes);
 apiRoutes.use('/payouts', payoutRoutes);

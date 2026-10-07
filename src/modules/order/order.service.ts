@@ -18,6 +18,7 @@ import {
   getOrderMinAmount,
   getOrderCancelWindowMin,
   getPaymentMethodsConfig,
+  getGiftWrapConfig,
   getShippingConfig,
   getTokenPaymentConfig,
   getTokenPolicy,
@@ -211,7 +212,14 @@ export const placeOrder = async (
   const shipping =
     D.bool(input.skipUnavailable) && skipped.length ? 0 : D.float(totals.shippingAmount);
 
-  const payable = money(Math.max(0, usableSubtotal - couponDiscount + usableTax + shipping));
+  const giftWrapCount = usable.filter((l) => D.bool(l.item.isGiftWrap)).length;
+  const giftWrapAmount = giftWrapCount
+    ? money((await getGiftWrapConfig()).charge * giftWrapCount)
+    : 0;
+
+  const payable = money(
+    Math.max(0, usableSubtotal - couponDiscount + usableTax + shipping + giftWrapAmount),
+  );
 
   let walletAmount = 0;
   if (D.bool(input.useWalletBalance)) {
@@ -269,6 +277,7 @@ export const placeOrder = async (
           couponDiscount,
           taxAmount: usableTax,
           shippingAmount: shipping,
+          giftWrapAmount,
           walletAmount,
           total,
           tokenRequired,
@@ -345,6 +354,9 @@ export const placeOrder = async (
               total: line.lineSubtotal,
               commission: split.commission,
               vendorEarning: split.vendorEarning,
+              isGiftWrap: D.bool(item.isGiftWrap),
+              giftWrapNote: D.str(item.giftWrapNote),
+              deliveryNote: D.str(item.deliveryNote),
             },
           });
 

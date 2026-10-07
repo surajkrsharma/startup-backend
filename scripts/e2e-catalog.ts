@@ -5,10 +5,13 @@ const app = createApp();
 
 const OTP = process.env.OTP_STATIC_CODE || '111111';
 
-const sendOtp = (identifier: string) =>
-  request(app)
-    .post('/api/v1/auth/sendOtp')
-    .send({ type: 'REGISTER', channel: 'EMAIL', identifier });
+const sendOtp = async (identifier: string) => {
+  await request(app).post('/api/v1/auth/register/sendOtp').send({ identifier });
+  const verified = await request(app)
+    .post('/api/v1/auth/register/verifyOtp')
+    .send({ identifier, otp: OTP });
+  return verified.body?.result?.verificationToken ?? '';
+};
 
 interface Check {
   name: string;
@@ -42,14 +45,14 @@ const main = async (): Promise<void> => {
     .then((r) => r.body?.result?.accessToken ?? '');
   record('bootstrap admin token', Boolean(adminToken));
 
-  await sendOtp(`ct_${run}@projectname.com`);
+  const verificationToken = await sendOtp(`ct_${run}@projectname.com`);
 
   const customer = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type: 'CUSTOMER',
       name: 'CT Buyer',
-      otp: OTP,
+      verificationToken,
       email: `ct_${run}@projectname.com`,
       phone: phoneFor('ct'),
       password: 'Secret@123',
@@ -57,14 +60,14 @@ const main = async (): Promise<void> => {
   const customerToken = customer.body?.result?.accessToken ?? '';
   record('bootstrap customer token', Boolean(customerToken));
 
-  await sendOtp(`ctv_${run}@projectname.com`);
+  const vendorVerificationToken = await sendOtp(`ctv_${run}@projectname.com`);
 
   const vendor = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type: 'VENDOR',
       name: 'CT Vendor',
-      otp: OTP,
+      verificationToken: vendorVerificationToken,
       email: `ctv_${run}@projectname.com`,
       phone: phoneFor('ctv'),
       password: 'Secret@123',

@@ -78,15 +78,21 @@ const register = async (
   shopName?: string,
 ): Promise<{ token: string; userId: string; vendorId: string }> => {
   await request(app)
-    .post('/api/v1/auth/sendOtp')
-    .send({ type: 'REGISTER', channel: 'EMAIL', identifier: email(tag) });
+    .post('/api/v1/auth/register/sendOtp')
+    .send({ identifier: email(tag) });
+
+  const verified = await request(app)
+    .post('/api/v1/auth/register/verifyOtp')
+    .send({ identifier: email(tag), otp: OTP });
+
+  const verificationToken = verified.body?.result?.verificationToken ?? '';
 
   const res = await request(app)
     .post('/api/v1/auth/register')
     .send({
       type,
       name: `CT ${tag}`,
-      otp: OTP,
+      verificationToken,
       email: email(tag),
       phone: phoneFor(tag),
       password: 'Secret@123',
@@ -1420,14 +1426,14 @@ const main = async (): Promise<void> => {
   );
 
   for (const type of [
-    'orders',
-    'products',
-    'customers',
-    'vendors',
-    'payouts',
-    'tax',
-    'inventory',
-    'returns',
+    'ORDERS',
+    'PRODUCTS',
+    'CUSTOMERS',
+    'VENDORS',
+    'PAYOUTS',
+    'TAX',
+    'INVENTORY',
+    'RETURNS',
   ]) {
     const r = await admin.get(`/api/v1/reports/export/${type}`);
     record(

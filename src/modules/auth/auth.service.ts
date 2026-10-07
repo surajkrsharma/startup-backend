@@ -24,6 +24,7 @@ import { ROLES, OTP_TYPE, OTP_CHANNEL, OtpType, VENDOR_STATUS } from '../../cons
 import { VERIFICATION_PURPOSE } from '../../constants/roles';
 import { OTP_TYPES_REQUIRING_ACCOUNT } from '../../constants/roles';
 import { OTP } from '../../config/otp.config';
+import { PASSWORD } from '../../config/password.config';
 import { isOtpEnforceable } from '../../config/otp-policy';
 import { ENV, isProduction } from '../../config/env.config';
 import { REFRESH_TOKEN_TTL_SEC, ACCESS_TOKEN_TTL_SEC } from '../../config/jwt.config';
@@ -35,11 +36,12 @@ import {
 import { REDIS_KEYS } from '../../config/tracking.config';
 import { incr, cacheDel, getRedis } from '../../services/redis.service';
 import { sendOtpEmail } from '../../services/email.service';
+import { notifyUser } from '../../services/notification.service';
 import { sendOtpSms } from '../../services/sms/sms.service';
 import { enqueueEmail } from '../../jobs/queues';
 import { writeAuditLog, writeActivityLog } from '../../services/audit.service';
 import { D } from '../../utils/defaults';
-import { addMinutes } from '../../utils/dates';
+import { addMinutes, daysBetween } from '../../utils/dates';
 import { AUTH_USER_SELECT, AuthUserWithVendor, DeviceContext, TokenPair } from './auth.types';
 import {
   channelForIdentifier,
@@ -49,6 +51,37 @@ import {
 } from './auth.verification';
 import { EMAIL_REGEX, PHONE_REGEX } from '../../constants/countries';
 import { SOCIAL_PROVIDER as PROVIDERS } from '../../constants/roles';
+
+/**
+ * A device row only exists once a user has signed in on it, so a miss here is
+ * what "first time we have seen this device" means. It writes the row on the
+ * way out so the next login on the same device is not alerted again.
+ */
+const flagNewDevice = async (userId: string, device: DeviceContext): Promise<boolean> => {
+  if (!device.deviceId) return false;
+
+  const known = await prisma.device.findUnique({
+    where: { deviceId: device.deviceId },
+    select: { id: true, userId: true },
+  });
+
+  if (known) return known.userId !== userId;
+
+  await prisma.device
+    .create({
+      data: {
+        deviceId: device.deviceId,
+        userId,
+        platform: (device.platform ?? 'WEB') as any,
+        ip: D.str(device.ip),
+        appVersion: D.str(device.appVersion),
+        lastSeenAt: new Date(),
+      },
+    })
+    .catch(() => undefined);
+
+  return true;
+};
 
 const INVALID_IDENTIFIER = (): AppError =>
   new AppError(
@@ -87,6 +120,7 @@ export const registerCustomer = async (
       email,
       phone,
       passwordHash,
+      passwordChangedAt: new Date(),
       role: ROLES.CUSTOMER,
       isActive: true,
       isEmailVerified: verified.email,
@@ -147,6 +181,7 @@ export const registerVendor = async (
         email,
         phone,
         passwordHash,
+        passwordChangedAt: new Date(),
         role: ROLES.VENDOR,
         isActive: true,
         isEmailVerified: verified.email,
@@ -197,6 +232,63 @@ export const registerVendor = async (
   });
 
   return { user, tokens };
+};
+
+/**
+ * Trims the live session set back to the configured ceiling, oldest first, so a
+ * user who signs in past the limit loses the stalest device rather than the one
+ * they just used.
+ */
+const enforceSessionLimit = async (userId: string, keepSessionKey: string): Promise<number> => {
+  const security = await getSecurityConfig();
+  const cap = security.maxActiveSessions;
+  if (!cap) return 0;
+
+  const active = await prisma.session.findMany({
+    where: { userId, isActive: true },
+    orderBy: { lastSeenAt: 'desc' },
+    select: { id: true, sessionKey: true, deviceId: true },
+  });
+
+  const surplus = active
+    .filter((row) => row.sessionKey !== keepSessionKey)
+    .slice(Math.max(0, cap - 1));
+
+  if (!surplus.length) return 0;
+
+  const deviceIds = D.strArr(surplus.map((row) => row.deviceId));
+
+  await prisma.$transaction([
+    prisma.session.updateMany({
+      where: { id: { in: surplus.map((row) => row.id) } },
+      data: { isActive: false, endedAt: new Date() },
+    }),
+    prisma.refreshToken.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(deviceIds.length ? { deviceId: { in: deviceIds } } : {}),
+      },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
+
+  return surplus.length;
+};
+
+/**
+ * A password past its expiry window no longer opens a session; the caller has to
+ * run the change-password flow first.
+ */
+const assertPasswordNotExpired = (passwordChangedAt: Date | null, expiryDays: number): void => {
+  if (!expiryDays) return;
+  const changed = passwordChangedAt ?? new Date();
+  if (daysBetween(changed, new Date()) < expiryDays) return;
+  throw new AppError(
+    ERROR.AUTH.PASSWORD_EXPIRED,
+    HTTP_STATUS.FORBIDDEN,
+    ERROR_CODE.PASSWORD_EXPIRED,
+  );
 };
 
 export const issueTokens = async (userId: string, device: DeviceContext): Promise<TokenPair> => {
@@ -329,6 +421,8 @@ export interface LoginOutcome {
   tokens: TokenPair;
   twoFactorRequired: boolean;
   twoFactorToken?: string;
+  passwordExpired?: boolean;
+  revokedSessionCount?: number;
 }
 
 export const loginWithPassword = async (
@@ -346,6 +440,9 @@ export const loginWithPassword = async (
       passwordHash: true,
       failedLoginAttempts: true,
       lockedUntil: true,
+      passwordChangedAt: true,
+      lastLoginIp: true,
+      deletedAt: true,
       twoFactorSecret: true,
       twoFactorBackupCodes: true,
     },
@@ -395,7 +492,16 @@ export const loginWithPassword = async (
     );
   }
 
+  if (user.deletedAt) {
+    throw new AppError(
+      ERROR.AUTH.ACCOUNT_PENDING_DELETION,
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODE.ACCOUNT_PENDING_DELETION,
+    );
+  }
+
   assertVerified(user);
+  assertPasswordNotExpired(user.passwordChangedAt, security.passwordExpiryDays);
 
   if (user.twoFactorEnabled && security.twoFactorEnabled) {
     await prisma.user.update({
@@ -417,14 +523,42 @@ export const loginWithPassword = async (
     };
   }
 
+  const isNewDevice = await flagNewDevice(user.id, device);
+  const isNewLocation = isNewDevice || !user.lastLoginIp || user.lastLoginIp !== device.ip;
+
   await prisma.user.update({
     where: { id: user.id },
-    data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
+    data: {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLoginAt: new Date(),
+      lastLoginIp: D.str(device.ip),
+    },
   });
 
   const tokens = await issueTokens(user.id, device);
   await linkDeviceToUser(user.id, device);
   await cacheDel(REDIS_KEYS.LOGIN_ATTEMPTS(identifier));
+
+  const revokedSessionCount = await enforceSessionLimit(user.id, device.sessionKey);
+
+  if (security.loginAlerts && (security.newDeviceAlerts ? isNewDevice : isNewLocation)) {
+    void notifyUser({
+      userId: user.id,
+      type: 'ALERT',
+      title: 'New sign-in on your account',
+      body: isNewDevice
+        ? 'Your account was just used from a device we had not seen before.'
+        : 'Your account was just used from a new location.',
+      data: {
+        method: 'password',
+        ip: D.str(device.ip),
+        platform: D.str(device.platform),
+        deviceId: D.str(device.deviceId),
+        loggedInAt: new Date().toISOString(),
+      },
+    }).catch(() => undefined);
+  }
 
   void writeActivityLog({
     req,
@@ -432,10 +566,16 @@ export const loginWithPassword = async (
     action: 'LOGIN',
     entity: 'User',
     entityId: user.id,
-    meta: { method: 'password' },
+    meta: { method: 'password', isNewDevice },
   });
 
-  return { user, tokens, twoFactorRequired: false };
+  return {
+    user,
+    tokens,
+    twoFactorRequired: false,
+    passwordExpired: false,
+    revokedSessionCount,
+  };
 };
 
 export const completeTwoFactorLogin = async (
@@ -918,7 +1058,12 @@ export const resetPassword = async (input: {
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
-      data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null },
+      data: {
+        passwordHash,
+        passwordChangedAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
     });
     await tx.refreshToken.updateMany({
       where: { userId: user.id, revokedAt: null },
@@ -987,7 +1132,10 @@ export const changePassword = async (
   const security = await getSecurityConfig();
 
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+    await tx.user.update({
+      where: { id: userId },
+      data: { passwordHash, passwordChangedAt: new Date() },
+    });
     await retainPassword(tx, userId, outgoingHash, D.num(security.passwordHistoryCount));
   });
 
@@ -1031,6 +1179,50 @@ export const verifyContact = async (
     emailVerified: isEmail || user.isEmailVerified,
     phoneVerified: !isEmail || user.isPhoneVerified,
   };
+};
+
+/**
+ * The release step overwrites email and blanks phone, so recovery cannot look the
+ * account up by either. The caller restores with the token that was emailed at
+ * deletion time, matched against the stored hash.
+ */
+export const restoreDeletedAccount = async (restoreToken: string): Promise<boolean> => {
+  const token = D.str(restoreToken);
+  if (!token) {
+    throw new AppError(
+      ERROR.AUTH.ACCOUNT_PURGE_WINDOW,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODE.VALIDATION_ERROR,
+    );
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { deletionTokenHash: sha256(token), deletedAt: { not: null } },
+    select: { id: true, purgeAfter: true },
+  });
+
+  if (!user) {
+    throw new AppError(
+      ERROR.AUTH.ACCOUNT_PURGE_WINDOW,
+      HTTP_STATUS.GONE,
+      ERROR_CODE.ACCOUNT_PURGE_WINDOW,
+    );
+  }
+
+  if (user.purgeAfter && user.purgeAfter < new Date()) {
+    throw new AppError(
+      ERROR.AUTH.ACCOUNT_PURGE_WINDOW,
+      HTTP_STATUS.GONE,
+      ERROR_CODE.ACCOUNT_PURGE_WINDOW,
+    );
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { deletedAt: null, purgeAfter: null, deletionReason: '', deletionTokenHash: '' },
+  });
+
+  return true;
 };
 
 export const enableTwoFactor = async (
@@ -1103,6 +1295,164 @@ export const disableTwoFactor = async (userId: string, otp: string): Promise<boo
 
   return true;
 };
+
+const contactChangeCooldown = (type: 'EMAIL_CHANGE' | 'PHONE_CHANGE'): AppError =>
+  new AppError(
+    type === 'EMAIL_CHANGE' ? ERROR.AUTH.EMAIL_CHANGE_COOLDOWN : ERROR.AUTH.PHONE_CHANGE_COOLDOWN,
+    HTTP_STATUS.TOO_MANY_REQUESTS,
+    ERROR_CODE.CONTACT_CHANGE_COOLDOWN,
+  );
+
+/**
+ * The code goes to the contact being claimed, and the cooldown is keyed on the
+ * target so an attacker cycling addresses cannot ask for an unbounded number of
+ * codes across different mailboxes.
+ */
+const enforceContactChangeCooldown = async (
+  identifier: string,
+  type: 'EMAIL_CHANGE' | 'PHONE_CHANGE',
+): Promise<void> => {
+  const since = new Date(Date.now() - PASSWORD.CONTACT_CHANGE_COOLDOWN_MIN * 60 * 1000);
+
+  const recent = await prisma.otp.findFirst({
+    where: { identifier, type: type as any, lastSentAt: { gt: since } },
+    select: { id: true },
+  });
+
+  if (recent) throw contactChangeCooldown(type);
+};
+
+const claimNewContact = async (input: {
+  userId: string;
+  value: string;
+  kind: 'EMAIL_CHANGE' | 'PHONE_CHANGE';
+  verificationToken: string;
+  otp: string;
+  channel?: string;
+}): Promise<{ previous: string; current: string }> => {
+  const isEmail = input.kind === 'EMAIL_CHANGE';
+  const value = isEmail ? D.str(input.value).toLowerCase() : normaliseIdentifier(input.value);
+
+  if (isEmail ? !EMAIL_REGEX.test(value) : !PHONE_REGEX.test(value)) {
+    throw INVALID_IDENTIFIER();
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true, email: true, phone: true },
+  });
+
+  if (!user) throw AppError.unauthorized();
+
+  const previous = isEmail ? user.email : user.phone;
+  if (previous === value) {
+    throw new AppError(ERROR.COMMON.DUPLICATE, HTTP_STATUS.CONFLICT, ERROR_CODE.DUPLICATE);
+  }
+
+  const clash = await prisma.user.findFirst({
+    where: { ...(isEmail ? { email: value } : { phone: value }), id: { not: user.id } },
+    select: { id: true },
+  });
+
+  if (clash) {
+    throw new AppError(
+      isEmail ? ERROR.AUTH.EMAIL_EXISTS : ERROR.AUTH.PHONE_EXISTS,
+      HTTP_STATUS.CONFLICT,
+      isEmail ? ERROR_CODE.EMAIL_EXISTS : ERROR_CODE.PHONE_EXISTS,
+    );
+  }
+
+  const purpose = isEmail ? VERIFICATION_PURPOSE.EMAIL_CHANGE : VERIFICATION_PURPOSE.PHONE_CHANGE;
+  await consumeVerificationFor(input.verificationToken, purpose, [value]);
+  await consumeOtp(value, input.kind as OtpType, input.otp, input.channel);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: isEmail
+        ? { email: value, isEmailVerified: true }
+        : { phone: value, isPhoneVerified: true },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
+
+  if (previous) {
+    void notifyUser({
+      userId: user.id,
+      type: 'ALERT',
+      title: isEmail ? 'Your email address changed' : 'Your phone number changed',
+      body: isEmail
+        ? `The sign-in email on your account was changed to ${value}. If this was not you, reset your password.`
+        : `The phone number on your account was changed to ${value}. If this was not you, reset your password.`,
+      data: { newValue: value, previousValue: previous },
+    }).catch(() => undefined);
+  }
+
+  return { previous: D.str(previous), current: value };
+};
+
+export const requestContactChangeOtp = async (input: {
+  userId: string;
+  value: string;
+  kind: 'EMAIL_CHANGE' | 'PHONE_CHANGE';
+}): Promise<OtpSendResult> => {
+  const isEmail = input.kind === 'EMAIL_CHANGE';
+  const value = isEmail ? D.str(input.value).toLowerCase() : normaliseIdentifier(input.value);
+
+  if (isEmail ? !EMAIL_REGEX.test(value) : !PHONE_REGEX.test(value)) {
+    throw INVALID_IDENTIFIER();
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: input.userId }, select: { id: true } });
+  if (!user) throw AppError.unauthorized();
+
+  await enforceContactChangeCooldown(value, input.kind);
+
+  return sendOtp({
+    type: input.kind as OtpType,
+    channel: isEmail ? OTP_CHANNEL.EMAIL : OTP_CHANNEL.SMS,
+    identifier: value,
+  });
+};
+
+export const verifyContactChangeOtp = async (input: {
+  userId: string;
+  value: string;
+  kind: 'EMAIL_CHANGE' | 'PHONE_CHANGE';
+  otp: string;
+  channel?: string;
+}): Promise<{ verificationToken: string; expiresIn: number; identifier: string }> => {
+  const isEmail = input.kind === 'EMAIL_CHANGE';
+  const value = isEmail ? D.str(input.value).toLowerCase() : normaliseIdentifier(input.value);
+
+  await consumeOtp(value, input.kind as OtpType, input.otp, input.channel);
+
+  const purpose = isEmail ? VERIFICATION_PURPOSE.EMAIL_CHANGE : VERIFICATION_PURPOSE.PHONE_CHANGE;
+  const issued = await issueVerification(purpose, value, channelForIdentifier(value), input.userId);
+
+  return { ...issued, identifier: value };
+};
+
+export const changeEmail = async (input: {
+  userId: string;
+  email: string;
+  otp: string;
+  verificationToken: string;
+  channel?: string;
+}): Promise<{ previous: string; current: string }> =>
+  claimNewContact({ ...input, value: input.email, kind: 'EMAIL_CHANGE' });
+
+export const changePhone = async (input: {
+  userId: string;
+  phone: string;
+  otp: string;
+  verificationToken: string;
+  channel?: string;
+}): Promise<{ previous: string; current: string }> =>
+  claimNewContact({ ...input, value: input.phone, kind: 'PHONE_CHANGE' });
 
 export const verifyTwoFactor = async (
   identifier: string,

@@ -3,6 +3,7 @@ import { cacheGet, cacheSet, cacheDel, cacheDelByPattern, getRedis } from './red
 import { REDIS_KEYS, CACHE_TTL } from '../config/tracking.config';
 import { SETTING_KEY, SETTING_CATEGORY, SettingCategory } from '../config/setting.config';
 import { logger } from './logger.service';
+import { money } from '../utils/calculations';
 
 export const getSetting = async <T>(key: string, fallback: T): Promise<T> => {
   const cacheKey = REDIS_KEYS.SETTING(key);
@@ -195,6 +196,18 @@ export const getOrderMaxItems = () => getSetting<number>(SETTING_KEY.ORDER_MAX_I
 export const getOrderCancelWindowMin = () =>
   getSetting<number>(SETTING_KEY.ORDER_CANCEL_WINDOW_MIN, 30);
 export const getCartMaxItems = () => getSetting<number>(SETTING_KEY.CART_MAX_ITEMS, 50);
+
+export const getGiftWrapConfig = async () => {
+  const [charge, noteMax] = await Promise.all([
+    getSetting<number>(SETTING_KEY.CART_GIFT_WRAP_CHARGE, 49),
+    getSetting<number>(SETTING_KEY.CART_GIFT_WRAP_NOTE_MAX, 200),
+  ]);
+  return {
+    charge: Math.max(0, money(Number(charge ?? 49))),
+    noteMaxLength: Math.max(1, Number(noteMax ?? 200)),
+  };
+};
+
 export const getMaxImagesPerProduct = () =>
   getSetting<number>(SETTING_KEY.CATALOG_MAX_IMAGES_PER_PRODUCT, 10);
 export const getCurrencySymbol = () => getSetting<string>(SETTING_KEY.CURRENCY_SYMBOL, '₹');
@@ -436,6 +449,11 @@ export const getSecurityConfig = async () => {
     requirePhoneVerify,
     requireEmailVerify,
     passwordHistoryCount,
+    passwordExpiryDays,
+    maxActiveSessions,
+    loginAlerts,
+    newDeviceAlerts,
+    accountPurgeDays,
   ] = await Promise.all([
     getSetting<number>(SETTING_KEY.SECURITY_MAX_LOGIN_ATTEMPTS, 5),
     getSetting<number>(SETTING_KEY.SECURITY_LOCKOUT_MINUTES, 15),
@@ -445,6 +463,11 @@ export const getSecurityConfig = async () => {
     getSetting<boolean>(SETTING_KEY.SECURITY_REQUIRE_PHONE_VERIFY, true),
     getSetting<boolean>(SETTING_KEY.SECURITY_REQUIRE_EMAIL_VERIFY, false),
     getSetting<number>(SETTING_KEY.SECURITY_PASSWORD_HISTORY_COUNT, 3),
+    getSetting<number>(SETTING_KEY.SECURITY_PASSWORD_EXPIRY_DAYS, 0),
+    getSetting<number>(SETTING_KEY.SECURITY_MAX_ACTIVE_SESSIONS, 0),
+    getSetting<boolean>(SETTING_KEY.SECURITY_LOGIN_ALERTS, true),
+    getSetting<boolean>(SETTING_KEY.SECURITY_NEW_DEVICE_ALERTS, true),
+    getSetting<number>(SETTING_KEY.SECURITY_ACCOUNT_PURGE_DAYS, 30),
   ]);
   return {
     maxAttempts: Number(maxAttempts ?? 5),
@@ -455,6 +478,11 @@ export const getSecurityConfig = async () => {
     requirePhoneVerify: Boolean(requirePhoneVerify),
     requireEmailVerify: Boolean(requireEmailVerify),
     passwordHistoryCount: Number(passwordHistoryCount ?? 3),
+    passwordExpiryDays: Math.max(0, Number(passwordExpiryDays ?? 0)),
+    maxActiveSessions: Math.max(0, Number(maxActiveSessions ?? 0)),
+    loginAlerts: Boolean(loginAlerts),
+    newDeviceAlerts: Boolean(newDeviceAlerts),
+    accountPurgeDays: Math.max(1, Number(accountPurgeDays ?? 30)),
   };
 };
 

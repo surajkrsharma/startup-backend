@@ -6,8 +6,11 @@ import { ERROR } from '../../messages/error';
 import { VALIDATION } from '../../messages/validation';
 import { ERROR_CODE } from '../../constants/http';
 import { Role, ADMIN_ACTION, ADDRESS_TYPE } from '../../constants/roles';
-import { signAccessToken } from '../../utils/crypto';
+import { randomString, sha256, signAccessToken } from '../../utils/crypto';
 import { getPagination } from '../../utils/pagination';
+import { addDays } from '../../utils/dates';
+import { getSecurityConfig } from '../../services/settings.service';
+import { sendMailNotification } from '../../services/notification.service';
 import { diffChanges, writeActivityLog, writeAuditLog } from '../../services/audit.service';
 import { COUNTRY_CODE, EMAIL_REGEX } from '../../constants/countries';
 import { normalisePhone } from '../../utils/validate';
@@ -165,11 +168,23 @@ export const deleteAccount = async (
 
   const now = new Date();
 
+  const security = await getSecurityConfig();
+  const restoreToken = randomString(32);
+  const previous = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, phone: true },
+  });
+
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
       data: {
         deletedAt: now,
+        purgeAfter: addDays(security.accountPurgeDays, now),
+        deletionReason: D.str(input?.reason),
+        deletionTokenHash: sha256(restoreToken),
+        deletionEmailHash: sha256(D.str(previous?.email).toLowerCase()),
+        deletionPhone: D.str(previous?.phone),
         isActive: false,
         email: `${D.str(user.id)}-deleted-${now.getTime()}@deleted.local`,
         phone: '',
@@ -196,7 +211,13 @@ export const deleteAccount = async (
     entity: 'User',
     entityId: userId,
     description: `Self account deleted: ${D.str(input?.reason)}`,
-    meta: { softDelete: true },
+    meta: { softDelete: true, purgeAfterDays: security.accountPurgeDays },
+  });
+
+  await sendMailNotification({
+    to: D.str(previous?.email),
+    subject: 'Your account has been scheduled for deletion',
+    text: `You can restore your account for ${security.accountPurgeDays} days using this token: ${restoreToken}`,
   });
 
   return true;

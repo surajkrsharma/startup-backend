@@ -31,6 +31,8 @@ export const OTP_TYPE = {
   PHONE_VERIFY: 'PHONE_VERIFY',
   EMAIL_VERIFY: 'EMAIL_VERIFY',
   TWO_FA: 'TWO_FA',
+  EMAIL_CHANGE: 'EMAIL_CHANGE',
+  PHONE_CHANGE: 'PHONE_CHANGE',
 } as const;
 
 export type OtpType = keyof typeof OTP_TYPE;
@@ -43,6 +45,8 @@ export const OTP_TYPES_REQUIRING_ACCOUNT: OtpType[] = [
   OTP_TYPE.CHANGE_PASSWORD,
   OTP_TYPE.PHONE_VERIFY,
   OTP_TYPE.EMAIL_VERIFY,
+  OTP_TYPE.EMAIL_CHANGE,
+  OTP_TYPE.PHONE_CHANGE,
 ];
 
 export const LOGIN_OTP_TYPES: OtpType[] = [OTP_TYPE.LOGIN];
@@ -50,6 +54,8 @@ export const LOGIN_OTP_TYPES: OtpType[] = [OTP_TYPE.LOGIN];
 export const VERIFICATION_PURPOSE = {
   REGISTER: 'REGISTER',
   LOGIN: 'LOGIN',
+  EMAIL_CHANGE: 'EMAIL_CHANGE',
+  PHONE_CHANGE: 'PHONE_CHANGE',
 } as const;
 
 export type VerificationPurpose = keyof typeof VERIFICATION_PURPOSE;

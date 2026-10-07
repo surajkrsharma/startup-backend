@@ -212,6 +212,37 @@ export const resetPasswordSchema = z
   .strict()
   .refine((v) => v.email || v.phone, { message: VALIDATION.REQUIRED('email or phone') });
 
+const contactChangeKind = z.enum(['EMAIL_CHANGE', 'PHONE_CHANGE']);
+
+export const requestContactChangeSchema = z
+  .object({
+    type: contactChangeKind,
+    value: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
+  })
+  .strict();
+
+export const verifyContactChangeSchema = z
+  .object({
+    type: contactChangeKind,
+    value: z.string().trim().min(3, VALIDATION.IDENTIFIER_REQUIRED),
+    otp: z.string().trim().length(OTP.LENGTH, VALIDATION.INVALID_OTP_FORMAT),
+    channel: z.nativeEnum(OTP_CHANNEL).optional(),
+  })
+  .strict();
+
+export const changeContactSchema = z
+  .object({
+    email: email.optional(),
+    phone,
+    otp: z.string().trim().length(OTP.LENGTH, VALIDATION.INVALID_OTP_FORMAT),
+    verificationToken,
+    channel: z.nativeEnum(OTP_CHANNEL).optional(),
+  })
+  .strict()
+  .refine((v) => v.email || v.phone, {
+    message: VALIDATION.REQUIRED('email or phone'),
+  });
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, VALIDATION.REQUIRED('currentPassword')),
@@ -288,3 +319,9 @@ export const acceptConsentSchema = z
   .strict();
 
 export const getMyConsentsSchema = z.object({}).strict();
+
+export const restoreAccountSchema = z
+  .object({
+    restoreToken: z.string().trim().min(16, VALIDATION.REQUIRED('restoreToken')),
+  })
+  .strict();

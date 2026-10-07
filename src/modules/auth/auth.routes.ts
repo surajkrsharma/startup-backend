@@ -260,6 +260,113 @@ router.post(
   controller.verifyPhone,
 );
 
+/**
+ * @openapi
+ * /auth/changeEmail/sendOtp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Request the code that proves control of a new email address
+ *     description: >
+ *       Two-step change. This sends the code to the *new* address; the old one is
+ *       notified after the change lands, not before. `type` is EMAIL_CHANGE or
+ *       PHONE_CHANGE, `value` is the address or number being claimed.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Code dispatched }
+ *       400: { description: Value is not a valid email or phone }
+ *       429: { description: Contact-change cooldown reached }
+ */
+router.post(
+  '/changeEmail/sendOtp',
+  authenticate,
+  otpSendRateLimit,
+  validate({ body: schema.requestContactChangeSchema }),
+  controller.requestContactChangeOtp,
+);
+
+/**
+ * @openapi
+ * /auth/changeEmail/verifyOtp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Verify the code and mint the change token
+ *     description: >
+ *       Returns a single-use `verificationToken` bound to the new contact.
+ *       `changeEmail` or `changePhone` then needs it alongside the code.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Verified; verificationToken returned }
+ *       401: { description: Invalid or expired OTP }
+ */
+router.post(
+  '/changeEmail/verifyOtp',
+  authenticate,
+  otpVerifyRateLimit,
+  validate({ body: schema.verifyContactChangeSchema }),
+  controller.verifyContactChangeOtp,
+);
+
+/**
+ * @openapi
+ * /auth/changeEmail:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Swap the sign-in email
+ *     description: >
+ *       Needs both the verified code and the verificationToken minted by
+ *       /auth/changeEmail/verifyOtp. The address is marked verified on success.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Email changed }
+ *       409: { description: Address already in use }
+ */
+router.post(
+  '/changeEmail',
+  authenticate,
+  validate({ body: schema.changeContactSchema }),
+  controller.changeEmail,
+);
+
+/**
+ * @openapi
+ * /auth/changePhone:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Swap the phone number
+ *     description: >
+ *       Mirror of /auth/changeEmail. The number is marked verified on success, and
+ *       every other session is revoked so a takeover cannot ride along.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Phone changed }
+ *       409: { description: Number already in use }
+ */
+router.post(
+  '/changePhone',
+  authenticate,
+  validate({ body: schema.changeContactSchema }),
+  controller.changePhone,
+);
+
+/**
+ * @openapi
+ * /auth/restoreAccount:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Restore an account inside its deletion recovery window
+ *     description: >
+ *       Uses the token emailed when the deletion was scheduled. After the window
+ *       closes the row is purged and this returns 410 for good.
+ *     responses:
+ *       200: { description: Account restored }
+ *       410: { description: Recovery window has closed }
+ */
+router.post(
+  '/restoreAccount',
+  validate({ body: schema.restoreAccountSchema }),
+  controller.restoreAccount,
+);
+
 router.post('/enable2FA', authenticate, twoFactorRateLimit, controller.enable2FA);
 
 router.post(

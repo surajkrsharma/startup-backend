@@ -16,6 +16,7 @@ import { ORDER_STATUS } from '../constants/statuses';
 import { PAYOUT_STATUS, PAYMENT_STATUS, VENDOR_STATUS } from '../constants/roles';
 import { generatePayoutStatementPdf } from '../services/pdf.service';
 import { ANALYTICS } from '../config/analytics.config';
+import { scanPriceDrops } from '../modules/cart/cart.service';
 
 const log = moduleLogger('jobs');
 const workers: Worker[] = [];
@@ -409,20 +410,34 @@ register(QUEUE.REPORT, JOB.GENERATE_REPORT, async (data) => {
 register(QUEUE.CLEANUP, JOB.CLEANUP_EXPIRED, async () => {
   const now = new Date();
 
-  const [refreshTokens, otps, sessions] = await Promise.all([
+  const [refreshTokens, otps, sessions, idempotencyKeys] = await Promise.all([
     prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: now } } }),
     prisma.otp.deleteMany({ where: { expiresAt: { lt: now } } }),
     prisma.session.updateMany({
       where: { isActive: true, lastSeenAt: { lt: subtractDays(2) } },
       data: { isActive: false, endedAt: now },
     }),
+    prisma.idempotencyKey.deleteMany({ where: { expiresAt: { lt: now } } }),
   ]);
 
   return {
     refreshTokens: refreshTokens.count,
     otps: otps.count,
     sessions: sessions.count,
+    idempotencyKeys: idempotencyKeys.count,
   };
+});
+
+register(QUEUE.CLEANUP, JOB.PURGE_DELETED_ACCOUNTS, async () => {
+  const purged = await prisma.user.deleteMany({
+    where: { deletedAt: { not: null }, purgeAfter: { lte: new Date() } },
+  });
+  return { purged: purged.count };
+});
+
+register(QUEUE.NOTIFICATION, JOB.PRICE_DROP_SCAN, async () => {
+  const { checked, notified } = await scanPriceDrops();
+  return { checked, notified };
 });
 
 export const startWorkers = (): void => {
