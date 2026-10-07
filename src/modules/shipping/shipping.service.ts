@@ -4,7 +4,7 @@ import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
 import { D, money } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
-import { ERROR_CODE } from '../../constants/http';
+import { ERROR_CODE, HTTP_STATUS } from '../../constants/http';
 import { generateAwb } from '../../utils/slug';
 import { writeActivityLog, writeAuditLog } from '../../services/audit.service';
 import {
@@ -64,7 +64,135 @@ export const triggerCronJobNow = async (
 
   return result;
 };
-import { SHIPMENT_STATUS_TRANSITIONS } from '../../constants/statuses';
+
+export const listFailedJobRecords = async (query: Record<string, any>) => {
+  const { listFailedJobs, getFailedJobCounts } = await import('../../jobs/deadletter.service');
+  const [page, counts] = await Promise.all([listFailedJobs(query), getFailedJobCounts()]);
+  return { ...page, counts };
+};
+
+export const retryFailedJobRecord = async (
+  id: string,
+  actorId?: string,
+  req?: any,
+): Promise<{ retried: boolean; replayCount: number; jobName: string; queue: string }> => {
+  const { getFailedJob, retryFailedJob } = await import('../../jobs/deadletter.service');
+
+  const row = await getFailedJob(id);
+  if (!row)
+    throw new AppError(
+      ERROR.SYSTEM.FAILED_JOB_NOT_FOUND,
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODE.FAILED_JOB_NOT_FOUND,
+    );
+  if (row.status !== FAILED_JOB_STATUS.PENDING) {
+    throw new AppError(
+      ERROR.SYSTEM.FAILED_JOB_ALREADY_RESOLVED,
+      HTTP_STATUS.CONFLICT,
+      ERROR_CODE.FAILED_JOB_ALREADY_RESOLVED,
+    );
+  }
+
+  const result = await retryFailedJob(row);
+
+  if (!result.retried && result.reason === 'REPLAY_LIMIT') {
+    throw new AppError(
+      ERROR.SYSTEM.FAILED_JOB_REPLAY_LIMIT,
+      HTTP_STATUS.CONFLICT,
+      ERROR_CODE.FAILED_JOB_REPLAY_LIMIT,
+    );
+  }
+  if (!result.retried) {
+    throw new AppError(
+      ERROR.SYSTEM.QUEUE_UNAVAILABLE,
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      ERROR_CODE.FAILED_JOB_QUEUE_UNAVAILABLE,
+    );
+  }
+
+  void writeAuditLog({
+    req,
+    actorId,
+    action: 'UPDATE',
+    entity: 'FailedJob',
+    entityId: row.id,
+    description: `Replayed ${row.queue}/${row.jobName}`,
+  });
+
+  return {
+    retried: result.retried,
+    replayCount: result.replayCount,
+    jobName: row.jobName,
+    queue: row.queue,
+  };
+};
+
+export const resolveFailedJobRecord = async (
+  id: string,
+  actorId?: string,
+  req?: any,
+): Promise<{ resolved: boolean; jobName: string; queue: string }> => {
+  const { getFailedJob, resolveFailedJob } = await import('../../jobs/deadletter.service');
+
+  const row = await getFailedJob(id);
+  if (!row)
+    throw new AppError(
+      ERROR.SYSTEM.FAILED_JOB_NOT_FOUND,
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODE.FAILED_JOB_NOT_FOUND,
+    );
+  if (row.status !== FAILED_JOB_STATUS.PENDING) {
+    throw new AppError(
+      ERROR.SYSTEM.FAILED_JOB_ALREADY_RESOLVED,
+      HTTP_STATUS.CONFLICT,
+      ERROR_CODE.FAILED_JOB_ALREADY_RESOLVED,
+    );
+  }
+
+  await resolveFailedJob(id, D.str(actorId));
+
+  void writeAuditLog({
+    req,
+    actorId,
+    action: 'UPDATE',
+    entity: 'FailedJob',
+    entityId: row.id,
+    description: `Resolved ${row.queue}/${row.jobName}`,
+  });
+
+  return { resolved: true, jobName: row.jobName, queue: row.queue };
+};
+
+export const removeFailedJobRecord = async (
+  id: string,
+  actorId?: string,
+  req?: any,
+): Promise<{ deleted: boolean }> => {
+  const { getFailedJob, deleteFailedJob } = await import('../../jobs/deadletter.service');
+
+  const row = await getFailedJob(id);
+  if (!row)
+    throw new AppError(
+      ERROR.SYSTEM.FAILED_JOB_NOT_FOUND,
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODE.FAILED_JOB_NOT_FOUND,
+    );
+
+  const deleted = await deleteFailedJob(id);
+
+  void writeAuditLog({
+    req,
+    actorId,
+    action: 'DELETE',
+    entity: 'FailedJob',
+    entityId: id,
+    description: `Deleted ${row.queue}/${row.jobName}`,
+  });
+
+  return { deleted };
+};
+
+import { SHIPMENT_STATUS_TRANSITIONS, FAILED_JOB_STATUS } from '../../constants/statuses';
 import { COUNTRIES } from '../../constants/countries';
 
 const ZONE_INCLUDE = { methods: { orderBy: { name: 'asc' } } } satisfies Prisma.ShippingZoneInclude;

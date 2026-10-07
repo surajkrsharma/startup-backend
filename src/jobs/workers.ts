@@ -4,7 +4,9 @@ import { sendMail } from '../services/email.service';
 import { notifyUser, notifyUsers } from '../services/notification.service';
 import { logger, moduleLogger } from '../services/logger.service';
 import { getQueueConnection } from './queues';
+import { isExhausted, recordFailedJob, pruneFailedJobs } from './deadletter.service';
 import { QUEUE, JOB, JobName, QueueName } from '../config/socket.config';
+import { QUEUE_POLICY } from '../config/queue.config';
 import { ENV } from '../config/env.config';
 import { OPS } from '../config/app.config';
 import { money } from '../utils/calculations';
@@ -35,15 +37,30 @@ const register = (name: QueueName, jobName: JobName, handler: (data: any) => Pro
         throw err;
       }
     },
-    { connection, prefix: `${ENV.QUEUE_PREFIX}:bull`, concurrency: 5 },
+    {
+      connection,
+      prefix: `${ENV.QUEUE_PREFIX}:bull`,
+      concurrency: QUEUE_POLICY.WORKER_CONCURRENCY,
+    },
   );
 
-  worker.on('failed', (job, err) =>
+  worker.on('failed', (job, err) => {
     log.error(
       { err: err?.message, jobId: job?.id, attempts: job?.attemptsMade },
       '[worker] failed',
-    ),
-  );
+    );
+    if (!job) return;
+    if (!isExhausted(job.attemptsMade, job.opts?.attempts)) return;
+
+    void recordFailedJob({
+      queue: name,
+      jobName: job.name,
+      jobId: D.str(job.id),
+      payload: (job.data ?? {}) as Record<string, any>,
+      error: err?.message ?? '',
+      attemptsMade: job.attemptsMade,
+    });
+  });
   worker.on('completed', (job) =>
     log.debug({ jobId: job.id, jobName: job.name }, '[worker] completed'),
   );
@@ -439,6 +456,8 @@ register(QUEUE.NOTIFICATION, JOB.PRICE_DROP_SCAN, async () => {
   const { checked, notified } = await scanPriceDrops();
   return { checked, notified };
 });
+
+register(QUEUE.CLEANUP, JOB.PRUNE_FAILED_JOBS, async () => pruneFailedJobs());
 
 export const startWorkers = (): void => {
   if (!ENV.WORKER_ENABLED) {

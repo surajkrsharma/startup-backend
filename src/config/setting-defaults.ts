@@ -202,6 +202,9 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'maintenance.allowedIps', value: [], category: 'system', isPublic: false },
   { key: 'system.encryptionEnabled', value: false, category: 'system', isPublic: false },
   { key: 'system.apiRateLimitPerMin', value: 100, category: 'system', isPublic: false },
+  { key: 'queue.maxAttempts', value: 3, category: 'system', isPublic: false },
+  { key: 'queue.backoffDelayMs', value: 3000, category: 'system', isPublic: false },
+  { key: 'queue.maxReplays', value: 3, category: 'system', isPublic: false },
 
   { key: 'app.minAndroidVersion', value: '1.0.0', category: 'app', isPublic: true },
   { key: 'app.forceUpdateAndroid', value: false, category: 'app', isPublic: true },

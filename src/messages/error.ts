@@ -386,6 +386,10 @@ export const ERROR = {
     FEATURE_DISABLED: 'This feature is currently disabled.',
     SHUTTING_DOWN: 'Server is shutting down.',
     QUEUE_UNAVAILABLE: 'Background job queue is unavailable.',
+    FAILED_JOB_NOT_FOUND: 'Failed job not found.',
+    FAILED_JOB_REPLAY_LIMIT:
+      'This job has already been replayed the maximum number of times. Fix the cause before replaying again.',
+    FAILED_JOB_ALREADY_RESOLVED: 'This failed job is already resolved.',
     TOKEN_TYPE_MISMATCH: 'wrong token type',
   },
   /**

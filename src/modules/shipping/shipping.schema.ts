@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ERROR } from '../../messages/error';
 import { AdminAction, Role, ShipmentStatus } from '@prisma/client';
 import { VALIDATION } from '../../messages/validation';
+import { FAILED_JOB_STATUS } from '../../constants/statuses';
 import { NAME } from '../../config/password.config';
 import { PHONE_REGEX } from '../../constants/countries';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
@@ -240,6 +241,17 @@ export const triggerJobSchema = z
     name: z.string().trim().min(2, VALIDATION.REQUIRED('name')).max(60),
   })
   .strict();
+
+export const listFailedJobsSchema = z
+  .object({
+    status: z.nativeEnum(FAILED_JOB_STATUS).optional(),
+    queue: z.string().trim().max(40).optional(),
+    jobName: z.string().trim().max(60).optional(),
+  })
+  .merge(paginationSchema)
+  .strict();
+
+export const failedJobIdParamSchema = z.object({ id });
 
 export const createShipmentSchema = z
   .object({

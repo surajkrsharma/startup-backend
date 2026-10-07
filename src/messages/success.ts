@@ -380,6 +380,10 @@ export const SUCCESS = {
     CACHE_CLEARED: 'Cache cleared successfully.',
     CRON_JOBS_FETCHED: 'Cron jobs fetched successfully.',
     JOB_TRIGGERED: 'Job triggered successfully.',
+    FAILED_JOBS_FETCHED: 'Failed jobs fetched successfully.',
+    FAILED_JOB_RETRIED: 'Failed job queued for retry.',
+    FAILED_JOB_RESOLVED: 'Failed job marked resolved.',
+    FAILED_JOB_DELETED: 'Failed job deleted.',
   },
   ANALYTICS: {
     OVERVIEW_FETCHED: 'Analytics overview fetched.',

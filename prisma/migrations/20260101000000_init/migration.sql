@@ -825,14 +825,21 @@ CREATE TABLE "ExchangeItem" (
     "userId" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
     "orderItemId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ExchangeItem_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ReturnItem" (
+    "id" TEXT NOT NULL,
+    "returnRequestId" TEXT NOT NULL,
+    "orderItemId" TEXT NOT NULL,
+    "qty" INTEGER NOT NULL DEFAULT 1,
+    "refundAmount" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "isApproved" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "ReturnItem_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Review" (
@@ -2872,22 +2879,10 @@ ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_userId_fkey" FOREIGN KEY
 ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ExchangeItem" ADD CONSTRAINT "ExchangeItem_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Review" ADD CONSTRAINT "Review_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -3175,3 +3170,37 @@ CREATE TABLE "CannedResponse" (
 
 -- CreateIndex
 CREATE INDEX "CannedResponse_isActive_idx" ON "CannedResponse"("isActive");
+-- -- Failed Job Dead Letter Queue -------------------------------------
+
+-- CreateTable
+CREATE TABLE "FailedJob" (
+    "id" TEXT NOT NULL,
+    "queue" TEXT NOT NULL,
+    "jobName" TEXT NOT NULL,
+    "jobId" TEXT NOT NULL,
+    "payload" JSONB NOT NULL DEFAULT '{}',
+    "error" TEXT NOT NULL DEFAULT '',
+    "attemptsMade" INTEGER NOT NULL DEFAULT 0,
+    "replayCount" INTEGER NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "lastErrorAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "replayedAt" TIMESTAMP(3),
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "FailedJob_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "FailedJob_queue_jobId_key" ON "FailedJob"("queue", "jobId");
+
+-- CreateIndex
+CREATE INDEX "FailedJob_status_createdAt_idx" ON "FailedJob"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "FailedJob_queue_idx" ON "FailedJob"("queue");
+
+-- CreateIndex
+CREATE INDEX "FailedJob_jobName_idx" ON "FailedJob"("jobName");

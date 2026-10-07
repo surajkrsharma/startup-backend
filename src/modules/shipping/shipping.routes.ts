@@ -330,6 +330,38 @@ admin.post(
   controller.triggerJob,
 );
 
+admin.get(
+  '/getFailedJobs',
+  authenticate,
+  ...controller.guards.superAdmin,
+  validate({ query: schema.listFailedJobsSchema }),
+  controller.failedJobs,
+);
+
+admin.post(
+  '/retryFailedJob/:id',
+  authenticate,
+  ...controller.guards.superAdmin,
+  validate({ params: schema.failedJobIdParamSchema }),
+  controller.retryFailedJob,
+);
+
+admin.patch(
+  '/resolveFailedJob/:id',
+  authenticate,
+  ...controller.guards.superAdmin,
+  validate({ params: schema.failedJobIdParamSchema }),
+  controller.resolveFailedJob,
+);
+
+admin.delete(
+  '/deleteFailedJob/:id',
+  authenticate,
+  ...controller.guards.superAdmin,
+  validate({ params: schema.failedJobIdParamSchema }),
+  controller.deleteFailedJob,
+);
+
 export const adminRoutes = admin;
 
 const audit = Router();

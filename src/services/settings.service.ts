@@ -2,6 +2,7 @@ import { prisma } from './prisma.service';
 import { cacheGet, cacheSet, cacheDel, cacheDelByPattern, getRedis } from './redis.service';
 import { REDIS_KEYS, CACHE_TTL } from '../config/tracking.config';
 import { SETTING_KEY, SETTING_CATEGORY, SettingCategory } from '../config/setting.config';
+import { DLQ, QUEUE_POLICY } from '../config/queue.config';
 import { logger } from './logger.service';
 import { money } from '../utils/calculations';
 
@@ -513,5 +514,23 @@ export const getCatalogConfig = async () => {
     showOutOfStock: Boolean(showOutOfStock),
     allowBackorder: Boolean(allowBackorder),
     defaultSort: String(defaultSort ?? '-createdAt'),
+  };
+};
+
+/**
+ * Read once per enqueue rather than per call site. The attempt count is clamped
+ * to at least one because zero there would silently turn every job into a job
+ * that runs once and is never retried.
+ */
+export const getQueueConfig = async () => {
+  const [maxAttempts, backoffDelayMs, maxReplays] = await Promise.all([
+    getSetting<number>(SETTING_KEY.QUEUE_MAX_ATTEMPTS, QUEUE_POLICY.ATTEMPTS),
+    getSetting<number>(SETTING_KEY.QUEUE_BACKOFF_DELAY_MS, QUEUE_POLICY.BACKOFF_DELAY_MS),
+    getSetting<number>(SETTING_KEY.QUEUE_MAX_REPLAYS, DLQ.MAX_REPLAYS),
+  ]);
+  return {
+    maxAttempts: Math.max(1, Number(maxAttempts ?? QUEUE_POLICY.ATTEMPTS)),
+    backoffDelayMs: Math.max(0, Number(backoffDelayMs ?? QUEUE_POLICY.BACKOFF_DELAY_MS)),
+    maxReplays: Math.max(0, Number(maxReplays ?? DLQ.MAX_REPLAYS)),
   };
 };

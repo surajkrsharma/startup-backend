@@ -2331,6 +2331,29 @@ model BulkJob {
   @@index([createdAt])
 }
 
+model FailedJob {
+  id           String    @id @default(cuid())
+  queue        String
+  jobName      String
+  jobId        String
+  payload      Json      @default("{}")
+  error        String    @default("")
+  attemptsMade Int       @default(0)
+  replayCount  Int       @default(0)
+  status       String    @default("PENDING")
+  lastErrorAt  DateTime  @default(now())
+  replayedAt   DateTime?
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([queue, jobId])
+  @@index([status, createdAt])
+  @@index([queue])
+  @@index([jobName])
+}
+
 model ReportSchedule {
   id          String    @id @default(cuid())
   name        String

@@ -127,3 +127,17 @@ export const HEALTH_STATUS = {
 } as const;
 
 export type HealthStatus = keyof typeof HEALTH_STATUS;
+
+/**
+ * A row leaves PENDING only through a human decision — a replay that never
+ * succeeded, or a replay that did and closed the job. Neither transition is
+ * driven by the worker itself, so there is no automatic path back out of
+ * RESOLVED.
+ */
+export const FAILED_JOB_STATUS = {
+  PENDING: 'PENDING',
+  RESOLVED: 'RESOLVED',
+  ABANDONED: 'ABANDONED',
+} as const;
+
+export type FailedJobStatus = keyof typeof FAILED_JOB_STATUS;

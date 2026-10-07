@@ -1476,6 +1476,28 @@ export const serializeBulkJob = (j: any) => ({
   createdAt: D.date(j?.createdAt),
 });
 
+export const serializeFailedJob = (f: any) => ({
+  failedJobId: D.str(f?.id),
+  queue: D.str(f?.queue),
+  jobName: D.str(f?.jobName),
+  sourceJobId: D.str(f?.jobId),
+  status: D.str(f?.status),
+  error: D.str(f?.error),
+  attemptsMade: D.num(f?.attemptsMade),
+  replayCount: D.num(f?.replayCount),
+  resolvedBy: D.str(f?.resolvedBy),
+  lastErrorAt: D.date(f?.lastErrorAt),
+  replayedAt: D.date(f?.replayedAt),
+  resolvedAt: D.date(f?.resolvedAt),
+  createdAt: D.date(f?.createdAt),
+
+  payloadData: D.obj(f?.payload),
+});
+
+export const serializeFailedJobList = (rows: any[]) => ({
+  failedJobList: D.arr(rows).map(serializeFailedJob),
+});
+
 export const serializeReportSchedule = (r: any) => ({
   scheduleId: D.str(r?.id),
   name: D.str(r?.name),

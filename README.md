@@ -403,31 +403,32 @@ CI enforces them.
 
 ## Architecture
 
-494 operations across 17 module directories, backed by a 98-model schema. A few
+527 operations across 17 module directories, backed by a 109-model schema. A few
 directories export more than one router, so they mount at several prefixes.
 
 | Module | Mount | Operations |
 | --- | --- | --- |
 | content | `/content`, `/webhooks`, `/pages`, `/blogs`, `/faqs`, `/banners`, `/contact`, `/newsletter`, `/countries`, `/currencies`, `/tax`, `/i18n`, `/bulk`, `/reports`, `/apiKeys` | 82 |
 | analytics | `/track`, `/search`, `/uploads`, `/devices`, `/analytics` | 67 |
-| shipping | `/shipping`, `/deliveryBoys`, `/settings`, `/admin`, `/auditLogs`, `/activityLogs` | 53 |
+| shipping | `/shipping`, `/deliveryBoys`, `/settings`, `/admin`, `/auditLogs`, `/activityLogs` | 57 |
+| notification | `/notifications`, `/chat`, `/tickets`, `/cannedResponses` | 42 |
 | payment | `/payments`, `/payouts`, `/returns`, `/wallet` | 41 |
-| notification | `/notifications`, `/chat`, `/tickets` | 35 |
+| auth | `/auth` | 32 |
 | engagement | `/loyalty`, `/templates`, `/referral`, `/giftCards` | 30 |
 | review | `/reviews`, `/coupons`, `/questions`, `/flashSales` | 29 |
-| auth | `/auth` | 25 |
+| cart | `/cart`, `/wishlist`, `/priceWatches` | 24 |
+| order | `/orders` | 24 |
 | catalog | `/brands`, `/attributes`, `/collections`, `/tags` | 23 |
 | product | `/products` | 22 |
-| order | `/orders` | 18 |
 | user | `/users` | 17 |
 | vendor | `/vendors` | 17 |
-| cart | `/cart`, `/wishlist` | 15 |
 | category | `/categories` | 8 |
 | health | `/health` | 5 |
 | system | `/version` | 1 |
 
 Regenerate this table rather than counting by hand — the counts come from the
-OpenAPI spec, which is built off the live router.
+OpenAPI spec, which is built off the live router. The rows sum to 521; the other
+6 of the 527 are the generated `/docs` UI assets and `/docs.json`.
 
 ### Conventions
 

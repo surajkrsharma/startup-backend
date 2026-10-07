@@ -63,6 +63,13 @@ export const CRON_JOB_LIST: CronDefinition[] = [
     cron: CRON.PRICE_DROP_SCAN,
     description: 'Compare watched product prices and notify on a drop',
   },
+  {
+    name: 'prune-failed-jobs',
+    queue: QUEUE.CLEANUP,
+    job: JOB.PRUNE_FAILED_JOBS,
+    cron: CRON.PRUNE_FAILED_JOBS,
+    description: 'Age out resolved and abandoned dead letter rows',
+  },
 ];
 
 export const startCronJobs = async (): Promise<number> => {

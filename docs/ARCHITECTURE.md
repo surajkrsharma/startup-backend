@@ -634,6 +634,10 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | POST | `/api/v1/admin/clearCache` | ✅ | SUPER_ADMIN | Flush Redis |
 | GET | `/api/v1/admin/getCronJobs` | ✅ | SUPER_ADMIN | Job list |
 | POST | `/api/v1/admin/triggerJob` | ✅ | SUPER_ADMIN | Manual run |
+| GET | `/api/v1/admin/getFailedJobs` | ✅ | SUPER_ADMIN | Dead letter queue |
+| POST | `/api/v1/admin/retryFailedJob/:id` | ✅ | SUPER_ADMIN | Replay a failed job |
+| PATCH | `/api/v1/admin/resolveFailedJob/:id` | ✅ | SUPER_ADMIN | Close without replay |
+| DELETE | `/api/v1/admin/deleteFailedJob/:id` | ✅ | SUPER_ADMIN | Drop the row |
 | GET | `/api/v1/analytics/getOverview` | ✅ | ADMIN | KPIs |
 | GET | `/api/v1/analytics/getVisitors` | ✅ | ADMIN | Visitor stats |
 | GET | `/api/v1/analytics/getUniqueVisitors` | ✅ | ADMIN | UV |
@@ -2469,6 +2473,57 @@ default 24).
 
 ---
 
+### Job Retry & Dead Letter Rules
+
+**Retry.** Every job carries `attempts` and an exponential `backoff`, applied per
+job at enqueue time rather than as the Queue's `defaultJobOptions` — `getQueue()`
+is synchronous everywhere and reading settings is not. Both numbers come from
+settings first, falling back to `QUEUE_POLICY` in `src/config/queue.config.ts`:
+
+| Setting | Default | Kya |
+| --- | --- | --- |
+| `queue.maxAttempts` | `3` | Total attempts, not retries after the first |
+| `queue.backoffDelayMs` | `3000` | First backoff; exponential from there |
+| `queue.maxReplays` | `3` | Manual replays one dead row is allowed |
+
+`queue.maxAttempts` is clamped to at least 1 — a zero there would silently mean
+"run once, never retry".
+
+**Dead letter queue.** When BullMQ spends the last attempt, the worker's `failed`
+hook writes a `FailedJob` row. The check is `attemptsMade >= job.opts.attempts`,
+not `attemptsMade > 0`, so the row appears only once the retry is actually spent
+— recording on the first transient failure would defeat the retry entirely.
+
+The row is keyed `@@unique([queue, jobId])`, so a job that fails, is replayed and
+fails again updates one row instead of accumulating one per attempt, and a
+resolved row reopens to `PENDING` when its job comes back.
+
+| Situation | Result |
+| --- | --- |
+| Failure with attempts left | Logged only; BullMQ retries it |
+| Last attempt failed | `FailedJob` written, status `PENDING` |
+| `retryFailedJob/:id` | Re-queued under `replay-{jobId}-{n}`, `replayCount` incremented |
+| Replay beyond `queue.maxReplays` | 409 `FAILED_JOB_REPLAY_LIMIT` |
+| Queue or Redis down at replay time | 503 `FAILED_JOB_QUEUE_UNAVAILABLE`, row untouched |
+| `resolveFailedJob/:id` | Status `RESOLVED` with the acting admin, no replay |
+| Replay or resolve on a non-`PENDING` row | 409 `FAILED_JOB_ALREADY_RESOLVED` |
+| The write itself fails | Logged; the worker keeps running |
+
+Two properties come from storing the row in Postgres instead of a Bull queue: a
+failure survives a Redis flush, and an admin can query it over HTTP.
+
+**The replay gets its own queue id** (`replay-{jobId}-{n}`). Reusing the original
+would collide with the retained failed job, and the original row has to stay put
+as the record of what went wrong.
+
+`prune-failed-jobs` runs nightly (`CRON.PRUNE_FAILED_JOBS`): a `PENDING` row
+untouched for `DLQ.STALE_PENDING_DAYS` (30) becomes `ABANDONED`, and anything
+`RESOLVED` or `ABANDONED` older than `DLQ.RESOLVED_RETENTION_DAYS` (30) is
+deleted. An unreplayed failure that old has almost always been fixed by then,
+and keeping it forever only hides the live ones.
+
+---
+
 ## Folder Structure
 
 Module layout **domain-grouped** hai — ek module ke andar multiple routers
@@ -2522,7 +2577,7 @@ projectname-api/
 |   |-- utils/            # AppError, asyncHandler, ApiResponse, defaults,
 |   |                     # serialize, pagination, crypto, geo, deviceParser,
 |   |                     # slug, dates, calculations, validate
-|   |-- jobs/             # bullmq workers + cron
+|   |-- jobs/             # bullmq workers + cron + deadletter.service.ts
 |   |-- templates/        # default email HTML (DB row ki fallback)
 |   |-- routes/           # /api/v1 aggregator
 |   |-- docs/             # swagger spec
@@ -2634,6 +2689,7 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - `Currency` / `Country` / `State` / `City`
 - `ApiKey` / `WebhookEndpoint` / `WebhookLog`
 - `BulkJob` / `ReportSchedule`
+- **`FailedJob`** (queue, jobName, jobId, payload, error, replayCount, status) — the dead letter queue; unique on `(queue, jobId)`
 - **`SystemSetting`** (key, value Json, category, isPublic)
 - **`RolePermission`** (role, permission)
 - **`EmailTemplate`**, **`SmsTemplate`**, **`NotificationTemplate`**
@@ -2673,14 +2729,18 @@ live Express router, whereas a hand-written list drifts.
     GET            /admin/getAuditLogs
     GET            /admin/getCronJobs
     GET            /admin/getDashboardStats
+    GET            /admin/getFailedJobs
     GET            /admin/getPermissions
     GET            /admin/getSystemHealth
+    PATCH          /admin/resolveFailedJob/{id}
     PATCH          /admin/toggleSubAdminStatus/{id}
     PATCH          /admin/updatePermissions/{id}
     PATCH          /admin/updateSubAdmin/{id}
     POST           /admin/clearCache
     POST           /admin/createSubAdmin
+    POST           /admin/retryFailedJob/{id}
     POST           /admin/triggerJob
+    DELETE         /admin/deleteFailedJob/{id}
 /analytics
     GET            /analytics/export
     GET            /analytics/getAbandonedCarts
@@ -3266,9 +3326,10 @@ Jin gaps ka kaam poora ho chuka hai, unhe is table se hata diya gaya hai — unk
 naya behaviour ab [Catalog & Order Rules](#catalog--order-rules),
 [Password](#password--srcconfigpasswordconfigts),
 [Account Security Rules](#account-security-rules),
-[Cart Rules](#cart-rules) and
-[Payment Rules](#payment-rules) mai documented hai. Jo row
-ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
+[Cart Rules](#cart-rules),
+[Payment Rules](#payment-rules) and
+[Job Retry & Dead Letter Rules](#job-retry--dead-letter-rules) mai documented hai.
+Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
 ### 1. Auth & Security
 
@@ -3643,9 +3704,6 @@ ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Dead Letter Queue** | 🔴 | Koi DLQ nahi. | Failed job DLQ. | Reliability. |
-| **Job Retry Policy** | 🔴 | Koi retry nahi. | Configurable retry. | Reliability. |
-| **Job Priority** | 🔴 | Koi priority nahi. | Priority queues. | UX. |
 | **Job Dashboard (Bull Board)** | 🔴 | Koi dashboard nahi. | Bull Board UI. | Ops. |
 | **Job Scheduling UI** | 🔴 | Koi UI nahi. | Schedule management. | Ops. |
 | **Job Metrics** | 🔴 | Koi metrics nahi. | Prometheus metrics. | Monitoring. |

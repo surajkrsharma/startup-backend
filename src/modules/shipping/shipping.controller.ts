@@ -17,6 +17,7 @@ import {
   serializeSystemSetting,
   serializeAuditLog,
   serializeActivityLog,
+  serializeFailedJobList,
   serializeUser,
 } from '../../utils/serialize';
 
@@ -642,4 +643,58 @@ export const triggerJob = asyncHandler(async (req, res) => {
   const result = await service.triggerCronJobNow(D.str(req.body.name), actorId(req), req);
 
   return ApiResponse.success(res, { message: SUCCESS.ADMIN.JOB_TRIGGERED, result });
+});
+
+export const failedJobs = asyncHandler(async (req, res) => {
+  const { page, limit, skip } = getPagination(req.query);
+  const { rows, total, pending, counts } = await service.listFailedJobRecords({
+    ...req.query,
+    skip,
+    take: limit,
+  });
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.ADMIN.FAILED_JOBS_FETCHED,
+    result: {
+      pendingCount: D.num(pending),
+      filterData: {
+        status: D.str(req.query.status as string),
+        queue: D.str(req.query.queue as string),
+        jobName: D.str(req.query.jobName as string),
+        search: D.str(req.query.search as string),
+      },
+      countsData: {
+        pendingCount: D.num(counts.pending),
+        resolvedCount: D.num(counts.resolved),
+        abandonedCount: D.num(counts.abandoned),
+      },
+      ...serializeFailedJobList(rows),
+    },
+    totalRecord: total,
+    totalPage: Math.ceil(total / limit),
+    currentPage: page,
+    limit,
+    hasNext: page * limit < total,
+    hasPrevious: page > 1,
+    nextPage: page * limit < total ? page + 1 : 0,
+    previousPage: page > 1 ? page - 1 : 0,
+  });
+});
+
+export const retryFailedJob = asyncHandler(async (req, res) => {
+  const result = await service.retryFailedJobRecord(D.str(req.params.id), actorId(req), req);
+
+  return ApiResponse.success(res, { message: SUCCESS.ADMIN.FAILED_JOB_RETRIED, result });
+});
+
+export const resolveFailedJob = asyncHandler(async (req, res) => {
+  const result = await service.resolveFailedJobRecord(D.str(req.params.id), actorId(req), req);
+
+  return ApiResponse.success(res, { message: SUCCESS.ADMIN.FAILED_JOB_RESOLVED, result });
+});
+
+export const deleteFailedJob = asyncHandler(async (req, res) => {
+  const result = await service.removeFailedJobRecord(D.str(req.params.id), actorId(req), req);
+
+  return ApiResponse.success(res, { message: SUCCESS.ADMIN.FAILED_JOB_DELETED, result });
 });

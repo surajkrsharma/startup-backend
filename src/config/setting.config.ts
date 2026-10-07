@@ -161,6 +161,10 @@ export const SETTING_KEY = {
   SYSTEM_ENCRYPTION_ENABLED: 'system.encryptionEnabled',
   SYSTEM_API_RATE_LIMIT_PER_MIN: 'system.apiRateLimitPerMin',
 
+  QUEUE_MAX_ATTEMPTS: 'queue.maxAttempts',
+  QUEUE_BACKOFF_DELAY_MS: 'queue.backoffDelayMs',
+  QUEUE_MAX_REPLAYS: 'queue.maxReplays',
+
   APP_MIN_ANDROID_VERSION: 'app.minAndroidVersion',
   APP_FORCE_UPDATE_ANDROID: 'app.forceUpdateAndroid',
   APP_LATEST_ANDROID_VERSION: 'app.latestAndroidVersion',

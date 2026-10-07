@@ -2,6 +2,8 @@ import { Queue, QueueOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import { ENV, isRedisConfigured } from '../config/env.config';
 import { QUEUE, QueueName, JOB, JobName } from '../config/socket.config';
+import { QUEUE_POLICY } from '../config/queue.config';
+import { getQueueConfig } from '../services/settings.service';
 import { logger } from '../services/logger.service';
 
 let connection: IORedis | null = null;
@@ -17,14 +19,24 @@ export const getQueueConnection = (): IORedis | null => {
   return connection;
 };
 
-const baseOptions = {
-  prefix: `${ENV.QUEUE_PREFIX}:bull`,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential' as const, delay: 3000 },
-    removeOnComplete: { count: 200 },
-    removeOnFail: { count: 500 },
-  },
+/**
+ * Retry policy lives in settings rather than on the Queue so an admin can raise
+ * the attempt count for a flaky provider without a deploy. It is applied per
+ * job at enqueue time rather than as the Queue's `defaultJobOptions`, because
+ * `getQueue` is synchronous everywhere and reading settings is not.
+ */
+const buildJobOptions = async () => {
+  const { maxAttempts, backoffDelayMs } = await getQueueConfig();
+
+  return {
+    attempts: maxAttempts,
+    backoff: {
+      type: QUEUE_POLICY.BACKOFF_TYPE,
+      delay: backoffDelayMs,
+    },
+    removeOnComplete: { count: QUEUE_POLICY.REMOVE_ON_COMPLETE_COUNT },
+    removeOnFail: { count: QUEUE_POLICY.REMOVE_ON_FAIL_COUNT },
+  };
 };
 
 const queues = new Map<QueueName, Queue>();
@@ -37,7 +49,10 @@ export const getQueue = (name: QueueName): Queue | null => {
   const conn = getQueueConnection();
   if (!conn) return null;
 
-  const queue = new Queue(name, { ...baseOptions, connection: conn } as QueueOptions);
+  const queue = new Queue(name, {
+    prefix: `${ENV.QUEUE_PREFIX}:bull`,
+    connection: conn,
+  } as QueueOptions);
   queue.on('error', (err) => logger.error({ err: err?.message, queue: name }, '[queue] error'));
   queues.set(name, queue);
   return queue;
@@ -58,7 +73,9 @@ export const enqueue = async (
   if (!queue) return { queued: false, jobId: '' };
 
   try {
+    const defaults = await buildJobOptions();
     const job = await queue.add(jobName, data, {
+      ...defaults,
       delay: opts.delay,
       jobId: opts.jobId,
     });
