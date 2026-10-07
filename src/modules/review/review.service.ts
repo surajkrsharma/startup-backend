@@ -974,7 +974,7 @@ export const createFlashSale = async (
 
             saleStock: Math.min(D.num(i.saleStock), D.num(priceMap.get(productId))),
             salePrice: computed,
-            createdById: D.str(actorId),
+            createdById: D.str(actorId) || null,
           };
         }),
       },
@@ -1045,7 +1045,7 @@ export const updateFlashSale = async (
             discountType,
             discountValue,
           ),
-          createdById: D.str(actorId),
+          createdById: D.str(actorId) || null,
         };
       }),
     });

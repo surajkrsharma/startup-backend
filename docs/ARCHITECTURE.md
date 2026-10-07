@@ -2566,7 +2566,8 @@ projectname-api/
 |   |-- schema.prisma
 |   |-- migrations/
 |   |   |-- migration_lock.toml
-|   |   `-- 20260101000000_init/   # poori schema ek hi folder me (98 models)
+|   |   |-- 20260101000000_init/          # poori schema ek folder me (109 models)
+|   |   `-- 20261008120000_failed_job/    # naya shape — har aage ka change yahin
 |   `-- seed.ts
 |-- src/
 |   |-- constants/        # roles, permissions, statuses, http, countries, tracking
