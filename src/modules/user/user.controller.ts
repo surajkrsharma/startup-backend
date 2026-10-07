@@ -19,7 +19,11 @@ import {
   serializeOrderSummaryList,
   serializeImpersonation,
 } from './user.serializer';
-import { serializeCustomerNote, serializeCustomerNoteList } from '../../utils/serialize';
+import {
+  serializeCustomerNote,
+  serializeCustomerNoteList,
+  serializeTimelineList,
+} from '../../utils/serialize';
 
 const userId = (req: Request): string => req.auth!.userId;
 const adminOnly = requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN);
@@ -151,6 +155,43 @@ export const removeCustomerNote = asyncHandler(async (req, res) => {
   return ApiResponse.success(res, {
     message: SUCCESS.USER.NOTE_REMOVED,
     result: { isRemoved: true },
+  });
+});
+
+/**
+ * @openapi
+ * /users/getActivity/:id:
+ *   get:
+ *     tags: [Users]
+ *     summary: Merge one customer's orders, returns, tickets, chats and logins
+ *     description: >
+ *       One ordered stream so a support agent does not have to open five screens.
+ *       Supports `?type=ORDER|RETURN|TICKET|CHAT|LOGIN`, `?from=`, `?to=`.
+ *     responses:
+ *       200: { description: Paginated timeline, newest first }
+ *       404: { description: Customer not found }
+ */
+export const getTimeline = asyncHandler(async (req, res) => {
+  const { rows, total, page, limit } = await service.getUserTimeline(req.params.id, req.query);
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.USER.TIMELINE_FETCHED,
+    result: {
+      filterData: {
+        type: D.str(req.query.type as string),
+        from: D.str(req.query.from as string),
+        to: D.str(req.query.to as string),
+      },
+      ...serializeTimelineList(rows),
+    },
+    totalRecord: total,
+    totalPage: Math.ceil(total / limit),
+    currentPage: page,
+    limit,
+    hasNext: page * limit < total,
+    hasPrevious: page > 1,
+    nextPage: page * limit < total ? page + 1 : 0,
+    previousPage: page > 1 ? page - 1 : 0,
   });
 });
 

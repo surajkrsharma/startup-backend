@@ -186,6 +186,24 @@ router.get(
   controller.getActivity,
 );
 
+/**
+ * @openapi
+ * /users/getTimeline/:id:
+ *   get:
+ *     tags: [Users]
+ *     summary: Unified customer timeline (admin)
+ *     description: >
+ *       Orders, returns, tickets, chats and logins merged into one ordered
+ *       stream. Supports `?type=`, `?from=`, `?to=`, `?page=`, `?limit=`.
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get(
+  '/getTimeline/:id',
+  ...controller.guards.adminView,
+  validate({ params: schema.getUserByIdSchema, query: schema.listTimelineSchema }),
+  controller.getTimeline,
+);
+
 router.get(
   '/getOrders/:id',
   ...controller.guards.adminView,

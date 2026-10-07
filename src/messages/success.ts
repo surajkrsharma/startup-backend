@@ -35,6 +35,7 @@ export const SUCCESS = {
     NOTE_ADDED: 'Customer note added.',
     NOTES_FETCHED: 'Customer notes fetched.',
     NOTE_REMOVED: 'Customer note removed.',
+    TIMELINE_FETCHED: 'Customer timeline fetched successfully.',
   },
   ADDRESS: {
     ADDED: 'Address added successfully.',

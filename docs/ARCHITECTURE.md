@@ -367,6 +367,7 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 | DELETE | `/api/v1/users/deleteUser/:id` | ✅ | SUPER_ADMIN | Hard delete |
 | GET | `/api/v1/users/getActivity/:id` | ✅ | ADMIN | User activity |
 | GET | `/api/v1/users/getOrders/:id` | ✅ | ADMIN | User orders |
+| GET | `/api/v1/users/getTimeline/:id` | ✅ | ADMIN | Unified timeline |
 | POST | `/api/v1/users/addNote/:id` | ✅ | ADMIN | Internal note add |
 | GET | `/api/v1/users/getNotes/:id` | ✅ | ADMIN | Internal notes list |
 | DELETE | `/api/v1/users/removeNote/:id/:noteId` | ✅ | ADMIN | Internal note remove |
@@ -2504,6 +2505,30 @@ buckets, fixed column) → `toPercentDistribution`. Baaki chaar
 
 ---
 
+### Customer Timeline Rules
+
+`GET /users/getTimeline/:id` paanch streams ko ek ordered list me merge karta hai —
+`ORDER`, `RETURN`, `TICKET`, `CHAT`, `LOGIN` — taaki support agent ko paanch screens
+kholne na pade. `?type=` se ek stream tak filter hota hai, `?from=` / `?to=` range
+set karte hain.
+
+Ye **read-only** hai, koi naya table nahi. `getUserActivity` alag hai — wo sirf
+`ActivityLog` ka event stream padhta hai, business objects nahi.
+
+Ek cheez jo code se nahi dikhti: ye union SQL me nahi hai. Prisma ek `skip`/`take`
+sirf ek table pe lagata hai, aur merge hone se pehle ye nahi pata chalta ki page ki
+boundary kahan padegi. Isliye har source se **`skip + limit`** rows leti hain — union
+ke pehle `skip + limit` rows usse poore mil jaate hain, isliye slice sahi hota hai.
+
+Iska matlab: `TIMELINE_MAX_WINDOW` (200) se gehri page pe har source se itni rows
+nahin aati, aur list page ke end se chhoti ho sakti hai. Ye deliberate hai — bina
+cap ke ek deep page paanch unbounded query ban jayegi.
+
+`totalRecord` har source ke alag `count()` ka sum hai, isliye wo merged window se
+zyada hota hai. Ye bhi expected hai: count accurate hai, list window ke andar hai.
+
+---
+
 ### Job Retry & Dead Letter Rules
 
 **Retry.** Every job carries `attempts` and an exponential `backoff`, applied per
@@ -3286,6 +3311,7 @@ live Express router, whereas a hand-written list drifts.
     GET            /users/getNotes/{id}
     GET            /users/getOrders/{id}
     GET            /users/getProfile
+    GET            /users/getTimeline/{id}
     PATCH          /users/setDefaultAddress/{id}
     PATCH          /users/toggleStatus/{id}
     PATCH          /users/updateAddress/{id}
@@ -3362,7 +3388,8 @@ naya behaviour ab [Catalog & Order Rules](#catalog--order-rules),
 [Account Security Rules](#account-security-rules),
 [Cart Rules](#cart-rules),
 [Payment Rules](#payment-rules),
-[Percentage Rules](#percentage-rules) and
+[Percentage Rules](#percentage-rules),
+[Customer Timeline Rules](#customer-timeline-rules) and
 [Job Retry & Dead Letter Rules](#job-retry--dead-letter-rules) mai documented hai.
 Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
@@ -3380,7 +3407,6 @@ Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 | **Saved Payment Methods** | 🔴 | Har baar card/UPI dobara daalna padta hai. | Tokenized card/UPI save, 1-click pay. | Conversion rate 20-30% badhta hai. |
 | **Customer Preferences** | 🟡 | Language/currency partial. | Notification channel prefs, timezone, digest frequency. | Personalization ke liye. |
 | **Customer Segments** | 🔴 | Koi segment/tag nahi. | VIP, wholesale, blocked, new, repeat tags. | Targeted marketing ke liye. |
-| **Customer Timeline** | 🔴 | Orders, returns, tickets alag-alag. | Unified timeline (orders + returns + tickets + chats + logins). | Support agent ko full context milta hai. |
 | **Customer Merge** | 🔴 | Duplicate accounts merge nahi. | Merge API with conflict resolution. | Duplicate accounts se data mess. |
 | **Customer Export** | 🟡 | Reports me hai, per-customer nahi. | Single customer ka full data export (JSON/CSV). | DPDP right to access. |
 | **DPDP Data Export** | 🔴 | Customer apna data download nahi kar sakta. | Self-service data export endpoint. | DPDP legal requirement. |

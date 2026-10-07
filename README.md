@@ -403,7 +403,7 @@ CI enforces them.
 
 ## Architecture
 
-530 operations across 17 module directories, backed by a 110-model schema. A few
+531 operations across 17 module directories, backed by a 110-model schema. A few
 directories export more than one router, so they mount at several prefixes.
 
 | Module | Mount | Operations |
@@ -420,15 +420,15 @@ directories export more than one router, so they mount at several prefixes.
 | order | `/orders` | 24 |
 | catalog | `/brands`, `/attributes`, `/collections`, `/tags` | 23 |
 | product | `/products` | 22 |
-| user | `/users` | 20 |
+| user | `/users` | 21 |
 | vendor | `/vendors` | 17 |
 | category | `/categories` | 8 |
 | health | `/health` | 5 |
 | system | `/version` | 1 |
 
 Regenerate this table rather than counting by hand — the counts come from the
-OpenAPI spec, which is built off the live router. The rows sum to 524; the other
-6 of the 530 are the generated `/docs` UI assets and `/docs.json`.
+OpenAPI spec, which is built off the live router. The rows sum to 525; the other
+6 of the 531 are the generated `/docs` UI assets and `/docs.json`.
 
 ### Conventions
 

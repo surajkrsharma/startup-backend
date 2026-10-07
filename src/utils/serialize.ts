@@ -656,6 +656,23 @@ export const serializeCustomerNoteList = (rows: any[]) => ({
   noteList: D.arr(rows).map(serializeCustomerNote),
 });
 
+export const serializeTimelineEvent = (e: any) => ({
+  timelineId: D.str(e?.id),
+  type: D.str(e?.type),
+  title: D.str(e?.title),
+  referenceNo: D.str(e?.referenceNo),
+  status: D.str(e?.status),
+  amount: D.float(e?.amount),
+  isActive: D.bool(e?.isActive),
+  occurredAt: D.date(e?.occurredAt),
+
+  metaData: D.obj(e?.meta),
+});
+
+export const serializeTimelineList = (rows: any[]) => ({
+  timelineList: D.arr(rows).map(serializeTimelineEvent),
+});
+
 export const serializeCannedResponse = (c: any) => ({
   responseId: D.str(c?.id),
   title: D.str(c?.title),

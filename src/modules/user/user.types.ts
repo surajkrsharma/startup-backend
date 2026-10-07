@@ -39,6 +39,32 @@ export interface UserActivityFilters {
   to: Date | null;
 }
 
+/**
+ * The five streams the customer timeline merges. Each maps onto a different
+ * table, which is why the union is built in memory rather than in SQL.
+ */
+export const TIMELINE_TYPE = {
+  ORDER: 'ORDER',
+  RETURN: 'RETURN',
+  TICKET: 'TICKET',
+  CHAT: 'CHAT',
+  LOGIN: 'LOGIN',
+} as const;
+
+export type TimelineType = keyof typeof TIMELINE_TYPE;
+
+export interface TimelineEvent {
+  id: string;
+  type: TimelineType;
+  title: string;
+  referenceNo: string;
+  status: string;
+  amount: number;
+  isActive: boolean;
+  occurredAt: Date;
+  meta: Record<string, any>;
+}
+
 export interface ImpersonationResult {
   accessToken: string;
   expiresIn: number;

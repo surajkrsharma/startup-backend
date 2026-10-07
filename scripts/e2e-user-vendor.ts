@@ -757,6 +757,70 @@ const main = async (): Promise<void> => {
     .set('Authorization', `Bearer ${adminToken}`);
   record('removing it twice -> 404', removeAgain.status === 404);
 
+  const timeline = await request(app)
+    .get(`/api/v1/users/getTimeline/${customer.userId}?limit=50`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  const timelineList = timeline.body?.result?.timelineList ?? [];
+  record(
+    'GET /users/getTimeline -> 200',
+    timeline.status === 200 && assertEnvelope(timeline.body, true),
+    `status=${timeline.status}`,
+  );
+
+  record(
+    'the timeline carries pagination numbers first',
+    timeline.body?.result?.totalRecord >= 0 &&
+      timeline.body?.result?.timelineList !== undefined &&
+      Object.keys(timeline.body?.result ?? {})[0] === 'totalRecord',
+    JSON.stringify(Object.keys(timeline.body?.result ?? {})),
+  );
+
+  record(
+    'a login is on the timeline',
+    timelineList.some((e: any) => e.type === 'LOGIN'),
+    `types=${[...new Set(timelineList.map((e: any) => e.type))].join(',')}`,
+  );
+
+  record(
+    'the timeline is newest first',
+    timelineList.every(
+      (e: any, i: number) => i === 0 || timelineList[i - 1].occurredAt >= e.occurredAt,
+    ),
+  );
+
+  record(
+    'no timeline entry carries a null',
+    timelineList.every((e: any) => Object.values(e).every((v) => v !== null)),
+  );
+
+  const timelineFiltered = await request(app)
+    .get(`/api/v1/users/getTimeline/${customer.userId}?type=ORDER&limit=50`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  record(
+    '?type= narrows to one stream',
+    timelineFiltered.status === 200 &&
+      (timelineFiltered.body?.result?.timelineList ?? []).every((e: any) => e.type === 'ORDER'),
+    `types=${[...new Set((timelineFiltered.body?.result?.timelineList ?? []).map((e: any) => e.type))].join(',')}`,
+  );
+
+  const timelineBadType = await request(app)
+    .get(`/api/v1/users/getTimeline/${customer.userId}?type=BOGUS`)
+    .set('Authorization', `Bearer ${adminToken}`);
+  record('unknown ?type -> 400', timelineBadType.status === 400);
+
+  const timelineUnknownCustomer = await request(app)
+    .get('/api/v1/users/getTimeline/does-not-exist')
+    .set('Authorization', `Bearer ${adminToken}`);
+  record(
+    'timeline for an unknown customer -> 404',
+    timelineUnknownCustomer.status === 404 && assertEnvelope(timelineUnknownCustomer.body, false),
+  );
+
+  const timelineDenied = await request(app)
+    .get(`/api/v1/users/getTimeline/${customer.userId}`)
+    .set('Authorization', `Bearer ${customer.token}`);
+  record('customer cannot read the timeline -> 403', timelineDenied.status === 403);
+
   const failed = checks.filter((c) => !c.passed);
   console.log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
   if (failed.length) {

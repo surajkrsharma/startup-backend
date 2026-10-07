@@ -157,6 +157,15 @@ export const addCustomerNoteSchema = z
 
 export const customerNoteParamSchema = z.object({ id: common.cuid, noteId: common.cuid });
 
+export const listTimelineSchema = z
+  .object({
+    type: z.enum(['ORDER', 'RETURN', 'TICKET', 'CHAT', 'LOGIN']).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+  })
+  .merge(paginationSchema)
+  .strict();
+
 export const UPLOAD_FIELD = 'avatar';
 export const DEFAULT_DIAL = DEFAULT_DIAL_CODE;
 export const CUSTOMER_ROLE = ROLES.CUSTOMER;

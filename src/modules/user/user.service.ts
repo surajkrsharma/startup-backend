@@ -1,11 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
-import { D } from '../../utils/defaults';
+import { D, money } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
 import { VALIDATION } from '../../messages/validation';
 import { ERROR_CODE } from '../../constants/http';
 import { Role, ADMIN_ACTION, ADDRESS_TYPE } from '../../constants/roles';
+import { RETURN_STATUS, TICKET_STATUS } from '../../constants/statuses';
 import { randomString, sha256, signAccessToken } from '../../utils/crypto';
 import { getPagination } from '../../utils/pagination';
 import { addDays } from '../../utils/dates';
@@ -14,7 +15,14 @@ import { sendMailNotification } from '../../services/notification.service';
 import { diffChanges, writeActivityLog, writeAuditLog } from '../../services/audit.service';
 import { COUNTRY_CODE, EMAIL_REGEX } from '../../constants/countries';
 import { normalisePhone } from '../../utils/validate';
-import { ListUsersFilters, UserActivityFilters, AddressWrite } from './user.types';
+import {
+  ListUsersFilters,
+  UserActivityFilters,
+  AddressWrite,
+  TimelineEvent,
+  TimelineType,
+  TIMELINE_TYPE,
+} from './user.types';
 
 const PROFILE_INCLUDE: Prisma.UserInclude = {
   vendorProfile: {
@@ -822,4 +830,208 @@ export const deleteCustomerNote = async (
   });
 
   return true;
+};
+
+// ── Customer timeline ────────────────────────────────────────────────
+
+/**
+ * Each source is read up to `skip + limit` rows rather than `limit`. The merged
+ * list is sorted afterwards, so a page boundary cannot be known before the
+ * merge; taking that much from every source guarantees the union's first
+ * `skip + limit` rows are all present, which is what makes the slice correct.
+ * The window is capped so a deep page cannot become five unbounded queries.
+ */
+const TIMELINE_MAX_WINDOW = 200;
+
+const SETTLED_RETURN_STATUSES: string[] = [RETURN_STATUS.REFUNDED, RETURN_STATUS.REJECTED];
+const CLOSED_TICKET_STATUSES: string[] = [TICKET_STATUS.RESOLVED, TICKET_STATUS.CLOSED];
+
+export const getUserTimeline = async (
+  targetUserId: string,
+  query: any,
+): Promise<{ rows: TimelineEvent[]; total: number; page: number; limit: number; skip: number }> => {
+  const user = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true },
+  });
+
+  if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND);
+
+  const { page, limit, skip } = getPagination(query);
+  const take = Math.min(skip + limit, TIMELINE_MAX_WINDOW);
+
+  const from = query?.from ? new Date(query.from) : null;
+  const to = query?.to ? new Date(query.to) : null;
+  const fromAt = from && !Number.isNaN(from.getTime()) ? from : null;
+  const toAt = to && !Number.isNaN(to.getTime()) ? to : null;
+
+  const inRange = {
+    ...(fromAt || toAt ? { gte: fromAt ?? undefined, lte: toAt ?? undefined } : {}),
+  };
+  const typeFilter = D.str(query?.type).toUpperCase();
+  const wants = (type: TimelineType) => !typeFilter || typeFilter === type;
+
+  const orderWhere = { userId: targetUserId, createdAt: inRange };
+  const returnWhere = { userId: targetUserId, requestedAt: inRange };
+  const ticketWhere = { userId: targetUserId, createdAt: inRange };
+  const chatWhere = { userId: targetUserId, createdAt: inRange };
+  const loginWhere = { userId: targetUserId, createdAt: inRange };
+
+  const [orders, returns, tickets, chats, logins, counts] = await Promise.all([
+    wants(TIMELINE_TYPE.ORDER)
+      ? prisma.order.findMany({
+          where: orderWhere,
+          orderBy: { createdAt: 'desc' },
+          take,
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+            isCancelled: true,
+            createdAt: true,
+            _count: { select: { items: true } },
+          },
+        })
+      : [],
+    wants(TIMELINE_TYPE.RETURN)
+      ? prisma.returnRequest.findMany({
+          where: returnWhere,
+          orderBy: { requestedAt: 'desc' },
+          take,
+          select: {
+            id: true,
+            returnNumber: true,
+            status: true,
+            refundAmount: true,
+            requestedAt: true,
+            _count: { select: { items: true } },
+          },
+        })
+      : [],
+    wants(TIMELINE_TYPE.TICKET)
+      ? prisma.ticket.findMany({
+          where: ticketWhere,
+          orderBy: { createdAt: 'desc' },
+          take,
+          select: {
+            id: true,
+            ticketNumber: true,
+            subject: true,
+            status: true,
+            priority: true,
+            createdAt: true,
+            _count: { select: { messages: true } },
+          },
+        })
+      : [],
+    wants(TIMELINE_TYPE.CHAT)
+      ? prisma.conversationParticipant.findMany({
+          where: chatWhere,
+          orderBy: { createdAt: 'desc' },
+          take,
+          select: {
+            conversationId: true,
+            lastReadAt: true,
+            conversation: {
+              select: {
+                lastMessageAt: true,
+                isActive: true,
+                _count: { select: { messages: true } },
+              },
+            },
+          },
+        })
+      : [],
+    wants(TIMELINE_TYPE.LOGIN)
+      ? prisma.refreshToken.findMany({
+          where: loginWhere,
+          orderBy: { createdAt: 'desc' },
+          take,
+          select: { id: true, ip: true, deviceId: true, createdAt: true },
+        })
+      : [],
+
+    Promise.all([
+      wants(TIMELINE_TYPE.ORDER) ? prisma.order.count({ where: orderWhere }) : 0,
+      wants(TIMELINE_TYPE.RETURN) ? prisma.returnRequest.count({ where: returnWhere }) : 0,
+      wants(TIMELINE_TYPE.TICKET) ? prisma.ticket.count({ where: ticketWhere }) : 0,
+      wants(TIMELINE_TYPE.CHAT) ? prisma.conversationParticipant.count({ where: chatWhere }) : 0,
+      wants(TIMELINE_TYPE.LOGIN) ? prisma.refreshToken.count({ where: loginWhere }) : 0,
+    ]),
+  ]);
+
+  const events: TimelineEvent[] = [
+    ...orders.map((o) => ({
+      id: o.id,
+      type: TIMELINE_TYPE.ORDER as TimelineType,
+      title: `Order ${o.orderNumber}`,
+      referenceNo: o.orderNumber,
+      status: o.status,
+      amount: money(o.total),
+      isActive: !o.isCancelled,
+      occurredAt: o.createdAt,
+      meta: { itemCount: D.num(o._count.items), isCancelled: o.isCancelled },
+    })),
+    ...returns.map((r) => ({
+      id: r.id,
+      type: TIMELINE_TYPE.RETURN as TimelineType,
+      title: `Return ${r.returnNumber}`,
+      referenceNo: r.returnNumber,
+      status: r.status,
+      amount: money(r.refundAmount),
+      isActive: !SETTLED_RETURN_STATUSES.includes(r.status),
+      occurredAt: r.requestedAt,
+      meta: { itemCount: D.num(r._count.items) },
+    })),
+    ...tickets.map((t) => ({
+      id: t.id,
+      type: TIMELINE_TYPE.TICKET as TimelineType,
+      title: D.str(t.subject) || `Ticket ${t.ticketNumber}`,
+      referenceNo: t.ticketNumber,
+      status: t.status,
+      amount: 0,
+      isActive: !CLOSED_TICKET_STATUSES.includes(t.status),
+      occurredAt: t.createdAt,
+      meta: { priority: t.priority, messageCount: D.num(t._count.messages) },
+    })),
+    ...chats.map((c) => ({
+      id: c.conversationId,
+      type: TIMELINE_TYPE.CHAT as TimelineType,
+      title: 'Chat conversation',
+      referenceNo: '',
+      status: '',
+      amount: 0,
+      isActive: c.conversation.isActive,
+      occurredAt: c.conversation.lastMessageAt,
+      meta: {
+        messageCount: D.num(c.conversation._count.messages),
+        lastReadAt: D.date(c.lastReadAt),
+      },
+    })),
+    ...logins.map((l) => ({
+      id: l.id,
+      type: TIMELINE_TYPE.LOGIN as TimelineType,
+      title: 'Login',
+      referenceNo: '',
+      status: '',
+      amount: 0,
+      isActive: false,
+      occurredAt: l.createdAt,
+      meta: { ip: D.str(l.ip), deviceId: D.str(l.deviceId) },
+    })),
+  ];
+
+  const merged = events
+    .filter((e) => !fromAt || e.occurredAt >= fromAt)
+    .filter((e) => !toAt || e.occurredAt <= toAt)
+    .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+
+  return {
+    rows: merged.slice(skip, skip + limit),
+    total: counts.reduce((sum, n) => sum + D.num(n), 0),
+    page,
+    limit,
+    skip,
+  };
 };
