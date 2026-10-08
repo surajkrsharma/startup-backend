@@ -4,6 +4,7 @@ import { AppError } from '../../utils/AppError';
 import { D, money } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
 import { ERROR_CODE } from '../../constants/http';
+import { isAdminRole } from '../../constants/roles';
 import {
   ORDER_STATUS,
   canTransitionOrder,
@@ -81,6 +82,13 @@ const resolveOrderIdForActor = async (orderRef: string, userId?: string): Promis
 
   return order.id;
 };
+
+/**
+ * The tag and note routes are staff-guarded, so an admin actor is scoped to no
+ * owner at all; only non-admin callers get the ownership check above.
+ */
+const actorScope = (req?: any): string | undefined =>
+  isAdminRole(D.str(req?.auth?.role)) ? undefined : D.str(req?.auth?.userId);
 
 const pushTimeline = async (
   tx: Prisma.TransactionClient | typeof prisma,
@@ -1416,8 +1424,8 @@ export const getSubOrderForVendor = async (subOrderId: string, vendorId: string)
   return sub;
 };
 
-export const listOrderTags = async (orderRef: string, userId?: string): Promise<any[]> => {
-  const orderId = await resolveOrderIdForActor(orderRef, userId);
+export const listOrderTags = async (orderRef: string, req?: any): Promise<any[]> => {
+  const orderId = await resolveOrderIdForActor(orderRef, actorScope(req));
   return prisma.orderTag.findMany({
     where: { orderId },
     orderBy: { createdAt: 'asc' },
@@ -1430,7 +1438,7 @@ export const addOrderTags = async (
   userId?: string,
   req?: any,
 ): Promise<any[]> => {
-  const orderId = await resolveOrderIdForActor(orderRef, userId);
+  const orderId = await resolveOrderIdForActor(orderRef, actorScope(req));
   const labels = D.arr(input.labels)
     .map((label: any) => D.str(label).trim().toUpperCase())
     .filter((label: string) => label !== '');
@@ -1478,7 +1486,7 @@ export const removeOrderTag = async (
   userId?: string,
   req?: any,
 ): Promise<boolean> => {
-  const orderId = await resolveOrderIdForActor(orderRef, userId);
+  const orderId = await resolveOrderIdForActor(orderRef, actorScope(req));
 
   const tag = await prisma.orderTag.findFirst({ where: { id: tagId, orderId } });
   if (!tag) throw AppError.notFound(ERROR.ORDER.TAG_NOT_FOUND, ERROR_CODE.NOT_FOUND);
@@ -1503,7 +1511,7 @@ export const addOrderNote = async (
   input: { note: string },
   req?: any,
 ): Promise<any> => {
-  const orderId = await resolveOrderIdForActor(orderRef, userId);
+  const orderId = await resolveOrderIdForActor(orderRef, actorScope(req));
 
   const note = await prisma.orderNote.create({
     data: {
@@ -1532,8 +1540,8 @@ export const addOrderNote = async (
   return note;
 };
 
-export const listOrderNotes = async (orderRef: string, userId: string): Promise<any[]> => {
-  const orderId = await resolveOrderIdForActor(orderRef, userId);
+export const listOrderNotes = async (orderRef: string, req?: any): Promise<any[]> => {
+  const orderId = await resolveOrderIdForActor(orderRef, actorScope(req));
 
   return prisma.orderNote.findMany({
     where: { orderId },
@@ -1554,7 +1562,7 @@ export const deleteOrderNote = async (
   userId: string,
   req?: any,
 ): Promise<boolean> => {
-  const orderId = await resolveOrderIdForActor(orderRef, userId);
+  const orderId = await resolveOrderIdForActor(orderRef, actorScope(req));
 
   const note = await prisma.orderNote.findFirst({ where: { id: noteId, orderId } });
   if (!note) throw AppError.notFound(ERROR.ORDER.NOTE_NOT_FOUND, ERROR_CODE.NOT_FOUND);

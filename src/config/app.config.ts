@@ -59,5 +59,11 @@ export const IDEMPOTENCY = {
   RETENTION_HOURS: 24,
   IN_PROGRESS_MAX_AGE_SEC: 120,
 } as const;
-export const MAINTENANCE_ALLOW_PATHS = ['/health', '/docs', '/docs.json', '/version'];
+export const MAINTENANCE_ALLOW_PATHS = [
+  '/health',
+  '/docs',
+  '/docs.json',
+  '/version',
+  '/settings/getMaintenance',
+];
 export const MAINTENANCE_ADMIN_PATHS = ['/admin'];

@@ -51,6 +51,7 @@
     "e2e:notification": "tsx scripts/e2e-notification.ts",
     "e2e:user-vendor": "tsx scripts/e2e-user-vendor.ts",
     "e2e:catalog": "tsx scripts/e2e-catalog.ts",
+    "e2e:roles": "tsx scripts/e2e-role-complete.ts",
     "prepare": "husky"
   },
   "keywords": [

@@ -338,7 +338,7 @@ const enforceSessionLimit = async (userId: string, keepSessionKey: string): Prom
   });
 
   const surplus = active
-    .filter((row) => row.sessionKey !== keepSessionKey)
+    .filter((row) => row.sessionKey !== keepSessionKey && row.id !== keepSessionKey)
     .slice(Math.max(0, cap - 1));
 
   if (!surplus.length) return 0;
@@ -378,6 +378,37 @@ const assertPasswordNotExpired = (passwordChangedAt: Date | null, expiryDays: nu
   );
 };
 
+/**
+ * Tracking only mints a device session key when it is enabled, so a login
+ * issued with tracking off still needs a stable key of its own; the hash keeps
+ * the key unique per user and short enough for the session-id route param.
+ */
+const sessionKeyFor = (userId: string, device: DeviceContext): string =>
+  D.str(device.sessionKey) || sha256(`${device.deviceId}:${userId}`).slice(0, 32);
+
+const recordSession = async (
+  userId: string,
+  sessionKey: string,
+  device: DeviceContext,
+): Promise<void> => {
+  await prisma.session.upsert({
+    where: { sessionKey },
+    create: {
+      sessionKey,
+      userId,
+      deviceId: D.str(device.deviceId),
+      ip: D.str(device.ip),
+      userAgent: D.str(device.userAgent).slice(0, 400),
+      platform: device.platform as any,
+      geo: {} as any,
+      startedAt: new Date(),
+      lastSeenAt: new Date(),
+      isActive: true,
+    },
+    update: { userId, isActive: true, endedAt: null, lastSeenAt: new Date() },
+  });
+};
+
 export const issueTokens = async (userId: string, device: DeviceContext): Promise<TokenPair> => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -386,6 +417,9 @@ export const issueTokens = async (userId: string, device: DeviceContext): Promis
 
   if (!user) throw AppError.unauthorized(ERROR.AUTH.UNAUTHORIZED);
 
+  const sessionKey = sessionKeyFor(user.id, device);
+  await recordSession(user.id, sessionKey, device);
+
   const jti = sha256(`${userId}:${Date.now()}:${Math.random()}`);
 
   const accessToken = signAccessToken({
@@ -393,7 +427,7 @@ export const issueTokens = async (userId: string, device: DeviceContext): Promis
     role: user.role,
     vendorId: user.vendorProfile?.id ?? '',
     email: user.email,
-    sessionKey: device.sessionKey,
+    sessionKey,
     deviceId: device.deviceId,
   });
 
@@ -629,7 +663,7 @@ export const loginWithPassword = async (
   await linkDeviceToUser(user.id, device);
   await cacheDel(REDIS_KEYS.LOGIN_ATTEMPTS(identifier));
 
-  const revokedSessionCount = await enforceSessionLimit(user.id, device.sessionKey);
+  const revokedSessionCount = await enforceSessionLimit(user.id, sessionKeyFor(user.id, device));
 
   void notifyLogin(user, device, { method: 'password', isNewDevice }, req);
 
@@ -1810,7 +1844,12 @@ export const listSessions = async (userId: string, currentSessionKey: string): P
         isActive: true,
       },
     })
-    .then((rows) => rows.map((r) => ({ ...r, isCurrent: r.sessionKey === currentSessionKey })));
+    .then((rows) =>
+      rows.map((r) => ({
+        ...r,
+        isCurrent: r.sessionKey === currentSessionKey || r.id === currentSessionKey,
+      })),
+    );
 };
 
 export const revokeSession = async (userId: string, sessionKey: string): Promise<boolean> => {

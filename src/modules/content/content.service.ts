@@ -539,10 +539,15 @@ export const subscribe = async (email: string, req?: any): Promise<Record<string
 
     const row = await prisma.newsletterSubscriber.update({
       where: { email: address },
-      data: { isSubscribed: true, isActive: true, unsubscribedAt: null },
+      data: {
+        isSubscribed: true,
+        isActive: true,
+        unsubscribedAt: null,
+        ...(D.str(existing.token) ? {} : { token: generateCode(32) }),
+      },
     });
 
-    return { email: D.str(row.email), isSubscribed: true };
+    return { email: D.str(row.email), isSubscribed: true, unsubscribeToken: D.str(row.token) };
   }
 
   const row = await prisma.newsletterSubscriber.create({
@@ -556,7 +561,7 @@ export const subscribe = async (email: string, req?: any): Promise<Record<string
     entityId: row.id,
   });
 
-  return { email: D.str(row.email), isSubscribed: true };
+  return { email: D.str(row.email), isSubscribed: true, unsubscribeToken: D.str(row.token) };
 };
 
 export const unsubscribe = async (token: string): Promise<Record<string, any>> => {

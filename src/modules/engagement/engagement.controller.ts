@@ -340,7 +340,10 @@ export const check = asyncHandler(async (req, res) => {
 export const redeemGiftCard = asyncHandler(async (req, res) => {
   const result = await service.redeemGiftCard(
     D.str(req.body.code),
-    { orderId: D.str(req.body.orderId), amount: D.float(req.body.amount) },
+    {
+      orderId: D.str(req.body.orderId),
+      amount: req.body.amount === undefined ? undefined : D.float(req.body.amount),
+    },
     req,
   );
 

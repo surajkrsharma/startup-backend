@@ -135,7 +135,7 @@ export const getTimeline = asyncHandler(async (req, res) => {
  *       200: { description: Tag list, oldest first }
  */
 export const getTags = asyncHandler(async (req, res) => {
-  const tags = await service.listOrderTags(D.str(req.params.id), userId(req));
+  const tags = await service.listOrderTags(D.str(req.params.id), req);
   return ApiResponse.success(res, {
     message: SUCCESS.ORDER.TAGS_FETCHED,
     result: serializeOrderTagList(tags),
@@ -214,7 +214,7 @@ export const addNote = asyncHandler(async (req, res) => {
  *       404: { description: Order not found }
  */
 export const getNotes = asyncHandler(async (req, res) => {
-  const notes = await service.listOrderNotes(D.str(req.params.id), req.auth!.userId);
+  const notes = await service.listOrderNotes(D.str(req.params.id), req);
   return ApiResponse.success(res, {
     message: SUCCESS.ORDER.NOTES_FETCHED,
     result: serializeOrderNoteList(notes),

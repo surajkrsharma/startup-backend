@@ -50,22 +50,6 @@ const replay = (
 };
 
 /**
- * Taps `res.json` rather than asking `ApiResponse` to record anything, so every
- * controller is captured without a single call site changing.
- */
-const captureJson = (res: Response): { body: unknown } => {
-  const store: { body: unknown } = { body: null };
-  const original = res.json.bind(res);
-
-  res.json = ((payload: unknown) => {
-    store.body = payload;
-    return original(payload);
-  }) as Response['json'];
-
-  return store;
-};
-
-/**
  * Opt-in per route. Without the header the request passes straight through, so
  * adding this to a route cannot break a client that has not adopted keys yet.
  *
@@ -167,35 +151,58 @@ export const idempotency =
       return;
     }
 
-    const captured = captureJson(res);
+    let capturedBody: unknown = null;
+    let persisted = false;
 
-    res.on('finish', () => {
-      /**
-       * A key belongs to a call that succeeded. Anything 4xx or 5xx releases it
-       * so the client can fix the request and retry, rather than being locked
-       * out of a key it has not actually spent.
-       */
-      if (res.statusCode >= HTTP_STATUS.BAD_REQUEST) {
-        void prisma.idempotencyKey
-          .deleteMany({ where: { userId, key, state: IN_PROGRESS } })
-          .catch((err: Error) => {
-            logger.error({ err: err.message, key, scope }, '[idempotency] release failed');
+    /**
+     * The state write completes before the payload reaches the socket: the
+     * moment the client sees the first response it may fire its retry, so a
+     * write that trails the response races that replay's lookup and turns a
+     * stored-response replay into a spurious 409.
+     */
+    const persistResponse = async (): Promise<void> => {
+      try {
+        if (res.statusCode >= HTTP_STATUS.BAD_REQUEST) {
+          // A failed call must release the key so the client can fix the request and retry.
+          await prisma.idempotencyKey.deleteMany({ where: { userId, key, state: IN_PROGRESS } });
+        } else {
+          await prisma.idempotencyKey.updateMany({
+            where: { userId, key, state: IN_PROGRESS },
+            data: {
+              state: COMPLETED,
+              responseStatus: res.statusCode,
+              responseBody: JSON.stringify(capturedBody ?? {}),
+            },
           });
-        return;
+        }
+        persisted = true;
+      } catch (err) {
+        logger.error(
+          { err: (err as Error).message, key, scope },
+          '[idempotency] store response failed',
+        );
       }
+    };
 
-      void prisma.idempotencyKey
-        .updateMany({
-          where: { userId, key, state: IN_PROGRESS },
-          data: {
-            state: COMPLETED,
-            responseStatus: res.statusCode,
-            responseBody: JSON.stringify(captured.body ?? {}),
-          },
+    const originalJson = res.json.bind(res);
+    res.json = ((payload: unknown) => {
+      capturedBody = payload;
+      if (res.headersSent) return originalJson(payload);
+
+      void persistResponse()
+        .then(() => {
+          if (!res.headersSent) originalJson(payload);
         })
         .catch((err: Error) => {
-          logger.error({ err: err.message, key, scope }, '[idempotency] store response failed');
+          logger.error({ err: err.message, key, scope }, '[idempotency] send response failed');
         });
+      return res;
+    }) as Response['json'];
+
+    res.on('finish', () => {
+      // Fallback for responses that never go through res.json.
+      if (persisted) return;
+      void persistResponse();
     });
 
     next();

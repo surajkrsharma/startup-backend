@@ -399,9 +399,7 @@ webhook.post(
  *             $ref: '#/components/schemas/WebhookProviderPayload'
  *     responses:
  *       200:
- *         description: Event accepted and recorded
- *       400:
- *         description: Signature missing or not matching
+ *         description: Delivery recorded; isProcessed is false when the signature does not verify
  */
 webhook.post('/razorpay', controller.receiveRazorpayWebhook);
 
@@ -424,9 +422,7 @@ webhook.post('/razorpay', controller.receiveRazorpayWebhook);
  *             $ref: '#/components/schemas/WebhookProviderPayload'
  *     responses:
  *       200:
- *         description: Event accepted and recorded
- *       400:
- *         description: Signature missing or not matching
+ *         description: Delivery recorded; isProcessed is false when the signature does not verify
  */
 webhook.post('/shipping', controller.receiveShippingWebhook);
 
@@ -447,8 +443,8 @@ webhook.post('/shipping', controller.receiveShippingWebhook);
  *         required: true
  *         schema:
  *           type: string
- *           enum: [RAZORPAY, PAYPAL, STRIPE, PHONEPE]
- *         example: RAZORPAY
+ *           enum: [razorpay, stripe, shipping, custom]
+ *         example: razorpay
  *     requestBody:
  *       required: true
  *       content:
@@ -457,9 +453,9 @@ webhook.post('/shipping', controller.receiveShippingWebhook);
  *             $ref: '#/components/schemas/WebhookProviderPayload'
  *     responses:
  *       200:
- *         description: Event accepted and recorded
+ *         description: Delivery recorded; isProcessed is false when the signature does not verify
  *       400:
- *         description: Signature missing or not matching
+ *         description: Unknown provider
  */
 webhook.post(
   '/payment-gateway/:provider',
