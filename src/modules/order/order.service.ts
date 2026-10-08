@@ -28,9 +28,11 @@ import { cacheDel, cacheSet, cacheGet } from '../../services/redis.service';
 import { writeActivityLog } from '../../services/audit.service';
 import { notifyUser } from '../../services/notification.service';
 import { getOrCreateCart, calculateTotals, getWalletBalance } from '../cart/cart.service';
+import { assertVendorAcceptingOrders } from '../vendor/vendor.service';
 import { recordEarning, requestReturn, updateReturnStatus } from '../payment/payment.service';
 import { addMinutes, daysBetween } from '../../utils/dates';
 import { WARRANTY } from '../../config/password.config';
+import { VENDOR_BULK_ACTION } from './order.schema';
 
 export const ORDER_INCLUDE = {
   user: { select: { id: true, name: true, email: true, phone: true } },
@@ -246,7 +248,7 @@ export const placeOrder = async (
 
   const vendors = await prisma.vendorProfile.findMany({
     where: { id: { in: Array.from(byVendor.keys()) } },
-    select: { id: true, commissionRate: true, status: true },
+    select: { id: true, userId: true, commissionRate: true, status: true, isOnVacation: true },
   });
 
   const vendorMap = new Map(vendors.map((v) => [v.id, v]));
@@ -255,6 +257,21 @@ export const placeOrder = async (
     if (vendorMap.get(vendorId)?.status !== 'APPROVED') {
       throw AppError.forbidden(ERROR.PRODUCT.VENDOR_NOT_APPROVED, ERROR_CODE.VENDOR_NOT_APPROVED);
     }
+  }
+
+  await assertVendorAcceptingOrders(vendors.filter((v) => v.isOnVacation).map((v) => v.id));
+
+  const vendorOwnerUserIds = vendors.map((v) => D.str(v.userId)).filter((id) => id !== '');
+
+  const block = vendorOwnerUserIds.length
+    ? await prisma.userBlock.findFirst({
+        where: { blockedId: userId, blockerId: { in: vendorOwnerUserIds } },
+        select: { blockerId: true },
+      })
+    : null;
+
+  if (block) {
+    throw AppError.forbidden(ERROR.CHAT.USER_BLOCKED, ERROR_CODE.USER_BLOCKED);
   }
 
   const orderNumber = generateOrderNumber();
@@ -839,6 +856,125 @@ export const updateSubOrderStatus = async (
     where: { id: subOrderId },
     include: { items: true, vendor: true },
   });
+};
+
+const BULK_STATUS_BY_ACTION: Record<string, string> = {
+  [VENDOR_BULK_ACTION.ACCEPT]: ORDER_STATUS.CONFIRMED,
+  [VENDOR_BULK_ACTION.REJECT]: ORDER_STATUS.CANCELLED,
+};
+
+/**
+ * `updated` and `skipped` together account for every id the caller asked for.
+ */
+export interface BulkSubOrderStatusResult {
+  action: string;
+  requested: number;
+  updated: any[];
+  skipped: { subOrderId: string; reason: string }[];
+}
+
+/**
+ * Moves many of a vendor's own sub-orders in one call and reports every id that
+ * could not move, because a triage pass must not lose the rows that did.
+ */
+export const bulkUpdateSubOrderStatus = async (
+  vendorId: string,
+  input: { subOrderIds: string[]; action: string; reason?: string; remark?: string },
+  actorId?: string,
+  req?: any,
+): Promise<BulkSubOrderStatusResult> => {
+  const action = D.str(input.action);
+  const target = D.str(BULK_STATUS_BY_ACTION[action]);
+  const isReject = action === VENDOR_BULK_ACTION.REJECT;
+
+  const ids = Array.from(new Set(D.arr(input.subOrderIds).map((id: string) => D.str(id)))).filter(
+    (id) => id !== '',
+  );
+
+  const rows = await prisma.subOrder.findMany({
+    where: { id: { in: ids }, vendorId },
+    select: { id: true, orderId: true, status: true },
+  });
+
+  const owned = new Map(rows.map((r) => [r.id, r]));
+
+  const applicable = ids.filter(
+    (id) => owned.has(id) && canTransitionSubOrder(D.str(owned.get(id)?.status), target),
+  );
+
+  if (!applicable.length) {
+    throw AppError.unprocessable(
+      ERROR.ORDER.BULK_NO_SUB_ORDERS,
+      ERROR_CODE.INVALID_STATUS_TRANSITION,
+    );
+  }
+
+  const moved = new Set(applicable);
+
+  const skipped = ids
+    .filter((id) => !moved.has(id))
+    .map((id) => ({
+      subOrderId: id,
+      reason: owned.has(id)
+        ? ERROR.ORDER.INVALID_STATUS_TRANSITION
+        : ERROR.ORDER.SUB_ORDER_NOT_FOUND,
+    }));
+
+  const updated = await prisma.$transaction(
+    async (tx) => {
+      for (const id of applicable) {
+        const sub = owned.get(id)!;
+
+        await tx.subOrder.update({
+          where: { id },
+          data: {
+            status: target as OrderStatusType,
+            ...(isReject ? { cancelReason: D.str(input.reason) } : {}),
+          },
+        });
+
+        await pushTimeline(tx, {
+          orderId: sub.orderId,
+          subOrderId: id,
+          status: target,
+          fromStatus: sub.status,
+          remark: D.str(input.reason) || D.str(input.remark),
+          createdById: actorId,
+        });
+
+        if (isReject) {
+          await restoreStock(tx, sub.orderId, id);
+        }
+      }
+
+      const parents = Array.from(new Set(applicable.map((id) => owned.get(id)!.orderId)));
+
+      for (const parentOrderId of parents) {
+        await refreshParentStatus(tx, parentOrderId);
+      }
+
+      return tx.subOrder.findMany({
+        where: { id: { in: applicable } },
+        include: {
+          items: true,
+          vendor: true,
+          shipments: { orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      });
+    },
+    { timeout: 20_000, maxWait: 8_000 },
+  );
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'SUB_ORDER_STATUS_UPDATED',
+    entity: 'SubOrder',
+    entityId: applicable.join(','),
+    meta: { action, to: target, subOrderIds: applicable, skippedCount: skipped.length },
+  });
+
+  return { action, requested: ids.length, updated, skipped };
 };
 
 const restoreStock = async (

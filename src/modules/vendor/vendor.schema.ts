@@ -5,6 +5,7 @@ import { VENDOR_STATUS } from '../../constants/roles';
 import { NAME } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
 import { GSTIN_REGEX, PAN_REGEX, IFSC_REGEX, UPI_REGEX } from '../../constants/countries';
+import { ANNOUNCEMENT_STATUS, BAN_REASON_MAX_LENGTH } from '../../constants/segments';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 import { UPLOAD_KIND } from '../../config/upload.config';
 
@@ -129,6 +130,62 @@ export const getVendorsSchema = paginationSchema.extend({
 });
 
 export const vendorIdParamSchema = z.object({ id: common.cuid });
+
+export const storeSlugParamSchema = z.object({ slug: common.cuidOrSlug });
+
+export const updateVacationSchema = z
+  .object({
+    isOnVacation: z.boolean(),
+    message: z.string().trim().max(NAME.TITLE_MAX_LENGTH).optional(),
+    until: common.isoDate.optional(),
+  })
+  .strict();
+
+const announcementWindow = (v: { startsAt?: string; endsAt?: string }): boolean =>
+  !(v.startsAt && v.endsAt) || new Date(v.endsAt).getTime() > new Date(v.startsAt).getTime();
+
+const announcementOptionalFields = {
+  message: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+  linkUrl: z.string().trim().max(500).optional(),
+  isPinned: z.boolean().optional(),
+  startsAt: common.isoDate.optional(),
+  endsAt: common.isoDate.optional(),
+};
+
+const announcementTitle = z
+  .string()
+  .trim()
+  .min(1, VALIDATION.REQUIRED('title'))
+  .max(NAME.TITLE_MAX_LENGTH);
+
+export const createAnnouncementSchema = z
+  .object({ title: announcementTitle, ...announcementOptionalFields })
+  .strict()
+  .refine(announcementWindow, { message: VALIDATION.INVALID_DATE_RANGE });
+
+export const updateAnnouncementSchema = z
+  .object({
+    title: announcementTitle.optional(),
+    status: z.enum([ANNOUNCEMENT_STATUS.ACTIVE, ANNOUNCEMENT_STATUS.ARCHIVED]).optional(),
+    ...announcementOptionalFields,
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON })
+  .refine(announcementWindow, { message: VALIDATION.INVALID_DATE_RANGE });
+
+export const listAnnouncementsSchema = paginationSchema.extend({
+  status: z.enum([ANNOUNCEMENT_STATUS.ACTIVE, ANNOUNCEMENT_STATUS.ARCHIVED]).optional(),
+});
+
+export const announcementIdParamSchema = z.object({ id: common.cuid });
+
+export const blockCustomerSchema = z
+  .object({
+    reason: z.string().trim().max(BAN_REASON_MAX_LENGTH).optional(),
+  })
+  .strict();
+
+export const blockedUserIdParamSchema = z.object({ userId: common.cuid });
 
 export const uploadDocumentsMetaSchema = z
   .object({

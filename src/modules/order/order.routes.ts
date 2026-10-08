@@ -131,6 +131,14 @@ router.patch(
   controller.updateSubOrderStatus,
 );
 
+router.post(
+  '/vendorBulkStatusUpdate',
+  authenticate,
+  ...controller.guards.vendor,
+  validate({ body: schema.vendorBulkStatusUpdateSchema }),
+  controller.vendorBulkStatusUpdate,
+);
+
 router.get(
   '/getPackingSlip/:id',
   authenticate,

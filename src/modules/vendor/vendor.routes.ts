@@ -58,6 +58,45 @@ router.patch(
   controller.updateBankDetails,
 );
 
+/**
+ * @openapi
+ * /vendors/updateVacation/{id}:
+ *   patch:
+ *     tags: [Vendors]
+ *     summary: Turn own shop vacation mode on or off
+ *     description: >
+ *       `:id` must equal the caller's own vendorId. `until` must be in the future and
+ *       is capped at `vendor.vacationMaxDays` days; turning vacation off clears the end
+ *       date but keeps the message.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: clx0000000000000000000000 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [isOnVacation]
+ *             properties:
+ *               isOnVacation: { type: boolean, example: true }
+ *               message: { type: string, maxLength: 200, example: Back from vacation on Monday }
+ *               until: { type: string, format: date-time, example: '2026-04-01T00:00:00.000Z' }
+ *     responses:
+ *       200: { description: Vacation mode updated }
+ *       400: { description: The vacation end date is not in the future }
+ *       401: { description: Not signed in }
+ *       403: { description: Not the owning vendor }
+ *       404: { description: No such vendor }
+ */
+router.patch(
+  '/updateVacation/:id',
+  authenticate,
+  ...controller.guards.own,
+  validate({ params: schema.vendorIdParamSchema, body: schema.updateVacationSchema }),
+  controller.updateVacation,
+);
+
 router.get('/getStats', authenticate, ...controller.guards.own, controller.getStats);
 
 /**
@@ -111,6 +150,239 @@ router.post(
 
 /**
  * @openapi
+ * /vendors/getAnnouncements:
+ *   get:
+ *     tags: [Vendors]
+ *     summary: Own shop announcements, archived ones included
+ *     description: Supports `?status=ACTIVE|ARCHIVED` and `?search=`.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+ *       - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+ *       - { name: status, in: query, required: false, schema: { type: string, enum: [ACTIVE, ARCHIVED] } }
+ *       - { name: search, in: query, required: false, schema: { type: string, maxLength: 120 }, example: sale }
+ *     responses:
+ *       200: { description: 'Announcements, with the pagination numbers first' }
+ *       401: { description: Not signed in }
+ *       403: { description: Caller is not a vendor }
+ *       404: { description: No such vendor }
+ */
+router.get(
+  '/getAnnouncements',
+  authenticate,
+  ...controller.guards.own,
+  validate({ query: schema.listAnnouncementsSchema }),
+  controller.getAnnouncements,
+);
+
+/**
+ * @openapi
+ * /vendors/createAnnouncement:
+ *   post:
+ *     tags: [Vendors]
+ *     summary: Publish an announcement on own shop
+ *     description: Starts ACTIVE and immediately visible on the storefront. `endsAt` must be after `startsAt` when both are given.
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title: { type: string, minLength: 1, maxLength: 200, example: Diwali sale is live }
+ *               message: { type: string, maxLength: 2000, example: Flat 20% off this week }
+ *               linkUrl: { type: string, maxLength: 500, example: 'https://example.com/sale' }
+ *               isPinned: { type: boolean, example: true }
+ *               startsAt: { type: string, format: date-time, example: '2026-03-01T00:00:00.000Z' }
+ *               endsAt: { type: string, format: date-time, example: '2026-03-08T00:00:00.000Z' }
+ *     responses:
+ *       201: { description: Announcement created }
+ *       400: { description: The body is invalid }
+ *       401: { description: Not signed in }
+ *       403: { description: Caller is not a vendor }
+ *       404: { description: No such vendor }
+ */
+router.post(
+  '/createAnnouncement',
+  authenticate,
+  ...controller.guards.own,
+  validate({ body: schema.createAnnouncementSchema }),
+  controller.createAnnouncement,
+);
+
+/**
+ * @openapi
+ * /vendors/updateAnnouncement/{id}:
+ *   patch:
+ *     tags: [Vendors]
+ *     summary: Update one of own shop announcements
+ *     description: At least one field is required, and `endsAt` must be after `startsAt` when both are given.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: ann0000000000000000000000 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, minLength: 1, maxLength: 200, example: Diwali sale ends early }
+ *               message: { type: string, maxLength: 2000, example: Flat 20% off until Sunday }
+ *               linkUrl: { type: string, maxLength: 500, example: 'https://example.com/sale' }
+ *               isPinned: { type: boolean, example: false }
+ *               status: { type: string, enum: [ACTIVE, ARCHIVED], example: ARCHIVED }
+ *               startsAt: { type: string, format: date-time, example: '2026-03-01T00:00:00.000Z' }
+ *               endsAt: { type: string, format: date-time, example: '2026-03-08T00:00:00.000Z' }
+ *     responses:
+ *       200: { description: Announcement updated }
+ *       400: { description: The body is empty or invalid }
+ *       401: { description: Not signed in }
+ *       403: { description: Caller is not a vendor }
+ *       404: { description: No such announcement for this shop }
+ */
+router.patch(
+  '/updateAnnouncement/:id',
+  authenticate,
+  ...controller.guards.own,
+  validate({
+    params: schema.announcementIdParamSchema,
+    body: schema.updateAnnouncementSchema,
+  }),
+  controller.updateAnnouncement,
+);
+
+/**
+ * @openapi
+ * /vendors/deleteAnnouncement/{id}:
+ *   delete:
+ *     tags: [Vendors]
+ *     summary: Delete one of own shop announcements
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: ann0000000000000000000000 }
+ *     responses:
+ *       200: { description: Announcement deleted }
+ *       401: { description: Not signed in }
+ *       403: { description: Caller is not a vendor }
+ *       404: { description: No such announcement for this shop }
+ */
+router.delete(
+  '/deleteAnnouncement/:id',
+  authenticate,
+  ...controller.guards.own,
+  validate({ params: schema.announcementIdParamSchema }),
+  controller.deleteAnnouncement,
+);
+
+/**
+ * @openapi
+ * /vendors/blockCustomer/{userId}:
+ *   post:
+ *     tags: [Vendors]
+ *     summary: Block a customer from messaging this shop
+ *     description: Repeating an existing block updates the reason instead of failing.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: usr0000000000000000000000 }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason: { type: string, maxLength: 500, example: Repeated abusive messages }
+ *     responses:
+ *       200: { description: Customer blocked }
+ *       401: { description: Not signed in }
+ *       403: { description: 'Caller is not a vendor, or lacks the permission' }
+ *       404: { description: No such customer }
+ *       422: { description: A vendor cannot block itself }
+ */
+router.post(
+  '/blockCustomer/:userId',
+  authenticate,
+  ...controller.guards.ownBlock,
+  validate({ params: schema.blockedUserIdParamSchema, body: schema.blockCustomerSchema }),
+  controller.blockCustomer,
+);
+
+/**
+ * @openapi
+ * /vendors/unblockCustomer/{userId}:
+ *   delete:
+ *     tags: [Vendors]
+ *     summary: Lift this shop's block on a customer
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: userId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 }, example: usr0000000000000000000000 }
+ *     responses:
+ *       200: { description: Customer unblocked }
+ *       401: { description: Not signed in }
+ *       403: { description: 'Caller is not a vendor, or lacks the permission' }
+ *       404: { description: The customer was not blocked by this shop }
+ */
+router.delete(
+  '/unblockCustomer/:userId',
+  authenticate,
+  ...controller.guards.ownBlock,
+  validate({ params: schema.blockedUserIdParamSchema }),
+  controller.unblockCustomer,
+);
+
+/**
+ * @openapi
+ * /vendors/getBlockedCustomers:
+ *   get:
+ *     tags: [Vendors]
+ *     summary: Customers this shop has blocked
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+ *       - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+ *     responses:
+ *       200: { description: 'Blocked customers, with the pagination numbers first' }
+ *       401: { description: Not signed in }
+ *       403: { description: 'Caller is not a vendor, or lacks the permission' }
+ *       404: { description: No such vendor }
+ */
+router.get(
+  '/getBlockedCustomers',
+  authenticate,
+  ...controller.guards.ownBlock,
+  validate({ query: paginationSchema }),
+  controller.getBlockedCustomers,
+);
+
+/**
+ * @openapi
+ * /vendors/getStore/{slug}:
+ *   get:
+ *     tags: [Vendors]
+ *     summary: Public store page for a shop
+ *     description: >
+ *       Carries the live announcements and the newest active products, capped at
+ *       `vendor.storeProductLimit`. `?limit=` may narrow that further. A shop that is
+ *       not approved returns 403.
+ *     parameters:
+ *       - { name: slug, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 140 }, example: ravi-electronics }
+ *       - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1 }, example: 8 }
+ *     responses:
+ *       200: { description: 'Store, announcements and products' }
+ *       403: { description: The shop is not approved }
+ *       404: { description: No shop has this slug }
+ */
+router.get(
+  '/getStore/:slug',
+  validate({ params: schema.storeSlugParamSchema }),
+  controller.getStore,
+);
+
+/**
+ * @openapi
  * /vendors/getRatings/{id}:
  *   get:
  *     tags: [Vendors]
@@ -118,7 +390,7 @@ router.post(
  *     parameters:
  *       - { name: id, in: path, required: true, schema: { type: string } }
  *     responses:
- *       200: { description: Average, star breakdown and approved reviews }
+ *       200: { description: 'Average, star breakdown and approved reviews' }
  */
 router.get(
   '/getRatings/:id',

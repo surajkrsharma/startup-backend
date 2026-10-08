@@ -74,6 +74,8 @@ export interface TokenPair {
   refreshTokenId: string;
 }
 
+export type LoginMethod = 'password' | 'otp' | 'social' | 'twoFactor';
+
 export interface SessionToken extends TokenPair {
   user: AuthUserWithVendor;
 }

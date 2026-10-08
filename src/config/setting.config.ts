@@ -132,6 +132,8 @@ export const SETTING_KEY = {
   VENDOR_PAYOUT_CYCLE_DAYS: 'vendor.payoutCycleDays',
   VENDOR_PAYOUT_HOLD_DAYS: 'vendor.payoutHoldDays',
   VENDOR_COMMISSION_OVERRIDE_ALLOWED: 'vendor.commissionOverrideAllowed',
+  VENDOR_VACATION_MAX_DAYS: 'vendor.vacationMaxDays',
+  VENDOR_STORE_PRODUCT_LIMIT: 'vendor.storeProductLimit',
 
   NOTIFICATION_EMAIL_ENABLED: 'notification.email.enabled',
   NOTIFICATION_SMS_ENABLED: 'notification.sms.enabled',
@@ -154,6 +156,13 @@ export const SETTING_KEY = {
   SECURITY_REQUIRE_EMAIL_VERIFY: 'security.requireEmailVerify',
   SECURITY_REQUIRE_PHONE_VERIFY: 'security.requirePhoneVerify',
   SECURITY_SESSION_DAYS: 'security.sessionDays',
+  SECURITY_LOGIN_NOTIFY_ENABLED: 'security.loginNotifyEnabled',
+  SECURITY_BAN_MAX_DAYS: 'security.banMaxDays',
+
+  CUSTOMER_SEGMENT_REPEAT_ORDERS: 'customer.segment.repeatOrders',
+  CUSTOMER_SEGMENT_WHOLESALE_ORDERS: 'customer.segment.wholesaleOrders',
+  CUSTOMER_SEGMENT_VIP_SPEND: 'customer.segment.vipSpend',
+  CUSTOMER_SEGMENT_BATCH_SIZE: 'customer.segment.batchSize',
 
   MAINTENANCE_ENABLED: 'maintenance.enabled',
   MAINTENANCE_MESSAGE: 'maintenance.message',
@@ -217,6 +226,7 @@ export const SETTING_CATEGORY = {
   CATALOG: 'catalog',
   CART: 'cart',
   VENDOR: 'vendor',
+  CUSTOMER: 'customer',
   NOTIFICATION: 'notification',
   SECURITY: 'security',
   SYSTEM: 'system',

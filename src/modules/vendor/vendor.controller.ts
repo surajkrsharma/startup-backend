@@ -22,8 +22,16 @@ import {
   serializePayoutHistoryList,
   serializeKycDocumentList,
   serializeRatingSummary,
+  serializeBlockedCustomer,
+  serializeBlockedCustomerList,
 } from './vendor.serializer';
-import { serializeProductSummary, serializeProductList } from '../../utils/serialize';
+import {
+  serializeProductSummary,
+  serializeProductList,
+  serializeVendorStorefront,
+  serializeVendorAnnouncement,
+  serializeVendorAnnouncementList,
+} from '../../utils/serialize';
 
 const vendorId = (req: Request): string => req.auth!.vendorId;
 
@@ -36,6 +44,7 @@ export const guards = {
       next();
     }),
   ],
+  ownBlock: [requireRole('VENDOR'), requirePermission(PERMISSION.VENDOR_CUSTOMER_BLOCK)],
   adminList: [
     requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN),
     requirePermission(PERMISSION.VENDOR_LIST),
@@ -129,6 +138,19 @@ export const updateBankDetails = asyncHandler(async (req, res) => {
   });
 });
 
+export const updateVacation = asyncHandler(async (req, res) => {
+  if (req.params.id !== vendorId(req)) {
+    throw AppError.forbidden(ERROR.COMMON.FORBIDDEN, ERROR_CODE.FORBIDDEN);
+  }
+
+  const vendor = await service.updateVacation(vendorId(req), req.body, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.VENDOR.VACATION_UPDATED,
+    result: serializeVendor(vendor),
+  });
+});
+
 export const getStats = asyncHandler(async (req, res) => {
   const stats = await service.getStats(vendorId(req));
   return ApiResponse.success(res, {
@@ -182,6 +204,96 @@ export const uploadDocuments = asyncHandler(async (req, res) => {
       isVerified: D.bool(doc.isVerified),
       createdAt: D.date(doc.createdAt),
     })),
+  });
+});
+
+export const getAnnouncements = asyncHandler(async (req, res) => {
+  const { rows, total } = await service.listAnnouncements(vendorId(req), req.query);
+  const { page, limit } = getPagination(req.query);
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.VENDOR.ANNOUNCEMENTS_FETCHED,
+    result: {
+      filterData: {
+        status: D.str(req.query?.['status'] as string),
+        search: D.str(req.query?.['search'] as string),
+      },
+      ...serializeVendorAnnouncementList(rows),
+    },
+    totalRecord: total,
+    currentPage: page,
+    limit,
+  });
+});
+
+export const createAnnouncement = asyncHandler(async (req, res) => {
+  const announcement = await service.createAnnouncement(vendorId(req), req.body, req);
+  return ApiResponse.created(
+    res,
+    SUCCESS.VENDOR.ANNOUNCEMENT_CREATED,
+    serializeVendorAnnouncement(announcement),
+  );
+});
+
+export const updateAnnouncement = asyncHandler(async (req, res) => {
+  const announcement = await service.updateAnnouncement(
+    vendorId(req),
+    req.params.id,
+    req.body,
+    req,
+  );
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.VENDOR.ANNOUNCEMENT_UPDATED,
+    result: serializeVendorAnnouncement(announcement),
+  });
+});
+
+export const deleteAnnouncement = asyncHandler(async (req, res) => {
+  const announcement = await service.deleteAnnouncement(vendorId(req), req.params.id, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.VENDOR.ANNOUNCEMENT_DELETED,
+    result: serializeVendorAnnouncement(announcement),
+  });
+});
+
+export const blockCustomer = asyncHandler(async (req, res) => {
+  const block = await service.blockCustomer(vendorId(req), req.params.userId, req.body ?? {}, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.VENDOR.CUSTOMER_BLOCKED,
+    result: serializeBlockedCustomer(block),
+  });
+});
+
+export const unblockCustomer = asyncHandler(async (req, res) => {
+  const block = await service.unblockCustomer(vendorId(req), req.params.userId, req);
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.VENDOR.CUSTOMER_UNBLOCKED,
+    result: serializeBlockedCustomer(block),
+  });
+});
+
+export const getBlockedCustomers = asyncHandler(async (req, res) => {
+  const { rows, total } = await service.getBlockedCustomers(vendorId(req), req.query);
+  const { page, limit } = getPagination(req.query);
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.VENDOR.BLOCKED_CUSTOMERS_FETCHED,
+    result: { ...serializeBlockedCustomerList(rows) },
+    totalRecord: total,
+    currentPage: page,
+    limit,
+  });
+});
+
+export const getStore = asyncHandler(async (req, res) => {
+  const storefront = await service.getStorefront(req.params.slug, req.query);
+  return ApiResponse.success(res, {
+    message: SUCCESS.VENDOR.STORE_FETCHED,
+    result: serializeVendorStorefront(storefront.vendor),
   });
 });
 

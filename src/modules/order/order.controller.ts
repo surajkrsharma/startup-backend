@@ -421,6 +421,46 @@ export const updateSubOrderStatus = asyncHandler(async (req, res) => {
 
 /**
  * @openapi
+ * /orders/vendorBulkStatusUpdate:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Accept or reject many of the vendor's own sub-orders in one call
+ *     description: >
+ *       `ACCEPT` confirms, `REJECT` cancels and puts the stock back. Ids the
+ *       vendor does not own, and ids whose current status blocks the move, come
+ *       back in `skippedList` instead of failing the call.
+ *     responses:
+ *       200: { description: Updated sub-orders first, then the skipped ids }
+ *       422: { description: None of the requested sub-orders could move }
+ */
+export const vendorBulkStatusUpdate = asyncHandler(async (req, res) => {
+  const outcome = await service.bulkUpdateSubOrderStatus(
+    vendorId(req),
+    req.body,
+    req.auth!.userId,
+    req,
+  );
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.ORDER.VENDOR_BULK_STATUS_UPDATED,
+    result: {
+      action: D.str(outcome.action),
+      requestedCount: D.num(outcome.requested),
+      updatedCount: D.num(outcome.updated.length),
+      skippedCount: D.num(outcome.skipped.length),
+
+      subOrderList: D.arr(outcome.updated).map(serializeSubOrder),
+
+      skippedList: D.arr(outcome.skipped).map((s: any) => ({
+        subOrderId: D.str(s?.subOrderId),
+        reason: D.str(s?.reason),
+      })),
+    },
+  });
+});
+
+/**
+ * @openapi
  * /orders/vendorCancelSubOrder/:id:
  *   post:
  *     tags: [Orders]

@@ -72,6 +72,20 @@ export {
 export type { Permission } from './permissions';
 
 export {
+  SEGMENT_KIND,
+  SEGMENT_KIND_VALUES,
+  SEGMENT_SOURCE,
+  SEGMENT_SOURCE_VALUES,
+  AUTO_SEGMENT_KINDS,
+  isAutoSegmentKind,
+  ANNOUNCEMENT_STATUS,
+  ANNOUNCEMENT_STATUS_VALUES,
+  BAN_REASON_MAX_LENGTH,
+  VACATION_MAX_DAYS,
+} from './segments';
+export type { SegmentKind, SegmentSource, AnnouncementStatus } from './segments';
+
+export {
   COUNTRY_CODE,
   COUNTRIES,
   DEFAULT_COUNTRY_CODE,

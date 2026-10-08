@@ -1,11 +1,11 @@
-# Architecture
+﻿# Architecture
 
 What this API is built from and how each part behaves: the stack, the request
 path, the modules, the endpoints, and every configuration value with its
 default.
 
 If you are here to **write or change code**, read
-[CONVENTIONS.md](CONVENTIONS.md) instead — that is the rulebook. For commands
+[CONVENTIONS.md](CONVENTIONS.md) instead â€” that is the rulebook. For commands
 and setup, see the [README](../README.md).
 
 ## Contents
@@ -16,6 +16,13 @@ and setup, see the [README](../README.md).
 - [Sample Endpoints](#sample-endpoints)
 - [Sample Request / Response Pairs](#sample-request--response-pairs)
 - [Configuration & Default Values](#configuration--default-values)
+- [Customer Ban Rules](#customer-ban-rules)
+- [Customer Segment Rules](#customer-segment-rules)
+- [DPDP Data Export Rules](#dpdp-data-export-rules)
+- [Vendor Storefront Rules](#vendor-storefront-rules)
+- [Vendor Coupon Rules](#vendor-coupon-rules)
+- [Vendor Bulk Order Actions Rules](#vendor-bulk-order-actions-rules)
+- [Login Notification Rules](#login-notification-rules)
 - [Folder Structure](#folder-structure)
 - [Prisma Models](#prisma-models)
 - [API Routes Outline](#api-routes-outline)
@@ -29,19 +36,19 @@ and setup, see the [README](../README.md).
 
 - Node.js + Express.js
 - TypeScript
-- **Prisma ORM** (PostgreSQL ke saath best DX — type-safe queries)
+- **Prisma ORM** (PostgreSQL ke saath best DX â€” type-safe queries)
 - **Zod** (request body/query/params validation schema define karne ke liye; `/auth/register` me discriminated union for `type: CUSTOMER | VENDOR`)
 - `dotenv` (`.env` file se env variables load karne ke liye)
 - `cors` (cross-origin requests allow/block karne ke liye)
-- `cookie-parser` (HttpOnly cookies read karne ke liye — refresh token)
+- `cookie-parser` (HttpOnly cookies read karne ke liye â€” refresh token)
 - `helmet` (secure HTTP headers set karne ke liye)
-- `pino-http` (har request ka structured log — production-ready logging)
+- `pino-http` (har request ka structured log â€” production-ready logging)
 
 **Database & Cache**
 
 - **PostgreSQL** (main relational database)
-- **Redis (Upstash)** — cart sessions, cache, rate-limit store, realtime analytics streams ke liye
-- `ioredis` (Redis client — `redis` package nahi, ioredis use hota hai)
+- **Redis (Upstash)** â€” cart sessions, cache, rate-limit store, realtime analytics streams ke liye
+- `ioredis` (Redis client â€” `redis` package nahi, ioredis use hota hai)
 
 **Auth & Security**
 
@@ -49,35 +56,35 @@ and setup, see the [README](../README.md).
 - `bcrypt` (passwords hash karne ke liye)
 - `helmet` (XSS, clickjacking, MIME sniffing se bachata hai)
 - `express-rate-limit` + `rate-limit-redis` (brute-force aur DDoS rokta hai; Redis store se server restart pe bhi count safe rehta hai)
-- `hpp` (HTTP Parameter Pollution — duplicate query params se attack rokta hai)
-- `cors` (whitelist: admin, vendor, store domains — wildcard allowed nahi)
-- `qrcode` (2FA — TOTP QR generate karne ke liye; TOTP verify `src/utils/crypto.ts` me hai)
-- `ua-parser-js` (device/browser/OS parse karne ke liye — device fingerprinting)
-- `geoip-lite` (IP → country/state/city lookup — analytics)
+- `hpp` (HTTP Parameter Pollution â€” duplicate query params se attack rokta hai)
+- `cors` (whitelist: admin, vendor, store domains â€” wildcard allowed nahi)
+- `qrcode` (2FA â€” TOTP QR generate karne ke liye; TOTP verify `src/utils/crypto.ts` me hai)
+- `ua-parser-js` (device/browser/OS parse karne ke liye â€” device fingerprinting)
+- `geoip-lite` (IP â†’ country/state/city lookup â€” analytics)
 
 **File & Media**
 
 - `multer` (multipart form-data se file temp disk pe receive karne ke liye)
 - `cloudinary` (permanent cloud storage + image transforms/CDN)
 - `pdfkit` (invoice, packing slip, payout statement PDF generate karne ke liye)
-- `xlsx` / `csv-parser` (bulk import/export — CSV/Excel)
+- `xlsx` / `csv-parser` (bulk import/export â€” CSV/Excel)
 
 **Realtime & Jobs**
 
 - `socket.io` (chat, live order tracking, realtime analytics ke liye)
-- `bullmq` — background jobs (email, payout calc, order status, analytics aggregation, notification blast) queue ke liye
+- `bullmq` â€” background jobs (email, payout calc, order status, analytics aggregation, notification blast) queue ke liye
 
 **Utils**
 
 - `pino` (structured logging, level-based) + `pino-http` (har request ka log)
-- `compression` (gzip response — payload size kam)
-- `nodemailer` (SMTP se transactional email) — provider `src/services/mail/mail.service.ts` me pluggable hai: Brevo HTTP API (`BREVO_API_KEY`) priority le ta hai, warna SMTP, warna sirf log
-- `slugify` (product/vendor name → URL-safe slug)
-- `nanoid` (request ID, invite tokens) — `uuid` nahi
-- `dayjs` — lightweight date parse/format
-- `swagger-jsdoc` + `swagger-ui-express` — auto OpenAPI docs generate + serve
-- `razorpay` / `stripe` (optionalDependencies — online payments ke liye)
-- `handlebars` (email/SMS template rendering — DB templates)
+- `compression` (gzip response â€” payload size kam)
+- `nodemailer` (SMTP se transactional email) â€” provider `src/services/mail/mail.service.ts` me pluggable hai: Brevo HTTP API (`BREVO_API_KEY`) priority le ta hai, warna SMTP, warna sirf log
+- `slugify` (product/vendor name â†’ URL-safe slug)
+- `nanoid` (request ID, invite tokens) â€” `uuid` nahi
+- `dayjs` â€” lightweight date parse/format
+- `swagger-jsdoc` + `swagger-ui-express` â€” auto OpenAPI docs generate + serve
+- `razorpay` / `stripe` (optionalDependencies â€” online payments ke liye)
+- `handlebars` (email/SMS template rendering â€” DB templates)
 - `zod` (env schema + har request body/query/params validation)
 
 **Dev/Test**
@@ -86,7 +93,7 @@ and setup, see the [README](../README.md).
 - `supertest` (HTTP API integration tests)
 - `eslint` + `prettier` + `husky` (code quality + pre-commit hooks)
 - `dotenv-cli` (`.env` ke saath ek command chalana)
-- `@electric-sql/pglite` (devDependency — in-process Postgres, `npm run db:up` ke liye; production me use nahi hota)
+- `@electric-sql/pglite` (devDependency â€” in-process Postgres, `npm run db:up` ke liye; production me use nahi hota)
 
 ---
 
@@ -97,48 +104,48 @@ and setup, see the [README](../README.md).
 | Item | Kaam |
 | --- | --- |
 | Refresh token strategy | Access 15m, Refresh 7d. Refresh ko DB/Redis mai store (revoke possible ho). |
-| RBAC middleware | `SUPER_ADMIN`, `SUB_ADMIN`, `VENDOR`, `CUSTOMER`, `DELIVERY_BOY` — role ke hisaab se route protect. **VENDOR role `/auth/register` se assign hota hai (`type=VENDOR`).** |
-| Multi-tenancy scoping | Har vendor query mai `vendorId` filter (Prisma `$extends`) — vendor sirf apna data dekhe |
-| Rate limit Redis store | Server restart pe reset na ho — Redis-backed store use karo |
-| CORS whitelist | 3 domains, wildcard `*` nahi — security ke liye |
-| Central Error Handler | `AppError` class + `errorHandler` middleware — consistent JSON error shape |
-| Async wrapper | `asyncHandler(fn)` — har controller mai try/catch repeat na karo |
-| Request ID middleware | `nanoid` se `req.id` — ek request ke saare logs trace karne ke liye |
-| Health route | `/api/v1/health` for Render — uptime check ke liye |
-| Graceful shutdown | SIGTERM pe Prisma disconnect + Redis quit + Socket close — data loss na ho |
-| BullMQ queue | Email, payout calc, order status, analytics aggregate, notification blast background mai — response fast rahe |
-| Email templates | HTML templates (order confirm, reset password) — reusable |
-| File upload validation | MIME + size check multer mai — malicious file reject |
-| Pagination standard | `?page=1&limit=20&sort=-createdAt&search=` — sab list endpoints consistent |
-| Soft Delete | `deletedAt` on Vendor/Product/Order — data recoverable rahe |
-| Audit Logs | `AuditLog` table — kaun sub-admin ne kya kiya, record rahe. **SUPER_ADMIN self-edit bhi log ho.** |
-| DB Indexes | email, slug, vendorId, status, createdAt pe index — queries fast |
-| Seed script | Super Admin + demo data — fresh env setup 1 command mai |
-| **OTP verification** | Contact proof before an account exists — `OTP_REQUIRED` env se poora system on/off |
-| **OTP delivery** | Email (Brevo ya SMTP) + SMS (MSG91) — `src/services/mail/` + `src/services/sms/` |
-| Migration in build | `prisma migrate deploy` in Render build — schema auto sync |
-| Env validation | Zod env schema — missing/invalid env pe server early fail ho |
-| API versioning | `/api/v1/...` — future breaking changes ke liye |
-| Payout/Commission | earnings = order total − commission − fee — vendor payout calculate |
-| Order state machine | PENDING→CONFIRMED→SHIPPED→DELIVERED→CANCELLED/RETURNED — random transitions block |
-| Inventory mgmt | Stock decrement inside transaction — oversell na ho |
-| Multi-vendor cart split | Order place pe per-vendor `SubOrder` — har vendor apna part dekhe |
-| Webhook stubs | **`COD` / `UPI` / `Bank Detail`** — payment gateway + shipping + razorpay webhook stubs |
-| Currency & Tax config | Per-vendor GST/tax table — vendor-wise tax lage |
-| Swagger `/docs` | Auto OpenAPI — frontend devs contract dekh sake |
-| `.env.example` | Har repo mai — kaun kaun se env var chahiye, documented rahe |
-| **Realtime layer** | Socket.io — chat, live order tracking, live analytics dashboard |
+| RBAC middleware | `SUPER_ADMIN`, `SUB_ADMIN`, `VENDOR`, `CUSTOMER`, `DELIVERY_BOY` â€” role ke hisaab se route protect. **VENDOR role `/auth/register` se assign hota hai (`type=VENDOR`).** |
+| Multi-tenancy scoping | Har vendor query mai `vendorId` filter (Prisma `$extends`) â€” vendor sirf apna data dekhe |
+| Rate limit Redis store | Server restart pe reset na ho â€” Redis-backed store use karo |
+| CORS whitelist | 3 domains, wildcard `*` nahi â€” security ke liye |
+| Central Error Handler | `AppError` class + `errorHandler` middleware â€” consistent JSON error shape |
+| Async wrapper | `asyncHandler(fn)` â€” har controller mai try/catch repeat na karo |
+| Request ID middleware | `nanoid` se `req.id` â€” ek request ke saare logs trace karne ke liye |
+| Health route | `/api/v1/health` for Render â€” uptime check ke liye |
+| Graceful shutdown | SIGTERM pe Prisma disconnect + Redis quit + Socket close â€” data loss na ho |
+| BullMQ queue | Email, payout calc, order status, analytics aggregate, notification blast background mai â€” response fast rahe |
+| Email templates | HTML templates (order confirm, reset password) â€” reusable |
+| File upload validation | MIME + size check multer mai â€” malicious file reject |
+| Pagination standard | `?page=1&limit=20&sort=-createdAt&search=` â€” sab list endpoints consistent |
+| Soft Delete | `deletedAt` on Vendor/Product/Order â€” data recoverable rahe |
+| Audit Logs | `AuditLog` table â€” kaun sub-admin ne kya kiya, record rahe. **SUPER_ADMIN self-edit bhi log ho.** |
+| DB Indexes | email, slug, vendorId, status, createdAt pe index â€” queries fast |
+| Seed script | Super Admin + demo data â€” fresh env setup 1 command mai |
+| **OTP verification** | Contact proof before an account exists â€” `OTP_REQUIRED` env se poora system on/off |
+| **OTP delivery** | Email (Brevo ya SMTP) + SMS (MSG91) â€” `src/services/mail/` + `src/services/sms/` |
+| Migration in build | `prisma migrate deploy` in Render build â€” schema auto sync |
+| Env validation | Zod env schema â€” missing/invalid env pe server early fail ho |
+| API versioning | `/api/v1/...` â€” future breaking changes ke liye |
+| Payout/Commission | earnings = order total âˆ’ commission âˆ’ fee â€” vendor payout calculate |
+| Order state machine | PENDINGâ†’CONFIRMEDâ†’SHIPPEDâ†’DELIVEREDâ†’CANCELLED/RETURNED â€” random transitions block |
+| Inventory mgmt | Stock decrement inside transaction â€” oversell na ho |
+| Multi-vendor cart split | Order place pe per-vendor `SubOrder` â€” har vendor apna part dekhe |
+| Webhook stubs | **`COD` / `UPI` / `Bank Detail`** â€” payment gateway + shipping + razorpay webhook stubs |
+| Currency & Tax config | Per-vendor GST/tax table â€” vendor-wise tax lage |
+| Swagger `/docs` | Auto OpenAPI â€” frontend devs contract dekh sake |
+| `.env.example` | Har repo mai â€” kaun kaun se env var chahiye, documented rahe |
+| **Realtime layer** | Socket.io â€” chat, live order tracking, live analytics dashboard |
 | **Tracking middleware** | Har incoming request pe device + geo + session capture (background) |
-| **Device fingerprint** | `ua-parser-js` + `deviceId` (client-generated) — device unique identify |
+| **Device fingerprint** | `ua-parser-js` + `deviceId` (client-generated) â€” device unique identify |
 | **Analytics aggregation** | Daily Redis counters + BullMQ nightly rollup into Postgres |
 | **Session management** | `Session` rows in Postgres, device-wise revoke possible |
-| **2FA TOTP** | HMAC-SHA1 TOTP in `src/utils/crypto.ts` — optional per-user enable |
+| **2FA TOTP** | HMAC-SHA1 TOTP in `src/utils/crypto.ts` â€” optional per-user enable |
 | **KYC / docs upload** | Vendor GST/PAN/Aadhaar verify flow |
 | **Bulk import/export** | CSV/Excel endpoints for products, orders, users |
-| **Feature flags** | `SystemSetting` category=feature — client boot pe fetch |
-| **Maintenance mode** | Admin ON kare → 503 except `/health`, `/docs`, `/admin/*` |
-| **PDF generation** | Invoice, packing slip, payout statement — `pdfkit` |
-| **Geo serviceability** | Pincode → serviceable check (per vendor/zone) |
+| **Feature flags** | `SystemSetting` category=feature â€” client boot pe fetch |
+| **Maintenance mode** | Admin ON kare â†’ 503 except `/health`, `/docs`, `/admin/*` |
+| **PDF generation** | Invoice, packing slip, payout statement â€” `pdfkit` |
+| **Geo serviceability** | Pincode â†’ serviceable check (per vendor/zone) |
 
 ---
 
@@ -148,35 +155,35 @@ and setup, see the [README](../README.md).
 
 #### Goal
 
-- Client → API: body/query/sensitive headers encrypted bhej sake (optional).
-- API → Client: response encrypted bhej sake.
-- **Toggle:** `.env` mai `ENCRYPTION_ENABLED=true|false` — bina code change ON/OFF.
+- Client â†’ API: body/query/sensitive headers encrypted bhej sake (optional).
+- API â†’ Client: response encrypted bhej sake.
+- **Toggle:** `.env` mai `ENCRYPTION_ENABLED=true|false` â€” bina code change ON/OFF.
 
 #### Algorithm
 
-- **AES-256-GCM** (authenticated encryption — tamper-proof).
-- Client `x-encrypted: 1` header bheje → middleware samjhe ki decrypt karna hai.
+- **AES-256-GCM** (authenticated encryption â€” tamper-proof).
+- Client `x-encrypted: 1` header bheje â†’ middleware samjhe ki decrypt karna hai.
 - Response encrypt karega agar `x-encrypted` header request mai tha OR global setting ON.
 
 #### Flow
 
 ```
 Client (web/android/ios)
-  ├─ Payload JSON → encrypt(AES-256-GCM, sharedKey)
-  ├─ Header: x-encrypted: 1
-  └─ POST /api/v1/orders/placeOrder  body: { iv, tag, data }
+  â”œâ”€ Payload JSON â†’ encrypt(AES-256-GCM, sharedKey)
+  â”œâ”€ Header: x-encrypted: 1
+  â””â”€ POST /api/v1/orders/placeOrder  body: { iv, tag, data }
 
 API encryption.middleware
-  ├─ if ENCRYPTION.ENABLED && header present
-  │    ├─ decrypt body → req.body
-  │    └─ mark res.locals.shouldEncrypt = true
-  ├─ route handler normal chalta hai (plain req.body)
-  └─ on response: encrypt before send
+  â”œâ”€ if ENCRYPTION.ENABLED && header present
+  â”‚    â”œâ”€ decrypt body â†’ req.body
+  â”‚    â””â”€ mark res.locals.shouldEncrypt = true
+  â”œâ”€ route handler normal chalta hai (plain req.body)
+  â””â”€ on response: encrypt before send
 
 Client decrypt karke JSON parse kare
 ```
 
-#### Example — `src/middlewares/encryption.middleware.ts`
+#### Example â€” `src/middlewares/encryption.middleware.ts`
 
 ```tsx
 import crypto from 'crypto';
@@ -244,12 +251,12 @@ ENCRYPTION_ENABLED=false
 ENCRYPTION_KEY=<64-hex-chars>
 ```
 
-Poora env inventory `src/config/env.config.ts` me Zod schema hai — server boot
+Poora env inventory `src/config/env.config.ts` me Zod schema hai â€” server boot
 se pehle validate hota hai, missing ya invalid value pe fail ho jata hai. `.env`
 ko do hisso me rakha hai: **Part 1 required** (in ke bina app start nahi hota) aur
 **Part 2 optional** (har ek ka default `.env` me likha hai).
 
-**Part 1 — required (default nahi hai, boot error dega):**
+**Part 1 â€” required (default nahi hai, boot error dega):**
 
 | Var | Rule |
 | --- | --- |
@@ -257,22 +264,22 @@ ko do hisso me rakha hai: **Part 1 required** (in ke bina app start nahi hota) a
 | `JWT_ACCESS_SECRET` | Min 16 chars |
 | `JWT_REFRESH_SECRET` | Min 16 chars, access se alag hona chahiye |
 
-**Part 2 — optional (har ek ka default):**
+**Part 2 â€” optional (har ek ka default):**
 
 | Var | Default | Kaam |
 | --- | --- | --- |
 | `NODE_ENV` | `development` | `production` = strict CORS, secure cookie, code log nahi hota |
 | `PORT` | `5000` | Render khud inject karta hai |
-| `APP_NAME` | `projectname` | JWT issuer/audience — **badalne se sab logout** |
+| `APP_NAME` | `projectname` | JWT issuer/audience â€” **badalne se sab logout** |
 | `LOG_LEVEL` | `info` | `fatal` se `trace` tak |
-| `OTP_REQUIRED` | `true` | Poore OTP system ka master switch (§7.5) |
+| `OTP_REQUIRED` | `true` | Poore OTP system ka master switch (Â§7.5) |
 | `OTP_SMS_ENABLED` | `false` | Phone number pe code bhejne ke liye |
-| `OTP_STATIC_CODE` | *(khali)* | Local testing ke liye fix code — production me boot error |
+| `OTP_STATIC_CODE` | *(khali)* | Local testing ke liye fix code â€” production me boot error |
 | `JWT_ACCESS_EXPIRY` | `15m` | Access token TTL |
 | `JWT_REFRESH_EXPIRY` | `7d` | Refresh token TTL |
 | `REDIS_URL` | *(khali)* | Nahi hai to cache/queue/rate-limit degrade |
 | `REDIS_PREFIX` | `projectname` | Redis key namespace |
-| `QUEUE_ENABLED` | `true` | `true` hai aur `REDIS_URL` khali → **boot error** |
+| `QUEUE_ENABLED` | `true` | `true` hai aur `REDIS_URL` khali â†’ **boot error** |
 | `QUEUE_PREFIX` | `projectname` | BullMQ queue namespace |
 | `WORKER_ENABLED` | `true` | `false` = sirf HTTP serve, workers/cron nahi |
 | `TRACKING_ENABLED` | `true` | Har request pe 2 extra DB query |
@@ -281,8 +288,8 @@ ko do hisso me rakha hai: **Part 1 required** (in ke bina app start nahi hota) a
 | `CORS_ORIGINS` | *(khali)* | CSV. Production me khali = har origin reject |
 | `SOCKET_CORS_ORIGINS` | *(khali)* | Khali ho to `CORS_ORIGINS` use hota hai |
 | `SUPER_ADMIN_EMAIL` | `superadmin@projectname.com` | Seed ka super admin |
-| `SUPER_ADMIN_PASSWORD` | `SuperSecret@123` | ⚠️ Default kabhi live mat jaane do |
-| `ENCRYPTION_ENABLED` | `false` | §4 ka transport encryption |
+| `SUPER_ADMIN_PASSWORD` | `SuperSecret@123` | âš ï¸ Default kabhi live mat jaane do |
+| `ENCRYPTION_ENABLED` | `false` | Â§4 ka transport encryption |
 | `ENCRYPTION_KEY` | *(khali)* | `ENCRYPTION_ENABLED=true` pe **exactly 64 hex** chahiye |
 | `CLOUDINARY_CLOUD_NAME` | *(khali)* | Khali = upload route 503 |
 | `CLOUDINARY_API_KEY` | *(khali)* | Account-level **Root** key use karo |
@@ -300,7 +307,7 @@ ko do hisso me rakha hai: **Part 1 required** (in ke bina app start nahi hota) a
 | `MSG91_SENDER_ID` | *(khali)* | India me DLT-registered header mandatory |
 | `MSG91_TEMPLATE_ID` | *(khali)* | DLT template, `{{0}}` placeholder |
 | `MSG91_COUNTRY_CODE` | `91` | |
-| `FCM_SERVER_KEY` / `FCM_ENABLED` | *(khali)* / `false` | Push — abhi koi code nahi padhta |
+| `FCM_SERVER_KEY` / `FCM_ENABLED` | *(khali)* / `false` | Push â€” abhi koi code nahi padhta |
 | `RAZORPAY_*` / `STRIPE_*` / `SHIPPING_PARTNER_WEBHOOK_SECRET` | *(khali)* | Payment module land hone tak safe ignore |
 
 **Cross-field rules jo boot pe enforce hote hain:**
@@ -324,519 +331,547 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 
 | Method | Endpoint | Auth | Role | Purpose |
 | --- | --- | --- | --- | --- |
-| POST | `/api/v1/auth/register/sendOtp` | ❌ | Public | Registration step 1 — request a code |
-| POST | `/api/v1/auth/register/verifyOtp` | ❌ | Public | Registration step 2 — code → `verificationToken` |
-| POST | `/api/v1/auth/register` | ❌ | Public | Registration step 3 — spend the token (`type: CUSTOMER` or `type: VENDOR`) |
-| POST | `/api/v1/auth/login` | ❌ | Public | Password login (any role) |
-| POST | `/api/v1/auth/login/verifyOtp` | ❌ | Public | OTP login step 2 — verify the code and sign in || POST | `/api/v1/auth/refreshToken` | Cookie | Any | Refresh access token |
-| POST | `/api/v1/auth/logout` | ✅ | Any | Logout + revoke refresh |
-| POST | `/api/v1/auth/logoutAllDevices` | ✅ | Any | Revoke all sessions |
-| GET | `/api/v1/auth/getMe` | ✅ | Any | Current user |
-| POST | `/api/v1/auth/verifyOtp` | ❌ | Public | Verify OTP |
-| POST | `/api/v1/auth/forgotPassword` | ❌ | Public | Trigger reset OTP flow |
-| POST | `/api/v1/auth/resetPassword` | ❌ | Public | Reset with OTP |
-| POST | `/api/v1/auth/changePassword` | ✅ | Any | Change own password |
-| POST | `/api/v1/auth/verifyEmail` | ✅ | Any | Verify email |
-| POST | `/api/v1/auth/verifyPhone` | ✅ | Any | Verify phone |
-| POST | `/api/v1/auth/changeEmail/sendOtp` | ✅ | Any | Step 1 of email change — code to the new address |
-| POST | `/api/v1/auth/changeEmail/verifyOtp` | ✅ | Any | Step 2 — code → `verificationToken` |
-| POST | `/api/v1/auth/changeEmail` | ✅ | Any | Swap the sign-in email |
-| POST | `/api/v1/auth/changePhone` | ✅ | Any | Swap the phone number |
-| POST | `/api/v1/auth/restoreAccount` | ❌ | Public | Restore inside the deletion recovery window |
-| POST | `/api/v1/auth/enable2FA` | ✅ | Any | Enable 2FA |
-| POST | `/api/v1/auth/disable2FA` | ✅ | Any | Disable 2FA |
-| POST | `/api/v1/auth/verify2FA` | ❌ | Public | 2FA challenge |
-| POST | `/api/v1/auth/socialLogin` | ❌ | Public | Google/Apple/Facebook |
-| POST | `/api/v1/auth/linkSocial` | ✅ | Any | Link social account |
-| POST | `/api/v1/auth/unlinkSocial` | ✅ | Any | Unlink social |
-| POST | `/api/v1/auth/checkAvailability` | ❌ | Public | Check email/phone |
-| GET | `/api/v1/auth/sessions` | ✅ | Any | Active sessions |
-| DELETE | `/api/v1/auth/sessions/:id` | ✅ | Any | Revoke session |
-| GET | `/api/v1/users/getProfile` | ✅ | Any | Self profile |
-| PATCH | `/api/v1/users/updateProfile` | ✅ | Any | Update self profile |
-| DELETE | `/api/v1/users/deleteAccount` | ✅ | Any | Soft-delete self — recoverable for `security.accountPurgeDays` |
-| GET | `/api/v1/users/getAddresses` | ✅ | CUSTOMER | List addresses |
-| POST | `/api/v1/users/addAddress` | ✅ | CUSTOMER | Add address |
-| PATCH | `/api/v1/users/updateAddress/:id` | ✅ | CUSTOMER | Update address |
-| DELETE | `/api/v1/users/deleteAddress/:id` | ✅ | CUSTOMER | Delete address |
-| PATCH | `/api/v1/users/setDefaultAddress/:id` | ✅ | CUSTOMER | Set default |
-| GET | `/api/v1/users/getAll` | ✅ | ADMIN | List users |
-| GET | `/api/v1/users/getById/:id` | ✅ | ADMIN | Single user |
-| PATCH | `/api/v1/users/updateUser/:id` | ✅ | ADMIN | Update user |
-| PATCH | `/api/v1/users/toggleStatus/:id` | ✅ | ADMIN | Suspend/activate |
-| DELETE | `/api/v1/users/deleteUser/:id` | ✅ | SUPER_ADMIN | Hard delete |
-| GET | `/api/v1/users/getActivity/:id` | ✅ | ADMIN | User activity |
-| GET | `/api/v1/users/getOrders/:id` | ✅ | ADMIN | User orders |
-| GET | `/api/v1/users/getTimeline/:id` | ✅ | ADMIN | Unified timeline |
-| POST | `/api/v1/users/addNote/:id` | ✅ | ADMIN | Internal note add |
-| GET | `/api/v1/users/getNotes/:id` | ✅ | ADMIN | Internal notes list |
-| DELETE | `/api/v1/users/removeNote/:id/:noteId` | ✅ | ADMIN | Internal note remove |
-| POST | `/api/v1/users/impersonate/:id` | ✅ | SUPER_ADMIN | Login as user |
-| GET | `/api/v1/vendors/getProfile` | ✅ | VENDOR | My vendor profile |
-| PATCH | `/api/v1/vendors/updateProfile` | ✅ | VENDOR | Update vendor profile |
-| GET | `/api/v1/vendors/getAll` | ✅ | ADMIN | List vendors |
-| GET | `/api/v1/vendors/getById/:id` | ✅ | ADMIN | Single vendor |
-| PATCH | `/api/v1/vendors/approveVendor/:id` | ✅ | ADMIN | Approve vendor |
-| PATCH | `/api/v1/vendors/rejectVendor/:id` | ✅ | ADMIN | Reject vendor |
-| PATCH | `/api/v1/vendors/suspendVendor/:id` | ✅ | ADMIN | Suspend vendor |
-| PATCH | `/api/v1/vendors/updateCommission/:id` | ✅ | ADMIN | Override commission |
-| PATCH | `/api/v1/vendors/updateBankDetails/:id` | ✅ | VENDOR | Update bank/UPI |
-| GET | `/api/v1/vendors/getStats` | ✅ | VENDOR | Dashboard stats |
-| GET | `/api/v1/vendors/getRatings/:id` | ❌ | Public | Vendor rating summary |
-| GET | `/api/v1/vendors/getProducts/:id` | ❌ | Public | Vendor products |
-| POST | `/api/v1/vendors/requestPayout` | ✅ | VENDOR | Request payout |
-| GET | `/api/v1/vendors/getPayoutHistory` | ✅ | VENDOR | Payout history |
-| POST | `/api/v1/vendors/uploadDocuments` | ✅ | VENDOR | KYC docs |
-| GET | `/api/v1/vendors/getDocuments` | ✅ | ADMIN | KYC docs |
-| PATCH | `/api/v1/vendors/verifyDocuments/:id` | ✅ | ADMIN | Approve KYC |
-| POST | `/api/v1/products/createProduct` | ✅ | VENDOR | Create product |
-| GET | `/api/v1/products/getAll` | ❌ | Public | List products (paginated) |
-| GET | `/api/v1/products/getById/:id` | ❌ | Public | Single product |
-| GET | `/api/v1/products/getBySlug/:slug` | ❌ | Public | SEO URL product |
-| PATCH | `/api/v1/products/updateProduct/:id` | ✅ | VENDOR | Update own product |
-| DELETE | `/api/v1/products/deleteProduct/:id` | ✅ | VENDOR | Soft delete |
-| PATCH | `/api/v1/products/updateStock/:id` | ✅ | VENDOR | Update stock |
-| PATCH | `/api/v1/products/toggleStatus/:id` | ✅ | VENDOR | Active/Inactive |
-| POST | `/api/v1/products/uploadImages/:id` | ✅ | VENDOR | Upload images |
-| DELETE | `/api/v1/products/deleteImage/:id/:imageId` | ✅ | VENDOR | Remove image |
-| POST | `/api/v1/products/bulkCreate` | ✅ | VENDOR | Bulk create |
-| POST | `/api/v1/products/bulkImportCsv` | ✅ | VENDOR | CSV import |
-| GET | `/api/v1/products/exportCsv` | ✅ | VENDOR | Export |
-| PATCH | `/api/v1/products/bulkUpdate` | ✅ | VENDOR | Bulk edit |
-| PATCH | `/api/v1/products/bulkDelete` | ✅ | VENDOR | Bulk delete |
-| GET | `/api/v1/products/getRelated/:id` | ❌ | Public | Related products |
-| GET | `/api/v1/products/getRecommended` | ✅ | Any | Recommendations |
-| GET | `/api/v1/products/getFrequentlyBought/:id` | ❌ | Public | Frequently bought |
-| GET | `/api/v1/products/getRecentlyViewed` | ✅ | Any | Recently viewed |
-| POST | `/api/v1/products/trackView/:id` | ❌ | Any | Increment view |
-| GET | `/api/v1/products/getFilters` | ❌ | Public | Facets |
-| POST | `/api/v1/products/bulkPriceUpdate` | ✅ | VENDOR | Bulk price update |
-| POST | `/api/v1/categories/createCategory` | ✅ | ADMIN | Create category |
-| GET | `/api/v1/categories/getAll` | ❌ | Public | List categories |
-| GET | `/api/v1/categories/getById/:id` | ❌ | Public | Single category |
-| PATCH | `/api/v1/categories/updateCategory/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/categories/deleteCategory/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/categories/reorder` | ✅ | ADMIN | Drag sort |
-| POST | `/api/v1/brands/createBrand` | ✅ | ADMIN | Create brand |
-| GET | `/api/v1/brands/getAll` | ❌ | Public | List brands |
-| GET | `/api/v1/brands/getById/:id` | ❌ | Public | Single brand |
-| PATCH | `/api/v1/brands/updateBrand/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/brands/deleteBrand/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/tags/createTag` | ✅ | ADMIN | Create tag |
-| GET | `/api/v1/tags/getAll` | ❌ | Public | List tags |
-| DELETE | `/api/v1/tags/deleteTag/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/attributes/createAttribute` | ✅ | ADMIN | Create attribute |
-| GET | `/api/v1/attributes/getAll` | ❌ | Public | List attributes |
-| PATCH | `/api/v1/attributes/updateAttribute/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/attributes/deleteAttribute/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/collections/createCollection` | ✅ | ADMIN | Create collection |
-| GET | `/api/v1/collections/getAll` | ❌ | Public | List collections |
-| PATCH | `/api/v1/collections/updateCollection/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/collections/deleteCollection/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/cart/getCart` | ✅ | CUSTOMER | View cart |
-| POST | `/api/v1/cart/addItem` | ✅ | CUSTOMER | Add item |
-| PATCH | `/api/v1/cart/updateItem` | ✅ | CUSTOMER | Update qty |
-| DELETE | `/api/v1/cart/removeItem/:cartItemId` | ✅ | CUSTOMER | Remove item |
-| DELETE | `/api/v1/cart/clearCart` | ✅ | CUSTOMER | Clear cart |
-| POST | `/api/v1/cart/applyCoupon` | ✅ | CUSTOMER | Apply coupon |
-| DELETE | `/api/v1/cart/removeCoupon` | ✅ | CUSTOMER | Remove coupon |
-| POST | `/api/v1/cart/estimate` | ✅ | CUSTOMER | Pre-checkout totals |
-| POST | `/api/v1/cart/mergeGuestCart` | ✅ | CUSTOMER | Merge after login |
-| PATCH | `/api/v1/cart/updateItemOptions/:cartItemId` | ✅ | CUSTOMER | Gift wrap + per-item delivery note |
-| GET | `/api/v1/cart/getSavedForLater` | ✅ | CUSTOMER | List saved-for-later |
-| POST | `/api/v1/cart/saveForLater` | ✅ | CUSTOMER | Move a cart line aside |
-| POST | `/api/v1/cart/savedForLater/:id/moveToCart` | ✅ | CUSTOMER | Move a saved line back |
-| DELETE | `/api/v1/cart/savedForLater/:id` | ✅ | CUSTOMER | Drop a saved line |
-| DELETE | `/api/v1/cart/savedForLater` | ✅ | CUSTOMER | Clear saved lines |
-| GET | `/api/v1/priceWatches/getAll` | ✅ | CUSTOMER | List price watches |
-| POST | `/api/v1/priceWatches/watch` | ✅ | CUSTOMER | Watch a product price |
-| DELETE | `/api/v1/priceWatches/remove/:id` | ✅ | CUSTOMER | Stop watching |
-| GET | `/api/v1/wishlist/getAll` | ✅ | CUSTOMER | List wishlist |
-| POST | `/api/v1/wishlist/addItem` | ✅ | CUSTOMER | Add to wishlist |
-| DELETE | `/api/v1/wishlist/removeItem/:id` | ✅ | CUSTOMER | Remove |
-| DELETE | `/api/v1/wishlist/clear` | ✅ | CUSTOMER | Clear |
-| POST | `/api/v1/wishlist/moveToCart/:id` | ✅ | CUSTOMER | Move to cart |
-| POST | `/api/v1/orders/placeOrder` | ✅ | CUSTOMER | Place order |
-| GET | `/api/v1/orders/getAll` | ✅ | CUSTOMER | My orders |
-| GET | `/api/v1/orders/getById/:id` | ✅ | CUSTOMER | Order detail |
-| POST | `/api/v1/orders/cancelOrder/:id` | ✅ | CUSTOMER | Cancel order |
-| PATCH | `/api/v1/orders/updateStatus/:id` | ✅ | ADMIN | Update order status |
-| GET | `/api/v1/orders/getVendorOrders` | ✅ | VENDOR | My sub-orders |
-| PATCH | `/api/v1/orders/updateVendorStatus/:subOrderId` | ✅ | VENDOR | Update sub-order |
-| GET | `/api/v1/orders/track/:id` | ❌ | Any | Live tracking |
-| POST | `/api/v1/orders/reorder/:id` | ✅ | CUSTOMER | Re-order |
-| GET | `/api/v1/orders/getInvoice/:id` | ✅ | CUSTOMER | Invoice PDF |
-| GET | `/api/v1/orders/getPackingSlip/:id` | ✅ | VENDOR | Packing slip |
-| GET | `/api/v1/orders/getShippingLabel/:subOrderId` | ✅ | VENDOR | Shipping label |
-| PATCH | `/api/v1/orders/assignDeliveryBoy/:subOrderId` | ✅ | ADMIN | Assign |
-| POST | `/api/v1/orders/verifyDeliveryOtp/:subOrderId` | ✅ | VENDOR/ADMIN | OTP confirm delivery |
-| GET | `/api/v1/orders/getTimeline/:id` | ✅ | Any | Status history |
-| POST | `/api/v1/orders/returnRequest/:id` | ✅ | CUSTOMER | Return request |
-| PATCH | `/api/v1/orders/approveReturn/:returnId` | ✅ | VENDOR/ADMIN | Approve return |
-| PATCH | `/api/v1/orders/rejectReturn/:returnId` | ✅ | VENDOR/ADMIN | Reject return |
-| POST | `/api/v1/payments/payToken/:orderId` | ✅ | CUSTOMER | Pay token amount |
-| POST | `/api/v1/payments/payBalance/:orderId` | ✅ | CUSTOMER | Pay balance |
-| GET | `/api/v1/payments/getByOrder/:orderId` | ✅ | CUSTOMER | Payment info |
-| POST | `/api/v1/payments/verifyUpi/:orderId` | ✅ | CUSTOMER | UPI reference |
-| POST | `/api/v1/payments/verifyBank/:orderId` | ✅ | CUSTOMER | Bank slip |
-| PATCH | `/api/v1/payments/markCodCollected/:orderId` | ✅ | VENDOR | COD collected |
-| GET | `/api/v1/payments/getAll` | ✅ | ADMIN | All payments |
-| PATCH | `/api/v1/payments/confirmPayment/:id` | ✅ | ADMIN | Manual confirm |
-| POST | `/api/v1/payments/refund/:id` | ✅ | ADMIN | Refund |
-| GET | `/api/v1/payments/getRefundHistory/:orderId` | ✅ | CUSTOMER | Refund history |
-| POST | `/api/v1/payments/razorpay/createOrder` | ✅ | CUSTOMER | Razorpay init |
-| POST | `/api/v1/payments/razorpay/verify` | ✅ | CUSTOMER | Verify signature |
-| POST | `/api/v1/payments/stripe/createIntent` | ✅ | CUSTOMER | Stripe init |
-| GET | `/api/v1/payments/methods` | ❌ | Public | Available methods |
-| GET | `/api/v1/payments/walletBalance` | ✅ | CUSTOMER | Wallet balance |
-| GET | `/api/v1/payouts/getVendorEarnings` | ✅ | VENDOR | My earnings |
-| GET | `/api/v1/payouts/getAll` | ✅ | ADMIN | All payouts |
-| PATCH | `/api/v1/payouts/approvePayout/:id` | ✅ | ADMIN | Approve payout |
-| PATCH | `/api/v1/payouts/rejectPayout/:id` | ✅ | ADMIN | Reject payout |
-| POST | `/api/v1/payouts/generateCycles` | ✅ | ADMIN | Batch calc |
-| GET | `/api/v1/payouts/getSummary` | ✅ | ADMIN | Totals |
-| GET | `/api/v1/payouts/getStatement/:vendorId` | ✅ | ADMIN | Statement PDF |
-| POST | `/api/v1/payouts/bulkApprove` | ✅ | ADMIN | Bulk approve |
-| GET | `/api/v1/payouts/getPendingAmount/:vendorId` | ✅ | VENDOR | Pending |
-| PATCH | `/api/v1/payouts/updateStatus/:id` | ✅ | ADMIN | Generic update |
-| POST | `/api/v1/returns/createRequest` | ✅ | CUSTOMER | Create return |
-| GET | `/api/v1/returns/getAll` | ✅ | ADMIN/VENDOR | List |
-| GET | `/api/v1/returns/getById/:id` | ✅ | Any | Detail |
-| PATCH | `/api/v1/returns/approve/:id` | ✅ | ADMIN/VENDOR | Approve |
-| PATCH | `/api/v1/returns/reject/:id` | ✅ | ADMIN/VENDOR | Reject |
-| PATCH | `/api/v1/returns/markPickedUp/:id` | ✅ | VENDOR | Picked up |
-| PATCH | `/api/v1/returns/markReceived/:id` | ✅ | VENDOR | Received |
-| PATCH | `/api/v1/returns/processRefund/:id` | ✅ | ADMIN | Refund |
-| GET | `/api/v1/returns/getReasons` | ❌ | Public | Reason list |
-| POST | `/api/v1/returns/addReason` | ✅ | ADMIN | Add reason |
-| POST | `/api/v1/reviews/addReview` | ✅ | CUSTOMER | Add review |
-| GET | `/api/v1/reviews/getAll` | ❌ | Public | List reviews |
-| PATCH | `/api/v1/reviews/updateReview/:id` | ✅ | CUSTOMER | Update own |
-| DELETE | `/api/v1/reviews/deleteReview/:id` | ✅ | CUSTOMER | Delete own |
-| PATCH | `/api/v1/reviews/approve/:id` | ✅ | ADMIN | Approve |
-| PATCH | `/api/v1/reviews/reject/:id` | ✅ | ADMIN | Reject |
-| POST | `/api/v1/reviews/voteHelpful/:id` | ✅ | Any | Helpful vote |
-| POST | `/api/v1/reviews/reply/:id` | ✅ | VENDOR | Vendor reply |
-| GET | `/api/v1/reviews/getSummary/:productId` | ❌ | Public | Rating breakdown |
-| POST | `/api/v1/questions/ask` | ✅ | CUSTOMER | Ask question |
-| POST | `/api/v1/questions/answer/:id` | ✅ | VENDOR | Answer |
-| GET | `/api/v1/questions/getAll/:productId` | ❌ | Public | List Q&A |
-| PATCH | `/api/v1/questions/approve/:id` | ✅ | ADMIN | Approve |
-| DELETE | `/api/v1/questions/delete/:id` | ✅ | ADMIN/CUSTOMER | Delete |
-| POST | `/api/v1/coupons/createCoupon` | ✅ | ADMIN | Create coupon |
-| GET | `/api/v1/coupons/getAll` | ✅ | ADMIN | List coupons |
-| GET | `/api/v1/coupons/getById/:id` | ✅ | ADMIN | Coupon detail |
-| PATCH | `/api/v1/coupons/updateCoupon/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/coupons/deleteCoupon/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/coupons/validateCoupon` | ✅ | CUSTOMER | Validate code |
-| POST | `/api/v1/coupons/applyCoupon` | ✅ | CUSTOMER | Apply coupon |
-| GET | `/api/v1/coupons/getUsages/:id` | ✅ | ADMIN | Usage list |
-| PATCH | `/api/v1/coupons/toggleStatus/:id` | ✅ | ADMIN | Enable/Disable |
-| POST | `/api/v1/flashSales/create` | ✅ | ADMIN | Flash sale |
-| GET | `/api/v1/flashSales/getActive` | ❌ | Public | Live sales |
-| PATCH | `/api/v1/flashSales/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/flashSales/delete/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/banners/create` | ✅ | ADMIN | Create banner |
-| GET | `/api/v1/banners/getAll` | ❌ | Public | Active banners |
-| PATCH | `/api/v1/banners/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/banners/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/wallet/getBalance` | ✅ | CUSTOMER | Balance |
-| GET | `/api/v1/wallet/getTransactions` | ✅ | CUSTOMER | History |
-| POST | `/api/v1/wallet/addMoney` | ✅ | CUSTOMER | Top-up |
-| POST | `/api/v1/wallet/useForOrder` | ✅ | CUSTOMER | Redeem at checkout |
-| POST | `/api/v1/wallet/adminCredit` | ✅ | ADMIN | Manual credit |
-| POST | `/api/v1/wallet/adminDebit` | ✅ | ADMIN | Manual debit |
-| GET | `/api/v1/loyalty/getPoints` | ✅ | CUSTOMER | Points balance |
-| GET | `/api/v1/loyalty/getHistory` | ✅ | CUSTOMER | Points history |
-| POST | `/api/v1/loyalty/redeem` | ✅ | CUSTOMER | Redeem points |
-| GET | `/api/v1/loyalty/getTiers` | ❌ | Public | Tier config |
-| GET | `/api/v1/referral/getMyCode` | ✅ | CUSTOMER | My code |
-| POST | `/api/v1/referral/applyCode` | ✅ | CUSTOMER | Apply code |
-| GET | `/api/v1/referral/getRewards` | ✅ | CUSTOMER | My rewards |
-| GET | `/api/v1/referral/getLeaderboard` | ✅ | CUSTOMER | Leaderboard |
-| POST | `/api/v1/giftCards/create` | ✅ | ADMIN | Create gift card |
-| GET | `/api/v1/giftCards/getAll` | ✅ | ADMIN | List |
-| POST | `/api/v1/giftCards/redeem` | ✅ | CUSTOMER | Redeem |
-| GET | `/api/v1/giftCards/checkBalance/:code` | ❌ | Public | Balance |
-| PATCH | `/api/v1/giftCards/disable/:id` | ✅ | ADMIN | Disable |
-| GET | `/api/v1/notifications/getAll` | ✅ | Any | List notifications |
-| PATCH | `/api/v1/notifications/markRead/:id` | ✅ | Any | Mark read |
-| PATCH | `/api/v1/notifications/markAllRead` | ✅ | Any | Mark all |
-| DELETE | `/api/v1/notifications/delete/:id` | ✅ | Any | Delete |
-| GET | `/api/v1/notifications/getUnreadCount` | ✅ | Any | Badge count |
-| POST | `/api/v1/notifications/registerDevice` | ✅ | Any | Register FCM |
-| POST | `/api/v1/notifications/unregisterDevice` | ✅ | Any | Remove FCM |
-| GET | `/api/v1/notifications/getPreferences` | ✅ | Any | Preferences |
-| PATCH | `/api/v1/notifications/updatePreferences` | ✅ | Any | Update prefs |
-| POST | `/api/v1/notifications/sendBulk` | ✅ | ADMIN | Bulk push |
-| GET | `/api/v1/notifications/getTemplates` | ✅ | ADMIN | Templates |
-| POST | `/api/v1/notifications/createTemplate` | ✅ | ADMIN | Create template |
-| PATCH | `/api/v1/notifications/updateTemplate/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/notifications/deleteTemplate/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/chat/getConversations` | ✅ | Any | List threads |
-| POST | `/api/v1/chat/startConversation` | ✅ | CUSTOMER | Start chat |
-| GET | `/api/v1/chat/getMessages/:conversationId` | ✅ | Any | Messages |
-| POST | `/api/v1/chat/sendMessage` | ✅ | Any | Send |
-| PATCH | `/api/v1/chat/markRead/:conversationId` | ✅ | Any | Read |
-| DELETE | `/api/v1/chat/deleteMessage/:id` | ✅ | Any | Delete |
-| POST | `/api/v1/chat/blockUser/:userId` | ✅ | Any | Block |
-| GET | `/api/v1/chat/getUnreadCount` | ✅ | Any | Badge |
-| POST | `/api/v1/tickets/create` | ✅ | Any | Create ticket |
-| GET | `/api/v1/tickets/getAll` | ✅ | Any | List |
-| GET | `/api/v1/tickets/getById/:id` | ✅ | Any | Detail |
-| POST | `/api/v1/tickets/reply/:id` | ✅ | Any | Reply |
-| PATCH | `/api/v1/tickets/updateStatus/:id` | ✅ | ADMIN | Status |
-| PATCH | `/api/v1/tickets/assign/:id` | ✅ | ADMIN | Assign |
-| PATCH | `/api/v1/tickets/close/:id` | ✅ | Any | Close |
-| DELETE | `/api/v1/tickets/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/tickets/getCategories` | ❌ | Public | Categories |
-| GET | `/api/v1/cannedResponses/getAll` | ✅ | ADMIN | List canned responses |
-| POST | `/api/v1/cannedResponses/create` | ✅ | ADMIN | Create canned response |
-| PATCH | `/api/v1/cannedResponses/update/:id` | ✅ | ADMIN | Update canned response |
-| DELETE | `/api/v1/cannedResponses/delete/:id` | ✅ | ADMIN | Delete canned response |
-| POST | `/api/v1/pages/create` | ✅ | ADMIN | Create page |
-| GET | `/api/v1/pages/getAll` | ❌ | Public | List pages |
-| GET | `/api/v1/pages/getBySlug/:slug` | ❌ | Public | Detail |
-| PATCH | `/api/v1/pages/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/pages/delete/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/blogs/create` | ✅ | ADMIN | Create blog |
-| GET | `/api/v1/blogs/getAll` | ❌ | Public | List blogs |
-| GET | `/api/v1/blogs/getBySlug/:slug` | ❌ | Public | Detail |
-| PATCH | `/api/v1/blogs/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/blogs/delete/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/faqs/create` | ✅ | ADMIN | Create FAQ |
-| GET | `/api/v1/faqs/getAll` | ❌ | Public | List FAQs |
-| PATCH | `/api/v1/faqs/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/faqs/delete/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/contact/submit` | ❌ | Public | Contact form |
-| GET | `/api/v1/contact/getAll` | ✅ | ADMIN | List submissions |
-| POST | `/api/v1/newsletter/subscribe` | ❌ | Public | Subscribe |
-| POST | `/api/v1/newsletter/unsubscribe` | ❌ | Public | Unsubscribe |
-| GET | `/api/v1/newsletter/getAll` | ✅ | ADMIN | Subscribers |
-| POST | `/api/v1/newsletter/sendCampaign` | ✅ | ADMIN | Blast |
-| GET | `/api/v1/settings/getPublicSettings` | ❌ | Public | Public config |
-| GET | `/api/v1/settings/getAll` | ✅ | ADMIN | All settings |
-| PATCH | `/api/v1/settings/updateSetting` | ✅ | ADMIN | Update one |
-| POST | `/api/v1/settings/bulkUpdateSettings` | ✅ | ADMIN | Bulk update |
-| GET | `/api/v1/settings/getByCategory/:category` | ✅ | ADMIN | By category |
-| POST | `/api/v1/settings/resetToDefault` | ✅ | SUPER_ADMIN | Reset |
-| GET | `/api/v1/settings/getFeatureFlags` | ❌ | Public | Feature toggles |
-| PATCH | `/api/v1/settings/toggleFeature` | ✅ | ADMIN | Toggle |
-| GET | `/api/v1/settings/getMaintenance` | ❌ | Public | Maintenance status |
-| PATCH | `/api/v1/settings/updateMaintenance` | ✅ | SUPER_ADMIN | Toggle |
-| GET | `/api/v1/admin/getDashboardStats` | ✅ | ADMIN | Dashboard metrics |
-| POST | `/api/v1/admin/createSubAdmin` | ✅ | SUPER_ADMIN | Create sub-admin |
-| GET | `/api/v1/admin/getAllSubAdmins` | ✅ | SUPER_ADMIN | List sub-admins |
-| PATCH | `/api/v1/admin/updateSubAdmin/:id` | ✅ | SUPER_ADMIN | Update |
-| DELETE | `/api/v1/admin/deleteSubAdmin/:id` | ✅ | SUPER_ADMIN | Delete |
-| PATCH | `/api/v1/admin/toggleSubAdminStatus/:id` | ✅ | SUPER_ADMIN | Active/Suspend |
-| GET | `/api/v1/admin/getPermissions` | ✅ | ADMIN | All permissions |
-| PATCH | `/api/v1/admin/updatePermissions/:id` | ✅ | SUPER_ADMIN | Set perms |
-| GET | `/api/v1/admin/getAuditLogs` | ✅ | ADMIN | Audit logs |
-| GET | `/api/v1/admin/getActivityLogs` | ✅ | ADMIN | Activity |
-| GET | `/api/v1/admin/getSystemHealth` | ✅ | SUPER_ADMIN | DB/Redis/Queue |
-| POST | `/api/v1/admin/clearCache` | ✅ | SUPER_ADMIN | Flush Redis |
-| GET | `/api/v1/admin/getCronJobs` | ✅ | SUPER_ADMIN | Job list |
-| POST | `/api/v1/admin/triggerJob` | ✅ | SUPER_ADMIN | Manual run |
-| GET | `/api/v1/admin/getFailedJobs` | ✅ | SUPER_ADMIN | Dead letter queue |
-| POST | `/api/v1/admin/retryFailedJob/:id` | ✅ | SUPER_ADMIN | Replay a failed job |
-| PATCH | `/api/v1/admin/resolveFailedJob/:id` | ✅ | SUPER_ADMIN | Close without replay |
-| DELETE | `/api/v1/admin/deleteFailedJob/:id` | ✅ | SUPER_ADMIN | Drop the row |
-| GET | `/api/v1/analytics/getOverview` | ✅ | ADMIN | KPIs |
-| GET | `/api/v1/analytics/getVisitors` | ✅ | ADMIN | Visitor stats |
-| GET | `/api/v1/analytics/getUniqueVisitors` | ✅ | ADMIN | UV |
-| GET | `/api/v1/analytics/getPageViews` | ✅ | ADMIN | PV |
-| GET | `/api/v1/analytics/getTopPages` | ✅ | ADMIN | Top pages |
-| GET | `/api/v1/analytics/getTrafficSources` | ✅ | ADMIN | Traffic |
-| GET | `/api/v1/analytics/getDeviceBreakdown` | ✅ | ADMIN | Device/OS |
-| GET | `/api/v1/analytics/getGeoBreakdown` | ✅ | ADMIN | Geo |
-| GET | `/api/v1/analytics/getSessions` | ✅ | ADMIN | Sessions |
-| GET | `/api/v1/analytics/getSessionDetail/:id` | ✅ | ADMIN | Journey |
-| GET | `/api/v1/analytics/getFunnel` | ✅ | ADMIN | Funnel |
-| GET | `/api/v1/analytics/getConversions` | ✅ | ADMIN | Conversions |
-| GET | `/api/v1/analytics/getRevenueReport` | ✅ | ADMIN | Revenue |
-| GET | `/api/v1/analytics/getProductPerformance` | ✅ | VENDOR/ADMIN | Product KPIs |
-| GET | `/api/v1/analytics/getVendorPerformance` | ✅ | ADMIN | Vendor KPIs |
-| GET | `/api/v1/analytics/getCustomerCohorts` | ✅ | ADMIN | Retention |
-| GET | `/api/v1/analytics/getAbandonedCarts` | ✅ | ADMIN | Abandoned |
-| GET | `/api/v1/analytics/getSearchTerms` | ✅ | ADMIN | Top searches |
-| GET | `/api/v1/analytics/getZeroResultSearches` | ✅ | ADMIN | Missed searches |
-| GET | `/api/v1/analytics/getRealtime` | ✅ | ADMIN | Live users |
-| GET | `/api/v1/analytics/getCrashes` | ✅ | ADMIN | Crash reports |
-| GET | `/api/v1/analytics/getAppVersions` | ✅ | ADMIN | Version dist |
-| GET | `/api/v1/analytics/export` | ✅ | ADMIN | CSV export |
-| POST | `/api/v1/track/event` | ❌ | Any | Generic event |
-| POST | `/api/v1/track/pageView` | ❌ | Any | Page view |
-| POST | `/api/v1/track/session/start` | ❌ | Any | Session start |
-| POST | `/api/v1/track/session/end` | ❌ | Any | Session end |
-| POST | `/api/v1/track/device` | ❌ | Any | Register device |
-| POST | `/api/v1/track/appInstall` | ❌ | Public | App install |
-| POST | `/api/v1/track/appOpen` | ❌ | Any | App open |
-| POST | `/api/v1/track/crash` | ❌ | Any | Crash report |
-| POST | `/api/v1/track/performance` | ❌ | Any | Perf metrics |
-| POST | `/api/v1/track/error` | ❌ | Any | JS/API error |
-| POST | `/api/v1/track/funnel` | ❌ | Any | Funnel step |
-| POST | `/api/v1/track/conversion` | ❌ | Any | Conversion |
-| POST | `/api/v1/track/click` | ❌ | Any | Click |
-| POST | `/api/v1/track/scroll` | ❌ | Any | Scroll depth |
-| POST | `/api/v1/track/search` | ❌ | Any | Search |
-| POST | `/api/v1/track/utm` | ❌ | Any | UTM |
-| POST | `/api/v1/track/referrer` | ❌ | Any | Referrer |
-| POST | `/api/v1/track/heartbeat` | ❌ | Any | Keep alive |
-| GET | `/api/v1/devices/getAll` | ✅ | ADMIN | All devices |
-| GET | `/api/v1/devices/getById/:id` | ✅ | ADMIN | Detail |
-| GET | `/api/v1/devices/getByUser/:userId` | ✅ | ADMIN | User devices |
-| PATCH | `/api/v1/devices/block/:id` | ✅ | ADMIN | Block |
-| PATCH | `/api/v1/devices/unblock/:id` | ✅ | ADMIN | Unblock |
-| DELETE | `/api/v1/devices/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/devices/getTrusted` | ✅ | Any | My trusted |
-| PATCH | `/api/v1/devices/trust/:id` | ✅ | Any | Trust |
-| PATCH | `/api/v1/devices/untrust/:id` | ✅ | Any | Untrust |
-| GET | `/api/v1/reports/sales` | ✅ | ADMIN | Sales |
-| GET | `/api/v1/reports/orders` | ✅ | ADMIN | Orders |
-| GET | `/api/v1/reports/products` | ✅ | VENDOR/ADMIN | Products |
-| GET | `/api/v1/reports/customers` | ✅ | ADMIN | Customers |
-| GET | `/api/v1/reports/vendors` | ✅ | ADMIN | Vendors |
-| GET | `/api/v1/reports/payouts` | ✅ | ADMIN | Payouts |
-| GET | `/api/v1/reports/tax` | ✅ | ADMIN | GST |
-| GET | `/api/v1/reports/inventory` | ✅ | VENDOR | Stock |
-| GET | `/api/v1/reports/returns` | ✅ | ADMIN | Returns |
-| GET | `/api/v1/reports/export/:type` | ✅ | ADMIN | CSV/XLSX |
-| POST | `/api/v1/reports/schedule` | ✅ | ADMIN | Schedule email |
-| GET | `/api/v1/shipping/getZones` | ✅ | ADMIN | Zones |
-| POST | `/api/v1/shipping/createZone` | ✅ | ADMIN | Create zone |
-| PATCH | `/api/v1/shipping/updateZone/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/shipping/deleteZone/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/shipping/createMethod` | ✅ | ADMIN | Method |
-| GET | `/api/v1/shipping/getMethods` | ❌ | Public | Methods |
-| PATCH | `/api/v1/shipping/updateMethod/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/shipping/deleteMethod/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/shipping/checkServiceability` | ❌ | Public | Pincode check |
-| POST | `/api/v1/shipping/calculateRate` | ✅ | CUSTOMER | Rate calc |
-| POST | `/api/v1/shipping/createPartner` | ✅ | ADMIN | Partner |
-| GET | `/api/v1/shipping/getPartners` | ✅ | ADMIN | List |
-| POST | `/api/v1/shipping/createShipment/:subOrderId` | ✅ | VENDOR | Create |
-| GET | `/api/v1/shipping/track/:awb` | ❌ | Any | Track |
-| PATCH | `/api/v1/shipping/updateStatus/:id` | ✅ | VENDOR/ADMIN | Update |
-| GET | `/api/v1/deliveryBoys/getAll` | ✅ | ADMIN | List boys |
-| POST | `/api/v1/deliveryBoys/create` | ✅ | ADMIN | Create |
-| PATCH | `/api/v1/deliveryBoys/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/deliveryBoys/delete/:id` | ✅ | ADMIN | Delete |
-| PATCH | `/api/v1/deliveryBoys/toggleStatus/:id` | ✅ | ADMIN | Active |
-| GET | `/api/v1/deliveryBoys/getMyDeliveries` | ✅ | DELIVERY_BOY | Assigned |
-| PATCH | `/api/v1/deliveryBoys/updateDeliveryStatus/:id` | ✅ | DELIVERY_BOY | Update |
-| GET | `/api/v1/search/global` | ❌ | Public | Multi-entity |
-| GET | `/api/v1/search/autocomplete` | ❌ | Public | Suggestions |
-| GET | `/api/v1/search/products` | ❌ | Public | Product search |
-| GET | `/api/v1/search/vendors` | ❌ | Public | Vendor search |
-| GET | `/api/v1/search/trending` | ❌ | Public | Trending |
-| GET | `/api/v1/search/recent` | ✅ | Any | Recent |
-| DELETE | `/api/v1/search/recent/clear` | ✅ | Any | Clear |
-| POST | `/api/v1/bulk/importProducts` | ✅ | VENDOR | CSV import |
-| POST | `/api/v1/bulk/importOrders` | ✅ | ADMIN | Bulk orders |
-| POST | `/api/v1/bulk/importUsers` | ✅ | ADMIN | Bulk users |
-| GET | `/api/v1/bulk/getJobStatus/:jobId` | ✅ | Any | Job status |
-| GET | `/api/v1/bulk/getJobHistory` | ✅ | Any | History |
-| POST | `/api/v1/apiKeys/create` | ✅ | ADMIN | Create key |
-| GET | `/api/v1/apiKeys/getAll` | ✅ | ADMIN | List |
-| PATCH | `/api/v1/apiKeys/revoke/:id` | ✅ | ADMIN | Revoke |
-| DELETE | `/api/v1/apiKeys/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/apiKeys/getUsage/:id` | ✅ | ADMIN | Usage |
-| GET | `/api/v1/i18n/getTranslations/:locale` | ❌ | Public | Strings |
-| GET | `/api/v1/i18n/getLocales` | ❌ | Public | Supported |
-| POST | `/api/v1/i18n/create` | ✅ | ADMIN | Create |
-| PATCH | `/api/v1/i18n/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/i18n/delete/:id` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/i18n/bulkUpsert` | ✅ | ADMIN | Bulk |
-| GET | `/api/v1/currencies/getAll` | ❌ | Public | Currencies |
-| POST | `/api/v1/currencies/create` | ✅ | ADMIN | Create |
-| PATCH | `/api/v1/currencies/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/currencies/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/tax/getConfigs` | ✅ | ADMIN | Tax rules |
-| POST | `/api/v1/tax/create` | ✅ | ADMIN | Create |
-| PATCH | `/api/v1/tax/update/:id` | ✅ | ADMIN | Update |
-| DELETE | `/api/v1/tax/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/countries/getAll` | ❌ | Public | Countries |
-| GET | `/api/v1/countries/getStates/:countryCode` | ❌ | Public | States |
-| GET | `/api/v1/countries/getCities/:stateCode` | ❌ | Public | Cities |
-| POST | `/api/v1/countries/checkPincode` | ❌ | Public | Serviceability |
-| POST | `/api/v1/uploads/uploadImage` | ✅ | Any | Upload image |
-| POST | `/api/v1/uploads/uploadVideo` | ✅ | Any | Upload video |
-| POST | `/api/v1/uploads/uploadDocument` | ✅ | Any | Upload doc |
-| POST | `/api/v1/uploads/uploadMultiple` | ✅ | Any | Bulk |
-| POST | `/api/v1/uploads/deleteFile` | ✅ | Any | Delete |
-| GET | `/api/v1/uploads/getSignedUrl` | ✅ | Any | Direct upload |
+| POST | `/api/v1/auth/register/sendOtp` | âŒ | Public | Registration step 1 â€” request a code |
+| POST | `/api/v1/auth/register/verifyOtp` | âŒ | Public | Registration step 2 â€” code â†’ `verificationToken` |
+| POST | `/api/v1/auth/register` | âŒ | Public | Registration step 3 â€” spend the token (`type: CUSTOMER` or `type: VENDOR`) |
+| POST | `/api/v1/auth/login` | âŒ | Public | Password login (any role) |
+| POST | `/api/v1/auth/login/verifyOtp` | âŒ | Public | OTP login step 2 â€” verify the code and sign in || POST | `/api/v1/auth/refreshToken` | Cookie | Any | Refresh access token |
+| POST | `/api/v1/auth/logout` | âœ… | Any | Logout + revoke refresh |
+| POST | `/api/v1/auth/logoutAllDevices` | âœ… | Any | Revoke all sessions |
+| GET | `/api/v1/auth/getMe` | âœ… | Any | Current user |
+| POST | `/api/v1/auth/verifyOtp` | âŒ | Public | Verify OTP |
+| POST | `/api/v1/auth/forgotPassword` | âŒ | Public | Trigger reset OTP flow |
+| POST | `/api/v1/auth/resetPassword` | âŒ | Public | Reset with OTP |
+| POST | `/api/v1/auth/changePassword` | âœ… | Any | Change own password |
+| POST | `/api/v1/auth/verifyEmail` | âœ… | Any | Verify email |
+| POST | `/api/v1/auth/verifyPhone` | âœ… | Any | Verify phone |
+| POST | `/api/v1/auth/changeEmail/sendOtp` | âœ… | Any | Step 1 of email change â€” code to the new address |
+| POST | `/api/v1/auth/changeEmail/verifyOtp` | âœ… | Any | Step 2 â€” code â†’ `verificationToken` |
+| POST | `/api/v1/auth/changeEmail` | âœ… | Any | Swap the sign-in email |
+| POST | `/api/v1/auth/changePhone` | âœ… | Any | Swap the phone number |
+| POST | `/api/v1/auth/restoreAccount` | âŒ | Public | Restore inside the deletion recovery window |
+| POST | `/api/v1/auth/enable2FA` | âœ… | Any | Enable 2FA |
+| POST | `/api/v1/auth/disable2FA` | âœ… | Any | Disable 2FA |
+| POST | `/api/v1/auth/verify2FA` | âŒ | Public | 2FA challenge |
+| POST | `/api/v1/auth/socialLogin` | âŒ | Public | Google/Apple/Facebook |
+| POST | `/api/v1/auth/linkSocial` | âœ… | Any | Link social account |
+| POST | `/api/v1/auth/unlinkSocial` | âœ… | Any | Unlink social |
+| POST | `/api/v1/auth/checkAvailability` | âŒ | Public | Check email/phone |
+| GET | `/api/v1/auth/sessions` | âœ… | Any | Active sessions |
+| DELETE | `/api/v1/auth/sessions/:id` | âœ… | Any | Revoke session |
+| GET | `/api/v1/users/getProfile` | âœ… | Any | Self profile |
+| PATCH | `/api/v1/users/updateProfile` | âœ… | Any | Update self profile |
+| DELETE | `/api/v1/users/deleteAccount` | âœ… | Any | Soft-delete self â€” recoverable for `security.accountPurgeDays` |
+| GET | `/api/v1/users/getAddresses` | âœ… | CUSTOMER | List addresses |
+| POST | `/api/v1/users/addAddress` | âœ… | CUSTOMER | Add address |
+| PATCH | `/api/v1/users/updateAddress/:id` | âœ… | CUSTOMER | Update address |
+| DELETE | `/api/v1/users/deleteAddress/:id` | âœ… | CUSTOMER | Delete address |
+| PATCH | `/api/v1/users/setDefaultAddress/:id` | âœ… | CUSTOMER | Set default |
+| GET | `/api/v1/users/getAll` | âœ… | ADMIN | List users |
+| GET | `/api/v1/users/getById/:id` | âœ… | ADMIN | Single user |
+| PATCH | `/api/v1/users/updateUser/:id` | âœ… | ADMIN | Update user |
+| PATCH | `/api/v1/users/toggleStatus/:id` | âœ… | ADMIN | Suspend/activate |
+| DELETE | `/api/v1/users/deleteUser/:id` | âœ… | SUPER_ADMIN | Hard delete |
+| GET | `/api/v1/users/getActivity/:id` | âœ… | ADMIN | User activity |
+| GET | `/api/v1/users/getOrders/:id` | âœ… | ADMIN | User orders |
+| GET | `/api/v1/users/getTimeline/:id` | âœ… | ADMIN | Unified timeline |
+| POST | `/api/v1/users/addNote/:id` | âœ… | ADMIN | Internal note add |
+| GET | `/api/v1/users/getNotes/:id` | âœ… | ADMIN | Internal notes list |
+| DELETE | `/api/v1/users/removeNote/:id/:noteId` | âœ… | ADMIN | Internal note remove |
+| POST | `/api/v1/users/banCustomer/:id` | 🔑 | ADMIN | Block a customer (reason + duration) |
+| POST | `/api/v1/users/unbanCustomer/:id` | 🔑 | ADMIN | Lift a block |
+| GET | `/api/v1/users/getBans` | 🔑 | ADMIN | Blocked customers |
+| GET | `/api/v1/users/exportMyData` | 🔑 | Any | DPDP self-service export |
+| GET | `/api/v1/users/exportData/:id` | 🔑 | ADMIN | Export one customer |
+| GET | `/api/v1/users/getSegments` | 🔑 | ADMIN | List segments |
+| GET | `/api/v1/users/getSegmentById/:id` | 🔑 | ADMIN | Segment detail |
+| POST | `/api/v1/users/createSegment` | 🔑 | ADMIN | Create a manual segment |
+| PATCH | `/api/v1/users/updateSegment/:id` | 🔑 | ADMIN | Update segment |
+| DELETE | `/api/v1/users/deleteSegment/:id` | 🔑 | ADMIN | Delete segment |
+| GET | `/api/v1/users/getSegmentMembers/:id` | 🔑 | ADMIN | Segment members |
+| POST | `/api/v1/users/addSegmentMembers/:id` | 🔑 | ADMIN | Add members |
+| POST | `/api/v1/users/removeSegmentMembers/:id` | 🔑 | ADMIN | Remove members |
+| POST | `/api/v1/users/refreshSegments` | 🔑 | ADMIN | Recompute auto segments now |
+| POST | `/api/v1/users/impersonate/:id` | âœ… | SUPER_ADMIN | Login as user |
+| GET | `/api/v1/vendors/getProfile` | âœ… | VENDOR | My vendor profile |
+| PATCH | `/api/v1/vendors/updateProfile` | âœ… | VENDOR | Update vendor profile |
+| GET | `/api/v1/vendors/getAll` | âœ… | ADMIN | List vendors |
+| GET | `/api/v1/vendors/getById/:id` | âœ… | ADMIN | Single vendor |
+| PATCH | `/api/v1/vendors/approveVendor/:id` | âœ… | ADMIN | Approve vendor |
+| PATCH | `/api/v1/vendors/rejectVendor/:id` | âœ… | ADMIN | Reject vendor |
+| PATCH | `/api/v1/vendors/suspendVendor/:id` | âœ… | ADMIN | Suspend vendor |
+| PATCH | `/api/v1/vendors/updateCommission/:id` | âœ… | ADMIN | Override commission |
+| PATCH | `/api/v1/vendors/updateBankDetails/:id` | âœ… | VENDOR | Update bank/UPI |
+| GET | `/api/v1/vendors/getStats` | âœ… | VENDOR | Dashboard stats |
+| GET | `/api/v1/vendors/getRatings/:id` | âŒ | Public | Vendor rating summary |
+| GET | `/api/v1/vendors/getProducts/:id` | âŒ | Public | Vendor products |
+| POST | `/api/v1/vendors/requestPayout` | âœ… | VENDOR | Request payout |
+| GET | `/api/v1/vendors/getPayoutHistory` | âœ… | VENDOR | Payout history |
+| POST | `/api/v1/vendors/uploadDocuments` | âœ… | VENDOR | KYC docs |
+| GET | `/api/v1/vendors/getDocuments` | âœ… | ADMIN | KYC docs |
+| PATCH | `/api/v1/vendors/verifyDocuments/:id` | âœ… | ADMIN | Approve KYC |
+| GET | `/api/v1/vendors/getStore/:slug` | 🔓 | Public | Storefront page |
+| PATCH | `/api/v1/vendors/updateVacation/:id` | 🔑 | VENDOR | Vacation mode |
+| GET | `/api/v1/vendors/getAnnouncements` | 🔑 | VENDOR | Own announcements |
+| POST | `/api/v1/vendors/createAnnouncement` | 🔑 | VENDOR | Create announcement |
+| PATCH | `/api/v1/vendors/updateAnnouncement/:id` | 🔑 | VENDOR | Update announcement |
+| DELETE | `/api/v1/vendors/deleteAnnouncement/:id` | 🔑 | VENDOR | Delete announcement |
+| POST | `/api/v1/vendors/blockCustomer/:userId` | 🔑 | VENDOR | Block a customer |
+| DELETE | `/api/v1/vendors/unblockCustomer/:userId` | 🔑 | VENDOR | Unblock |
+| GET | `/api/v1/vendors/getBlockedCustomers` | 🔑 | VENDOR | Blocked customers |
+| POST | `/api/v1/products/createProduct` | âœ… | VENDOR | Create product |
+| GET | `/api/v1/products/getAll` | âŒ | Public | List products (paginated) |
+| GET | `/api/v1/products/getById/:id` | âŒ | Public | Single product |
+| GET | `/api/v1/products/getBySlug/:slug` | âŒ | Public | SEO URL product |
+| PATCH | `/api/v1/products/updateProduct/:id` | âœ… | VENDOR | Update own product |
+| DELETE | `/api/v1/products/deleteProduct/:id` | âœ… | VENDOR | Soft delete |
+| PATCH | `/api/v1/products/updateStock/:id` | âœ… | VENDOR | Update stock |
+| PATCH | `/api/v1/products/toggleStatus/:id` | âœ… | VENDOR | Active/Inactive |
+| POST | `/api/v1/products/uploadImages/:id` | âœ… | VENDOR | Upload images |
+| DELETE | `/api/v1/products/deleteImage/:id/:imageId` | âœ… | VENDOR | Remove image |
+| POST | `/api/v1/products/bulkCreate` | âœ… | VENDOR | Bulk create |
+| POST | `/api/v1/products/bulkImportCsv` | âœ… | VENDOR | CSV import |
+| GET | `/api/v1/products/exportCsv` | âœ… | VENDOR | Export |
+| PATCH | `/api/v1/products/bulkUpdate` | âœ… | VENDOR | Bulk edit |
+| PATCH | `/api/v1/products/bulkDelete` | âœ… | VENDOR | Bulk delete |
+| GET | `/api/v1/products/getRelated/:id` | âŒ | Public | Related products |
+| GET | `/api/v1/products/getRecommended` | âœ… | Any | Recommendations |
+| GET | `/api/v1/products/getFrequentlyBought/:id` | âŒ | Public | Frequently bought |
+| GET | `/api/v1/products/getRecentlyViewed` | âœ… | Any | Recently viewed |
+| POST | `/api/v1/products/trackView/:id` | âŒ | Any | Increment view |
+| GET | `/api/v1/products/getFilters` | âŒ | Public | Facets |
+| POST | `/api/v1/products/bulkPriceUpdate` | âœ… | VENDOR | Bulk price update |
+| POST | `/api/v1/categories/createCategory` | âœ… | ADMIN | Create category |
+| GET | `/api/v1/categories/getAll` | âŒ | Public | List categories |
+| GET | `/api/v1/categories/getById/:id` | âŒ | Public | Single category |
+| PATCH | `/api/v1/categories/updateCategory/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/categories/deleteCategory/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/categories/reorder` | âœ… | ADMIN | Drag sort |
+| POST | `/api/v1/brands/createBrand` | âœ… | ADMIN | Create brand |
+| GET | `/api/v1/brands/getAll` | âŒ | Public | List brands |
+| GET | `/api/v1/brands/getById/:id` | âŒ | Public | Single brand |
+| PATCH | `/api/v1/brands/updateBrand/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/brands/deleteBrand/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/tags/createTag` | âœ… | ADMIN | Create tag |
+| GET | `/api/v1/tags/getAll` | âŒ | Public | List tags |
+| DELETE | `/api/v1/tags/deleteTag/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/attributes/createAttribute` | âœ… | ADMIN | Create attribute |
+| GET | `/api/v1/attributes/getAll` | âŒ | Public | List attributes |
+| PATCH | `/api/v1/attributes/updateAttribute/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/attributes/deleteAttribute/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/collections/createCollection` | âœ… | ADMIN | Create collection |
+| GET | `/api/v1/collections/getAll` | âŒ | Public | List collections |
+| PATCH | `/api/v1/collections/updateCollection/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/collections/deleteCollection/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/cart/getCart` | âœ… | CUSTOMER | View cart |
+| POST | `/api/v1/cart/addItem` | âœ… | CUSTOMER | Add item |
+| PATCH | `/api/v1/cart/updateItem` | âœ… | CUSTOMER | Update qty |
+| DELETE | `/api/v1/cart/removeItem/:cartItemId` | âœ… | CUSTOMER | Remove item |
+| DELETE | `/api/v1/cart/clearCart` | âœ… | CUSTOMER | Clear cart |
+| POST | `/api/v1/cart/applyCoupon` | âœ… | CUSTOMER | Apply coupon |
+| DELETE | `/api/v1/cart/removeCoupon` | âœ… | CUSTOMER | Remove coupon |
+| POST | `/api/v1/cart/estimate` | âœ… | CUSTOMER | Pre-checkout totals |
+| POST | `/api/v1/cart/mergeGuestCart` | âœ… | CUSTOMER | Merge after login |
+| PATCH | `/api/v1/cart/updateItemOptions/:cartItemId` | âœ… | CUSTOMER | Gift wrap + per-item delivery note |
+| GET | `/api/v1/cart/getSavedForLater` | âœ… | CUSTOMER | List saved-for-later |
+| POST | `/api/v1/cart/saveForLater` | âœ… | CUSTOMER | Move a cart line aside |
+| POST | `/api/v1/cart/savedForLater/:id/moveToCart` | âœ… | CUSTOMER | Move a saved line back |
+| DELETE | `/api/v1/cart/savedForLater/:id` | âœ… | CUSTOMER | Drop a saved line |
+| DELETE | `/api/v1/cart/savedForLater` | âœ… | CUSTOMER | Clear saved lines |
+| GET | `/api/v1/priceWatches/getAll` | âœ… | CUSTOMER | List price watches |
+| POST | `/api/v1/priceWatches/watch` | âœ… | CUSTOMER | Watch a product price |
+| DELETE | `/api/v1/priceWatches/remove/:id` | âœ… | CUSTOMER | Stop watching |
+| GET | `/api/v1/wishlist/getAll` | âœ… | CUSTOMER | List wishlist |
+| POST | `/api/v1/wishlist/addItem` | âœ… | CUSTOMER | Add to wishlist |
+| DELETE | `/api/v1/wishlist/removeItem/:id` | âœ… | CUSTOMER | Remove |
+| DELETE | `/api/v1/wishlist/clear` | âœ… | CUSTOMER | Clear |
+| POST | `/api/v1/wishlist/moveToCart/:id` | âœ… | CUSTOMER | Move to cart |
+| POST | `/api/v1/orders/placeOrder` | âœ… | CUSTOMER | Place order |
+| GET | `/api/v1/orders/getAll` | âœ… | CUSTOMER | My orders |
+| GET | `/api/v1/orders/getById/:id` | âœ… | CUSTOMER | Order detail |
+| POST | `/api/v1/orders/cancelOrder/:id` | âœ… | CUSTOMER | Cancel order |
+| PATCH | `/api/v1/orders/updateStatus/:id` | âœ… | ADMIN | Update order status |
+| GET | `/api/v1/orders/getVendorOrders` | âœ… | VENDOR | My sub-orders |
+| PATCH | `/api/v1/orders/updateVendorStatus/:subOrderId` | âœ… | VENDOR | Update sub-order |
+| POST | `/api/v1/orders/vendorBulkStatusUpdate` | 🔑 | VENDOR | Bulk accept/reject sub-orders |
+| GET | `/api/v1/orders/track/:id` | âŒ | Any | Live tracking |
+| POST | `/api/v1/orders/reorder/:id` | âœ… | CUSTOMER | Re-order |
+| GET | `/api/v1/orders/getInvoice/:id` | âœ… | CUSTOMER | Invoice PDF |
+| GET | `/api/v1/orders/getPackingSlip/:id` | âœ… | VENDOR | Packing slip |
+| GET | `/api/v1/orders/getShippingLabel/:subOrderId` | âœ… | VENDOR | Shipping label |
+| PATCH | `/api/v1/orders/assignDeliveryBoy/:subOrderId` | âœ… | ADMIN | Assign |
+| POST | `/api/v1/orders/verifyDeliveryOtp/:subOrderId` | âœ… | VENDOR/ADMIN | OTP confirm delivery |
+| GET | `/api/v1/orders/getTimeline/:id` | âœ… | Any | Status history |
+| POST | `/api/v1/orders/returnRequest/:id` | âœ… | CUSTOMER | Return request |
+| PATCH | `/api/v1/orders/approveReturn/:returnId` | âœ… | VENDOR/ADMIN | Approve return |
+| PATCH | `/api/v1/orders/rejectReturn/:returnId` | âœ… | VENDOR/ADMIN | Reject return |
+| POST | `/api/v1/payments/payToken/:orderId` | âœ… | CUSTOMER | Pay token amount |
+| POST | `/api/v1/payments/payBalance/:orderId` | âœ… | CUSTOMER | Pay balance |
+| GET | `/api/v1/payments/getByOrder/:orderId` | âœ… | CUSTOMER | Payment info |
+| POST | `/api/v1/payments/verifyUpi/:orderId` | âœ… | CUSTOMER | UPI reference |
+| POST | `/api/v1/payments/verifyBank/:orderId` | âœ… | CUSTOMER | Bank slip |
+| PATCH | `/api/v1/payments/markCodCollected/:orderId` | âœ… | VENDOR | COD collected |
+| GET | `/api/v1/payments/getAll` | âœ… | ADMIN | All payments |
+| PATCH | `/api/v1/payments/confirmPayment/:id` | âœ… | ADMIN | Manual confirm |
+| POST | `/api/v1/payments/refund/:id` | âœ… | ADMIN | Refund |
+| GET | `/api/v1/payments/getRefundHistory/:orderId` | âœ… | CUSTOMER | Refund history |
+| POST | `/api/v1/payments/razorpay/createOrder` | âœ… | CUSTOMER | Razorpay init |
+| POST | `/api/v1/payments/razorpay/verify` | âœ… | CUSTOMER | Verify signature |
+| POST | `/api/v1/payments/stripe/createIntent` | âœ… | CUSTOMER | Stripe init |
+| GET | `/api/v1/payments/methods` | âŒ | Public | Available methods |
+| GET | `/api/v1/payments/walletBalance` | âœ… | CUSTOMER | Wallet balance |
+| GET | `/api/v1/payouts/getVendorEarnings` | âœ… | VENDOR | My earnings |
+| GET | `/api/v1/payouts/getAll` | âœ… | ADMIN | All payouts |
+| PATCH | `/api/v1/payouts/approvePayout/:id` | âœ… | ADMIN | Approve payout |
+| PATCH | `/api/v1/payouts/rejectPayout/:id` | âœ… | ADMIN | Reject payout |
+| POST | `/api/v1/payouts/generateCycles` | âœ… | ADMIN | Batch calc |
+| GET | `/api/v1/payouts/getSummary` | âœ… | ADMIN | Totals |
+| GET | `/api/v1/payouts/getStatement/:vendorId` | âœ… | ADMIN | Statement PDF |
+| POST | `/api/v1/payouts/bulkApprove` | âœ… | ADMIN | Bulk approve |
+| GET | `/api/v1/payouts/getPendingAmount/:vendorId` | âœ… | VENDOR | Pending |
+| PATCH | `/api/v1/payouts/updateStatus/:id` | âœ… | ADMIN | Generic update |
+| POST | `/api/v1/returns/createRequest` | âœ… | CUSTOMER | Create return |
+| GET | `/api/v1/returns/getAll` | âœ… | ADMIN/VENDOR | List |
+| GET | `/api/v1/returns/getById/:id` | âœ… | Any | Detail |
+| PATCH | `/api/v1/returns/approve/:id` | âœ… | ADMIN/VENDOR | Approve |
+| PATCH | `/api/v1/returns/reject/:id` | âœ… | ADMIN/VENDOR | Reject |
+| PATCH | `/api/v1/returns/markPickedUp/:id` | âœ… | VENDOR | Picked up |
+| PATCH | `/api/v1/returns/markReceived/:id` | âœ… | VENDOR | Received |
+| PATCH | `/api/v1/returns/processRefund/:id` | âœ… | ADMIN | Refund |
+| GET | `/api/v1/returns/getReasons` | âŒ | Public | Reason list |
+| POST | `/api/v1/returns/addReason` | âœ… | ADMIN | Add reason |
+| POST | `/api/v1/reviews/addReview` | âœ… | CUSTOMER | Add review |
+| GET | `/api/v1/reviews/getAll` | âŒ | Public | List reviews |
+| PATCH | `/api/v1/reviews/updateReview/:id` | âœ… | CUSTOMER | Update own |
+| DELETE | `/api/v1/reviews/deleteReview/:id` | âœ… | CUSTOMER | Delete own |
+| PATCH | `/api/v1/reviews/approve/:id` | âœ… | ADMIN | Approve |
+| PATCH | `/api/v1/reviews/reject/:id` | âœ… | ADMIN | Reject |
+| POST | `/api/v1/reviews/voteHelpful/:id` | âœ… | Any | Helpful vote |
+| POST | `/api/v1/reviews/reply/:id` | âœ… | VENDOR | Vendor reply |
+| GET | `/api/v1/reviews/getSummary/:productId` | âŒ | Public | Rating breakdown |
+| POST | `/api/v1/questions/ask` | âœ… | CUSTOMER | Ask question |
+| POST | `/api/v1/questions/answer/:id` | âœ… | VENDOR | Answer |
+| GET | `/api/v1/questions/getAll/:productId` | âŒ | Public | List Q&A |
+| PATCH | `/api/v1/questions/approve/:id` | âœ… | ADMIN | Approve |
+| DELETE | `/api/v1/questions/delete/:id` | âœ… | ADMIN/CUSTOMER | Delete |
+| POST | `/api/v1/coupons/createCoupon` | âœ… | ADMIN | Create coupon |
+| GET | `/api/v1/coupons/getAll` | âœ… | ADMIN | List coupons |
+| GET | `/api/v1/coupons/getById/:id` | âœ… | ADMIN | Coupon detail |
+| PATCH | `/api/v1/coupons/updateCoupon/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/coupons/deleteCoupon/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/coupons/validateCoupon` | âœ… | CUSTOMER | Validate code |
+| POST | `/api/v1/coupons/applyCoupon` | âœ… | CUSTOMER | Apply coupon |
+| GET | `/api/v1/coupons/getUsages/:id` | âœ… | ADMIN | Usage list |
+| PATCH | `/api/v1/coupons/toggleStatus/:id` | âœ… | ADMIN | Enable/Disable |
+| GET | `/api/v1/coupons/vendorCoupons` | 🔑 | VENDOR | My store coupons |
+| POST | `/api/v1/coupons/vendorCreateCoupon` | 🔑 | VENDOR | Create a store coupon |
+| PATCH | `/api/v1/coupons/vendorUpdateCoupon/:id` | 🔑 | VENDOR | Update own coupon |
+| DELETE | `/api/v1/coupons/vendorDeleteCoupon/:id` | 🔑 | VENDOR | Delete own coupon |
+| POST | `/api/v1/flashSales/create` | âœ… | ADMIN | Flash sale |
+| GET | `/api/v1/flashSales/getActive` | âŒ | Public | Live sales |
+| PATCH | `/api/v1/flashSales/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/flashSales/delete/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/banners/create` | âœ… | ADMIN | Create banner |
+| GET | `/api/v1/banners/getAll` | âŒ | Public | Active banners |
+| PATCH | `/api/v1/banners/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/banners/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/wallet/getBalance` | âœ… | CUSTOMER | Balance |
+| GET | `/api/v1/wallet/getTransactions` | âœ… | CUSTOMER | History |
+| POST | `/api/v1/wallet/addMoney` | âœ… | CUSTOMER | Top-up |
+| POST | `/api/v1/wallet/useForOrder` | âœ… | CUSTOMER | Redeem at checkout |
+| POST | `/api/v1/wallet/adminCredit` | âœ… | ADMIN | Manual credit |
+| POST | `/api/v1/wallet/adminDebit` | âœ… | ADMIN | Manual debit |
+| GET | `/api/v1/loyalty/getPoints` | âœ… | CUSTOMER | Points balance |
+| GET | `/api/v1/loyalty/getHistory` | âœ… | CUSTOMER | Points history |
+| POST | `/api/v1/loyalty/redeem` | âœ… | CUSTOMER | Redeem points |
+| GET | `/api/v1/loyalty/getTiers` | âŒ | Public | Tier config |
+| GET | `/api/v1/referral/getMyCode` | âœ… | CUSTOMER | My code |
+| POST | `/api/v1/referral/applyCode` | âœ… | CUSTOMER | Apply code |
+| GET | `/api/v1/referral/getRewards` | âœ… | CUSTOMER | My rewards |
+| GET | `/api/v1/referral/getLeaderboard` | âœ… | CUSTOMER | Leaderboard |
+| POST | `/api/v1/giftCards/create` | âœ… | ADMIN | Create gift card |
+| GET | `/api/v1/giftCards/getAll` | âœ… | ADMIN | List |
+| POST | `/api/v1/giftCards/redeem` | âœ… | CUSTOMER | Redeem |
+| GET | `/api/v1/giftCards/checkBalance/:code` | âŒ | Public | Balance |
+| PATCH | `/api/v1/giftCards/disable/:id` | âœ… | ADMIN | Disable |
+| GET | `/api/v1/notifications/getAll` | âœ… | Any | List notifications |
+| PATCH | `/api/v1/notifications/markRead/:id` | âœ… | Any | Mark read |
+| PATCH | `/api/v1/notifications/markAllRead` | âœ… | Any | Mark all |
+| DELETE | `/api/v1/notifications/delete/:id` | âœ… | Any | Delete |
+| GET | `/api/v1/notifications/getUnreadCount` | âœ… | Any | Badge count |
+| POST | `/api/v1/notifications/registerDevice` | âœ… | Any | Register FCM |
+| POST | `/api/v1/notifications/unregisterDevice` | âœ… | Any | Remove FCM |
+| GET | `/api/v1/notifications/getPreferences` | âœ… | Any | Preferences |
+| PATCH | `/api/v1/notifications/updatePreferences` | âœ… | Any | Update prefs |
+| POST | `/api/v1/notifications/sendBulk` | âœ… | ADMIN | Bulk push |
+| GET | `/api/v1/notifications/getTemplates` | âœ… | ADMIN | Templates |
+| POST | `/api/v1/notifications/createTemplate` | âœ… | ADMIN | Create template |
+| PATCH | `/api/v1/notifications/updateTemplate/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/notifications/deleteTemplate/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/chat/getConversations` | âœ… | Any | List threads |
+| POST | `/api/v1/chat/startConversation` | âœ… | CUSTOMER | Start chat |
+| GET | `/api/v1/chat/getMessages/:conversationId` | âœ… | Any | Messages |
+| POST | `/api/v1/chat/sendMessage` | âœ… | Any | Send |
+| PATCH | `/api/v1/chat/markRead/:conversationId` | âœ… | Any | Read |
+| DELETE | `/api/v1/chat/deleteMessage/:id` | âœ… | Any | Delete |
+| POST | `/api/v1/chat/blockUser/:userId` | âœ… | Any | Block |
+| GET | `/api/v1/chat/getUnreadCount` | âœ… | Any | Badge |
+| POST | `/api/v1/tickets/create` | âœ… | Any | Create ticket |
+| GET | `/api/v1/tickets/getAll` | âœ… | Any | List |
+| GET | `/api/v1/tickets/getById/:id` | âœ… | Any | Detail |
+| POST | `/api/v1/tickets/reply/:id` | âœ… | Any | Reply |
+| PATCH | `/api/v1/tickets/updateStatus/:id` | âœ… | ADMIN | Status |
+| PATCH | `/api/v1/tickets/assign/:id` | âœ… | ADMIN | Assign |
+| PATCH | `/api/v1/tickets/close/:id` | âœ… | Any | Close |
+| DELETE | `/api/v1/tickets/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/tickets/getCategories` | âŒ | Public | Categories |
+| GET | `/api/v1/cannedResponses/getAll` | âœ… | ADMIN | List canned responses |
+| POST | `/api/v1/cannedResponses/create` | âœ… | ADMIN | Create canned response |
+| PATCH | `/api/v1/cannedResponses/update/:id` | âœ… | ADMIN | Update canned response |
+| DELETE | `/api/v1/cannedResponses/delete/:id` | âœ… | ADMIN | Delete canned response |
+| POST | `/api/v1/pages/create` | âœ… | ADMIN | Create page |
+| GET | `/api/v1/pages/getAll` | âŒ | Public | List pages |
+| GET | `/api/v1/pages/getBySlug/:slug` | âŒ | Public | Detail |
+| PATCH | `/api/v1/pages/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/pages/delete/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/blogs/create` | âœ… | ADMIN | Create blog |
+| GET | `/api/v1/blogs/getAll` | âŒ | Public | List blogs |
+| GET | `/api/v1/blogs/getBySlug/:slug` | âŒ | Public | Detail |
+| PATCH | `/api/v1/blogs/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/blogs/delete/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/faqs/create` | âœ… | ADMIN | Create FAQ |
+| GET | `/api/v1/faqs/getAll` | âŒ | Public | List FAQs |
+| PATCH | `/api/v1/faqs/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/faqs/delete/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/contact/submit` | âŒ | Public | Contact form |
+| GET | `/api/v1/contact/getAll` | âœ… | ADMIN | List submissions |
+| POST | `/api/v1/newsletter/subscribe` | âŒ | Public | Subscribe |
+| POST | `/api/v1/newsletter/unsubscribe` | âŒ | Public | Unsubscribe |
+| GET | `/api/v1/newsletter/getAll` | âœ… | ADMIN | Subscribers |
+| POST | `/api/v1/newsletter/sendCampaign` | âœ… | ADMIN | Blast |
+| GET | `/api/v1/settings/getPublicSettings` | âŒ | Public | Public config |
+| GET | `/api/v1/settings/getAll` | âœ… | ADMIN | All settings |
+| PATCH | `/api/v1/settings/updateSetting` | âœ… | ADMIN | Update one |
+| POST | `/api/v1/settings/bulkUpdateSettings` | âœ… | ADMIN | Bulk update |
+| GET | `/api/v1/settings/getByCategory/:category` | âœ… | ADMIN | By category |
+| POST | `/api/v1/settings/resetToDefault` | âœ… | SUPER_ADMIN | Reset |
+| GET | `/api/v1/settings/getFeatureFlags` | âŒ | Public | Feature toggles |
+| PATCH | `/api/v1/settings/toggleFeature` | âœ… | ADMIN | Toggle |
+| GET | `/api/v1/settings/getMaintenance` | âŒ | Public | Maintenance status |
+| PATCH | `/api/v1/settings/updateMaintenance` | âœ… | SUPER_ADMIN | Toggle |
+| GET | `/api/v1/admin/getDashboardStats` | âœ… | ADMIN | Dashboard metrics |
+| POST | `/api/v1/admin/createSubAdmin` | âœ… | SUPER_ADMIN | Create sub-admin |
+| GET | `/api/v1/admin/getAllSubAdmins` | âœ… | SUPER_ADMIN | List sub-admins |
+| PATCH | `/api/v1/admin/updateSubAdmin/:id` | âœ… | SUPER_ADMIN | Update |
+| DELETE | `/api/v1/admin/deleteSubAdmin/:id` | âœ… | SUPER_ADMIN | Delete |
+| PATCH | `/api/v1/admin/toggleSubAdminStatus/:id` | âœ… | SUPER_ADMIN | Active/Suspend |
+| GET | `/api/v1/admin/getPermissions` | âœ… | ADMIN | All permissions |
+| PATCH | `/api/v1/admin/updatePermissions/:id` | âœ… | SUPER_ADMIN | Set perms |
+| GET | `/api/v1/admin/getAuditLogs` | âœ… | ADMIN | Audit logs |
+| GET | `/api/v1/admin/getActivityLogs` | âœ… | ADMIN | Activity |
+| GET | `/api/v1/admin/getSystemHealth` | âœ… | SUPER_ADMIN | DB/Redis/Queue |
+| POST | `/api/v1/admin/clearCache` | âœ… | SUPER_ADMIN | Flush Redis |
+| GET | `/api/v1/admin/getCronJobs` | âœ… | SUPER_ADMIN | Job list |
+| POST | `/api/v1/admin/triggerJob` | âœ… | SUPER_ADMIN | Manual run |
+| GET | `/api/v1/admin/getFailedJobs` | âœ… | SUPER_ADMIN | Dead letter queue |
+| POST | `/api/v1/admin/retryFailedJob/:id` | âœ… | SUPER_ADMIN | Replay a failed job |
+| PATCH | `/api/v1/admin/resolveFailedJob/:id` | âœ… | SUPER_ADMIN | Close without replay |
+| DELETE | `/api/v1/admin/deleteFailedJob/:id` | âœ… | SUPER_ADMIN | Drop the row |
+| GET | `/api/v1/analytics/getOverview` | âœ… | ADMIN | KPIs |
+| GET | `/api/v1/analytics/getVisitors` | âœ… | ADMIN | Visitor stats |
+| GET | `/api/v1/analytics/getUniqueVisitors` | âœ… | ADMIN | UV |
+| GET | `/api/v1/analytics/getPageViews` | âœ… | ADMIN | PV |
+| GET | `/api/v1/analytics/getTopPages` | âœ… | ADMIN | Top pages |
+| GET | `/api/v1/analytics/getTrafficSources` | âœ… | ADMIN | Traffic |
+| GET | `/api/v1/analytics/getDeviceBreakdown` | âœ… | ADMIN | Device/OS |
+| GET | `/api/v1/analytics/getGeoBreakdown` | âœ… | ADMIN | Geo |
+| GET | `/api/v1/analytics/getSessions` | âœ… | ADMIN | Sessions |
+| GET | `/api/v1/analytics/getSessionDetail/:id` | âœ… | ADMIN | Journey |
+| GET | `/api/v1/analytics/getFunnel` | âœ… | ADMIN | Funnel |
+| GET | `/api/v1/analytics/getConversions` | âœ… | ADMIN | Conversions |
+| GET | `/api/v1/analytics/getRevenueReport` | âœ… | ADMIN | Revenue |
+| GET | `/api/v1/analytics/getProductPerformance` | âœ… | VENDOR/ADMIN | Product KPIs |
+| GET | `/api/v1/analytics/getVendorPerformance` | âœ… | ADMIN | Vendor KPIs |
+| GET | `/api/v1/analytics/getCustomerCohorts` | âœ… | ADMIN | Retention |
+| GET | `/api/v1/analytics/getAbandonedCarts` | âœ… | ADMIN | Abandoned |
+| GET | `/api/v1/analytics/getSearchTerms` | âœ… | ADMIN | Top searches |
+| GET | `/api/v1/analytics/getZeroResultSearches` | âœ… | ADMIN | Missed searches |
+| GET | `/api/v1/analytics/getRealtime` | âœ… | ADMIN | Live users |
+| GET | `/api/v1/analytics/getCrashes` | âœ… | ADMIN | Crash reports |
+| GET | `/api/v1/analytics/getAppVersions` | âœ… | ADMIN | Version dist |
+| GET | `/api/v1/analytics/export` | âœ… | ADMIN | CSV export |
+| POST | `/api/v1/track/event` | âŒ | Any | Generic event |
+| POST | `/api/v1/track/pageView` | âŒ | Any | Page view |
+| POST | `/api/v1/track/session/start` | âŒ | Any | Session start |
+| POST | `/api/v1/track/session/end` | âŒ | Any | Session end |
+| POST | `/api/v1/track/device` | âŒ | Any | Register device |
+| POST | `/api/v1/track/appInstall` | âŒ | Public | App install |
+| POST | `/api/v1/track/appOpen` | âŒ | Any | App open |
+| POST | `/api/v1/track/crash` | âŒ | Any | Crash report |
+| POST | `/api/v1/track/performance` | âŒ | Any | Perf metrics |
+| POST | `/api/v1/track/error` | âŒ | Any | JS/API error |
+| POST | `/api/v1/track/funnel` | âŒ | Any | Funnel step |
+| POST | `/api/v1/track/conversion` | âŒ | Any | Conversion |
+| POST | `/api/v1/track/click` | âŒ | Any | Click |
+| POST | `/api/v1/track/scroll` | âŒ | Any | Scroll depth |
+| POST | `/api/v1/track/search` | âŒ | Any | Search |
+| POST | `/api/v1/track/utm` | âŒ | Any | UTM |
+| POST | `/api/v1/track/referrer` | âŒ | Any | Referrer |
+| POST | `/api/v1/track/heartbeat` | âŒ | Any | Keep alive |
+| GET | `/api/v1/devices/getAll` | âœ… | ADMIN | All devices |
+| GET | `/api/v1/devices/getById/:id` | âœ… | ADMIN | Detail |
+| GET | `/api/v1/devices/getByUser/:userId` | âœ… | ADMIN | User devices |
+| PATCH | `/api/v1/devices/block/:id` | âœ… | ADMIN | Block |
+| PATCH | `/api/v1/devices/unblock/:id` | âœ… | ADMIN | Unblock |
+| DELETE | `/api/v1/devices/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/devices/getTrusted` | âœ… | Any | My trusted |
+| PATCH | `/api/v1/devices/trust/:id` | âœ… | Any | Trust |
+| PATCH | `/api/v1/devices/untrust/:id` | âœ… | Any | Untrust |
+| GET | `/api/v1/reports/sales` | âœ… | ADMIN | Sales |
+| GET | `/api/v1/reports/orders` | âœ… | ADMIN | Orders |
+| GET | `/api/v1/reports/products` | âœ… | VENDOR/ADMIN | Products |
+| GET | `/api/v1/reports/customers` | âœ… | ADMIN | Customers |
+| GET | `/api/v1/reports/vendors` | âœ… | ADMIN | Vendors |
+| GET | `/api/v1/reports/payouts` | âœ… | ADMIN | Payouts |
+| GET | `/api/v1/reports/tax` | âœ… | ADMIN | GST |
+| GET | `/api/v1/reports/inventory` | âœ… | VENDOR | Stock |
+| GET | `/api/v1/reports/returns` | âœ… | ADMIN | Returns |
+| GET | `/api/v1/reports/export/:type` | âœ… | ADMIN | CSV/XLSX |
+| POST | `/api/v1/reports/schedule` | âœ… | ADMIN | Schedule email |
+| GET | `/api/v1/shipping/getZones` | âœ… | ADMIN | Zones |
+| POST | `/api/v1/shipping/createZone` | âœ… | ADMIN | Create zone |
+| PATCH | `/api/v1/shipping/updateZone/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/shipping/deleteZone/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/shipping/createMethod` | âœ… | ADMIN | Method |
+| GET | `/api/v1/shipping/getMethods` | âŒ | Public | Methods |
+| PATCH | `/api/v1/shipping/updateMethod/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/shipping/deleteMethod/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/shipping/checkServiceability` | âŒ | Public | Pincode check |
+| POST | `/api/v1/shipping/calculateRate` | âœ… | CUSTOMER | Rate calc |
+| POST | `/api/v1/shipping/createPartner` | âœ… | ADMIN | Partner |
+| GET | `/api/v1/shipping/getPartners` | âœ… | ADMIN | List |
+| POST | `/api/v1/shipping/createShipment/:subOrderId` | âœ… | VENDOR | Create |
+| GET | `/api/v1/shipping/track/:awb` | âŒ | Any | Track |
+| PATCH | `/api/v1/shipping/updateStatus/:id` | âœ… | VENDOR/ADMIN | Update |
+| GET | `/api/v1/deliveryBoys/getAll` | âœ… | ADMIN | List boys |
+| POST | `/api/v1/deliveryBoys/create` | âœ… | ADMIN | Create |
+| PATCH | `/api/v1/deliveryBoys/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/deliveryBoys/delete/:id` | âœ… | ADMIN | Delete |
+| PATCH | `/api/v1/deliveryBoys/toggleStatus/:id` | âœ… | ADMIN | Active |
+| GET | `/api/v1/deliveryBoys/getMyDeliveries` | âœ… | DELIVERY_BOY | Assigned |
+| PATCH | `/api/v1/deliveryBoys/updateDeliveryStatus/:id` | âœ… | DELIVERY_BOY | Update |
+| GET | `/api/v1/search/global` | âŒ | Public | Multi-entity |
+| GET | `/api/v1/search/autocomplete` | âŒ | Public | Suggestions |
+| GET | `/api/v1/search/products` | âŒ | Public | Product search |
+| GET | `/api/v1/search/vendors` | âŒ | Public | Vendor search |
+| GET | `/api/v1/search/trending` | âŒ | Public | Trending |
+| GET | `/api/v1/search/recent` | âœ… | Any | Recent |
+| DELETE | `/api/v1/search/recent/clear` | âœ… | Any | Clear |
+| POST | `/api/v1/bulk/importProducts` | âœ… | VENDOR | CSV import |
+| POST | `/api/v1/bulk/importOrders` | âœ… | ADMIN | Bulk orders |
+| POST | `/api/v1/bulk/importUsers` | âœ… | ADMIN | Bulk users |
+| GET | `/api/v1/bulk/getJobStatus/:jobId` | âœ… | Any | Job status |
+| GET | `/api/v1/bulk/getJobHistory` | âœ… | Any | History |
+| POST | `/api/v1/apiKeys/create` | âœ… | ADMIN | Create key |
+| GET | `/api/v1/apiKeys/getAll` | âœ… | ADMIN | List |
+| PATCH | `/api/v1/apiKeys/revoke/:id` | âœ… | ADMIN | Revoke |
+| DELETE | `/api/v1/apiKeys/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/apiKeys/getUsage/:id` | âœ… | ADMIN | Usage |
+| GET | `/api/v1/i18n/getTranslations/:locale` | âŒ | Public | Strings |
+| GET | `/api/v1/i18n/getLocales` | âŒ | Public | Supported |
+| POST | `/api/v1/i18n/create` | âœ… | ADMIN | Create |
+| PATCH | `/api/v1/i18n/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/i18n/delete/:id` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/i18n/bulkUpsert` | âœ… | ADMIN | Bulk |
+| GET | `/api/v1/currencies/getAll` | âŒ | Public | Currencies |
+| POST | `/api/v1/currencies/create` | âœ… | ADMIN | Create |
+| PATCH | `/api/v1/currencies/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/currencies/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/tax/getConfigs` | âœ… | ADMIN | Tax rules |
+| POST | `/api/v1/tax/create` | âœ… | ADMIN | Create |
+| PATCH | `/api/v1/tax/update/:id` | âœ… | ADMIN | Update |
+| DELETE | `/api/v1/tax/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/countries/getAll` | âŒ | Public | Countries |
+| GET | `/api/v1/countries/getStates/:countryCode` | âŒ | Public | States |
+| GET | `/api/v1/countries/getCities/:stateCode` | âŒ | Public | Cities |
+| POST | `/api/v1/countries/checkPincode` | âŒ | Public | Serviceability |
+| POST | `/api/v1/uploads/uploadImage` | âœ… | Any | Upload image |
+| POST | `/api/v1/uploads/uploadVideo` | âœ… | Any | Upload video |
+| POST | `/api/v1/uploads/uploadDocument` | âœ… | Any | Upload doc |
+| POST | `/api/v1/uploads/uploadMultiple` | âœ… | Any | Bulk |
+| POST | `/api/v1/uploads/deleteFile` | âœ… | Any | Delete |
+| GET | `/api/v1/uploads/getSignedUrl` | âœ… | Any | Direct upload |
 | POST | `/api/v1/webhooks/razorpay` | Signature | Webhook | Razorpay |
 | POST | `/api/v1/webhooks/shipping` | Signature | Webhook | Shipping |
 | POST | `/api/v1/webhooks/payment-gateway/:provider` | Signature | Webhook | Generic |
-| GET | `/api/v1/webhooks/getLogs` | ✅ | ADMIN | Incoming log |
-| POST | `/api/v1/webhooks/register` | ✅ | ADMIN | Outgoing URL |
-| GET | `/api/v1/webhooks/getAll` | ✅ | ADMIN | List |
-| DELETE | `/api/v1/webhooks/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/auditLogs/getAll` | ✅ | ADMIN | List |
-| GET | `/api/v1/auditLogs/getById/:id` | ✅ | ADMIN | Detail |
-| GET | `/api/v1/auditLogs/getByActor/:userId` | ✅ | ADMIN | Actor logs |
-| GET | `/api/v1/auditLogs/export` | ✅ | ADMIN | CSV |
-| DELETE | `/api/v1/auditLogs/purge` | ✅ | SUPER_ADMIN | Purge old |
-| GET | `/api/v1/health/db` | ❌ | Public | DB check |
-| GET | `/api/v1/health/redis` | ❌ | Public | Redis check |
-| GET | `/api/v1/health/queue` | ❌ | Public | Queue check |
-| GET | `/api/v1/activityLogs/getAll` | ✅ | ADMIN | List activity logs |
-| GET | `/api/v1/analytics/funnels` | ✅ | ADMIN | List funnels |
-| POST | `/api/v1/analytics/funnels` | ✅ | ADMIN | Create funnel |
-| PATCH | `/api/v1/analytics/funnels/:id` | ✅ | ADMIN | Update funnel |
-| GET | `/api/v1/attributes/getById/:id` | ❌ | Public | Single attribute |
-| POST | `/api/v1/auth/sendOtp` | ❌ | Public | Send OTP — `type: REGISTER\|FORGOT_PASSWORD\|LOGIN\|PHONE_VERIFY\|EMAIL_VERIFY\|TWO_FA` |
-| POST | `/api/v1/auth/changeEmail/sendOtp` | ✅ | Any | Send OTP — `type: EMAIL_CHANGE\|PHONE_CHANGE` |
-| GET | `/api/v1/brands/getBySlug/:slug` | ❌ | Public | Brand by slug |
-| POST | `/api/v1/categories/bulkCreate` | ✅ | ADMIN | Bulk create |
-| GET | `/api/v1/categories/getBySlug/:slug` | ❌ | Public | Category by slug |
-| GET | `/api/v1/chat/getBlocked` | ✅ | Any | Blocked users |
-| POST | `/api/v1/chat/unblock/:id` | ✅ | Any | Remove block |
-| GET | `/api/v1/collections/getById/:id` | ❌ | Public | Single collection |
-| GET | `/api/v1/collections/getBySlug/:slug` | ❌ | Public | Collection by slug |
-| GET | `/api/v1/collections/getProducts/:id` | ❌ | Public | Collection products |
-| POST | `/api/v1/collections/setProducts/:id` | ✅ | Any | Replace products |
-| PATCH | `/api/v1/contact/:id/markRead` | ✅ | ADMIN | Mark read |
-| GET | `/api/v1/content/dropdowns` | ❌ | Public | List dropdowns |
-| DELETE | `/api/v1/content/dropdowns/:id/delete` | ✅ | ADMIN | Delete |
-| PATCH | `/api/v1/content/dropdowns/:id/update` | ✅ | ADMIN | Update |
-| POST | `/api/v1/content/dropdowns/create` | ✅ | ADMIN | Create |
-| POST | `/api/v1/countries/seedCountries` | ✅ | ADMIN | Seed reference data |
-| GET | `/api/v1/currencies/convert` | ❌ | Public | Convert amount |
-| GET | `/api/v1/docs/docs.json` | ✅ | Any | OpenAPI JSON |
-| GET | `/api/v1/flashSales/getAll` | ✅ | ADMIN | List flash sales |
-| GET | `/api/v1/flashSales/getBySlug/:slug` | ❌ | Public | Flash sale by slug |
-| DELETE | `/api/v1/giftCards/delete/:id` | ✅ | ADMIN | Delete |
-| GET | `/api/v1/health/jobs/:jobId` | ✅ | Any | Job state |
-| POST | `/api/v1/loyalty/adjust/:userId` | ✅ | ADMIN | Adjust points |
-| GET | `/api/v1/referral/admin/getAll` | ✅ | ADMIN | All referrals |
-| POST | `/api/v1/referral/complete/:id` | ✅ | ADMIN | Mark complete |
-| PATCH | `/api/v1/referral/updateStatus/:id` | ✅ | ADMIN | Update status |
-| GET | `/api/v1/reports/getSchedules` | ✅ | ADMIN | Schedule list |
-| DELETE | `/api/v1/reports/schedule/:id/delete` | ✅ | ADMIN | Delete schedule |
-| PATCH | `/api/v1/reports/schedule/:id/update` | ✅ | ADMIN | Update schedule |
-| PATCH | `/api/v1/shipping/updatePartner/:id` | ✅ | ADMIN | Update partner |
-| POST | `/api/v1/tags/bulkCreate` | ✅ | Any | Bulk create |
-| DELETE | `/api/v1/templates/email/:key/delete` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/templates/email/:key/render` | ✅ | ADMIN | Render with values |
-| GET | `/api/v1/templates/email/getAll` | ✅ | ADMIN | List email templates |
-| POST | `/api/v1/templates/email/upsert` | ✅ | ADMIN | Create or update |
-| DELETE | `/api/v1/templates/notification/:key/delete` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/templates/notification/:key/render` | ✅ | ADMIN | Render with values |
-| GET | `/api/v1/templates/notification/getAll` | ✅ | ADMIN | List notification templates |
-| POST | `/api/v1/templates/notification/upsert` | ✅ | ADMIN | Create or update |
-| DELETE | `/api/v1/templates/sms/:key/delete` | ✅ | ADMIN | Delete |
-| POST | `/api/v1/templates/sms/:key/render` | ✅ | ADMIN | Render with values |
-| GET | `/api/v1/templates/sms/getAll` | ✅ | ADMIN | List SMS templates |
-| POST | `/api/v1/templates/sms/upsert` | ✅ | ADMIN | Create or update |
-| POST | `/api/v1/tickets/categories` | ✅ | ADMIN | Create ticket category |
-| GET | `/api/v1/tickets/getStats` | ✅ | ADMIN | Ticket counts by status |
-| POST | `/api/v1/uploads/uploadImage/single` | ✅ | Any | Single file upload |
-| PATCH | `/api/v1/users/updateAvatar` | ❌ | Public | Change avatar |
-| POST | `/api/v1/webhooks/:id/rotateSecret` | ✅ | ADMIN | Rotate secret |
-| PATCH | `/api/v1/webhooks/:id/update` | ✅ | ADMIN | Update |
-| GET | `/api/v1/wishlist/checkProduct/:productId` | ✅ | Any | Is wishlisted |
+| GET | `/api/v1/webhooks/getLogs` | âœ… | ADMIN | Incoming log |
+| POST | `/api/v1/webhooks/register` | âœ… | ADMIN | Outgoing URL |
+| GET | `/api/v1/webhooks/getAll` | âœ… | ADMIN | List |
+| DELETE | `/api/v1/webhooks/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/auditLogs/getAll` | âœ… | ADMIN | List |
+| GET | `/api/v1/auditLogs/getById/:id` | âœ… | ADMIN | Detail |
+| GET | `/api/v1/auditLogs/getByActor/:userId` | âœ… | ADMIN | Actor logs |
+| GET | `/api/v1/auditLogs/export` | âœ… | ADMIN | CSV |
+| DELETE | `/api/v1/auditLogs/purge` | âœ… | SUPER_ADMIN | Purge old |
+| GET | `/api/v1/health/db` | âŒ | Public | DB check |
+| GET | `/api/v1/health/redis` | âŒ | Public | Redis check |
+| GET | `/api/v1/health/queue` | âŒ | Public | Queue check |
+| GET | `/api/v1/activityLogs/getAll` | âœ… | ADMIN | List activity logs |
+| GET | `/api/v1/analytics/funnels` | âœ… | ADMIN | List funnels |
+| POST | `/api/v1/analytics/funnels` | âœ… | ADMIN | Create funnel |
+| PATCH | `/api/v1/analytics/funnels/:id` | âœ… | ADMIN | Update funnel |
+| GET | `/api/v1/attributes/getById/:id` | âŒ | Public | Single attribute |
+| POST | `/api/v1/auth/sendOtp` | âŒ | Public | Send OTP â€” `type: REGISTER\|FORGOT_PASSWORD\|LOGIN\|PHONE_VERIFY\|EMAIL_VERIFY\|TWO_FA` |
+| POST | `/api/v1/auth/changeEmail/sendOtp` | âœ… | Any | Send OTP â€” `type: EMAIL_CHANGE\|PHONE_CHANGE` |
+| GET | `/api/v1/brands/getBySlug/:slug` | âŒ | Public | Brand by slug |
+| POST | `/api/v1/categories/bulkCreate` | âœ… | ADMIN | Bulk create |
+| GET | `/api/v1/categories/getBySlug/:slug` | âŒ | Public | Category by slug |
+| GET | `/api/v1/chat/getBlocked` | âœ… | Any | Blocked users |
+| POST | `/api/v1/chat/unblock/:id` | âœ… | Any | Remove block |
+| GET | `/api/v1/collections/getById/:id` | âŒ | Public | Single collection |
+| GET | `/api/v1/collections/getBySlug/:slug` | âŒ | Public | Collection by slug |
+| GET | `/api/v1/collections/getProducts/:id` | âŒ | Public | Collection products |
+| POST | `/api/v1/collections/setProducts/:id` | âœ… | Any | Replace products |
+| PATCH | `/api/v1/contact/:id/markRead` | âœ… | ADMIN | Mark read |
+| GET | `/api/v1/content/dropdowns` | âŒ | Public | List dropdowns |
+| DELETE | `/api/v1/content/dropdowns/:id/delete` | âœ… | ADMIN | Delete |
+| PATCH | `/api/v1/content/dropdowns/:id/update` | âœ… | ADMIN | Update |
+| POST | `/api/v1/content/dropdowns/create` | âœ… | ADMIN | Create |
+| POST | `/api/v1/countries/seedCountries` | âœ… | ADMIN | Seed reference data |
+| GET | `/api/v1/currencies/convert` | âŒ | Public | Convert amount |
+| GET | `/api/v1/docs/docs.json` | âœ… | Any | OpenAPI JSON |
+| GET | `/api/v1/flashSales/getAll` | âœ… | ADMIN | List flash sales |
+| GET | `/api/v1/flashSales/getBySlug/:slug` | âŒ | Public | Flash sale by slug |
+| DELETE | `/api/v1/giftCards/delete/:id` | âœ… | ADMIN | Delete |
+| GET | `/api/v1/health/jobs/:jobId` | âœ… | Any | Job state |
+| POST | `/api/v1/loyalty/adjust/:userId` | âœ… | ADMIN | Adjust points |
+| GET | `/api/v1/referral/admin/getAll` | âœ… | ADMIN | All referrals |
+| POST | `/api/v1/referral/complete/:id` | âœ… | ADMIN | Mark complete |
+| PATCH | `/api/v1/referral/updateStatus/:id` | âœ… | ADMIN | Update status |
+| GET | `/api/v1/reports/getSchedules` | âœ… | ADMIN | Schedule list |
+| DELETE | `/api/v1/reports/schedule/:id/delete` | âœ… | ADMIN | Delete schedule |
+| PATCH | `/api/v1/reports/schedule/:id/update` | âœ… | ADMIN | Update schedule |
+| PATCH | `/api/v1/shipping/updatePartner/:id` | âœ… | ADMIN | Update partner |
+| POST | `/api/v1/tags/bulkCreate` | âœ… | Any | Bulk create |
+| DELETE | `/api/v1/templates/email/:key/delete` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/templates/email/:key/render` | âœ… | ADMIN | Render with values |
+| GET | `/api/v1/templates/email/getAll` | âœ… | ADMIN | List email templates |
+| POST | `/api/v1/templates/email/upsert` | âœ… | ADMIN | Create or update |
+| DELETE | `/api/v1/templates/notification/:key/delete` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/templates/notification/:key/render` | âœ… | ADMIN | Render with values |
+| GET | `/api/v1/templates/notification/getAll` | âœ… | ADMIN | List notification templates |
+| POST | `/api/v1/templates/notification/upsert` | âœ… | ADMIN | Create or update |
+| DELETE | `/api/v1/templates/sms/:key/delete` | âœ… | ADMIN | Delete |
+| POST | `/api/v1/templates/sms/:key/render` | âœ… | ADMIN | Render with values |
+| GET | `/api/v1/templates/sms/getAll` | âœ… | ADMIN | List SMS templates |
+| POST | `/api/v1/templates/sms/upsert` | âœ… | ADMIN | Create or update |
+| POST | `/api/v1/tickets/categories` | âœ… | ADMIN | Create ticket category |
+| GET | `/api/v1/tickets/getStats` | âœ… | ADMIN | Ticket counts by status |
+| POST | `/api/v1/uploads/uploadImage/single` | âœ… | Any | Single file upload |
+| PATCH | `/api/v1/users/updateAvatar` | âŒ | Public | Change avatar |
+| POST | `/api/v1/webhooks/:id/rotateSecret` | âœ… | ADMIN | Rotate secret |
+| PATCH | `/api/v1/webhooks/:id/update` | âœ… | ADMIN | Update |
+| GET | `/api/v1/wishlist/checkProduct/:productId` | âœ… | Any | Is wishlisted |
 
 ---
 
@@ -844,11 +879,11 @@ me nahi hai: `PGLITE_MODE`, `PGLITE_PORT`, `PGLITE_HOST`, `PGLITE_DATA_DIR`,
 
 ## Sample Request / Response Pairs
 
-### Register — Customer
+### Register â€” Customer
 
 Teen step. Pehle contact prove karo, phir us proof ke against account banao.
 
-**Step 1 — code bhejo**
+**Step 1 â€” code bhejo**
 
 ```
 POST /api/v1/auth/register/sendOtp
@@ -875,7 +910,7 @@ Content-Type: application/json
 }
 ```
 
-**Step 2 — code verify karo**
+**Step 2 â€” code verify karo**
 
 ```
 POST /api/v1/auth/register/verifyOtp
@@ -902,7 +937,7 @@ Content-Type: application/json
 }
 ```
 
-**Step 3 — details bhejo aur account banao**
+**Step 3 â€” details bhejo aur account banao**
 
 ```
 POST /api/v1/auth/register
@@ -941,12 +976,12 @@ Content-Type: application/json
 }
 ```
 
-**Note:** Step 2 sirf code check karta hai — koi account nahi banta, koi session nahi
+**Note:** Step 2 sirf code check karta hai â€” koi account nahi banta, koi session nahi
 milti. `verificationToken` hi step 3 ka permission hai, aur wo do cheezein apne
 saath bind karta hai: **kaunsa contact** prove hua (step 3 me jo `email` ya `phone`
 bheja jaye usi se match hona chahiye, warna `400`
 `VERIFICATION_IDENTIFIER_MISMATCH`) aur **kis purpose** ke liye tha (register ka
-token login nahi kar sakta). Token ek hi baar chalta hai — dobara bhejne pe `401`
+token login nahi kar sakta). Token ek hi baar chalta hai â€” dobara bhejne pe `401`
 `VERIFICATION_INVALID`, chahe pehli baar kuch bhi hua ho.
 
 Sirf wahi contact `isVerified` mark hota hai jiska code aaya tha: email se register
@@ -957,7 +992,7 @@ Register ka row tabhi banta hai jab token valid ho. `OTP_REQUIRED=false` pe toke
 ki zaroorat nahi, tab account turant ban jaata hai aur `isVerified` flags false
 rehte hain.
 
-### Register — Vendor
+### Register â€” Vendor
 
 Vendor ke liye bhi wahi teen step, bas step 3 me `shopName` add hota hai.
 
@@ -1014,11 +1049,11 @@ Content-Type: application/json
 }
 ```
 
-Refresh token → HttpOnly cookie (`Set-Cookie: refreshToken=...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`)
+Refresh token â†’ HttpOnly cookie (`Set-Cookie: refreshToken=...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`)
 
 **Note:** Agar `vendor.autoApprove = true` ho, `vendorData.status = "APPROVED"` aa jayega. Warna vendor product create nahi kar sakta (403 `VENDOR_NOT_APPROVED`).
 
-### Login — Password
+### Login â€” Password
 
 Ek call. User email/phone + password bhejta hai, server seedha session de deta hai.
 
@@ -1052,12 +1087,12 @@ Content-Type: application/json
 }
 ```
 
-Refresh token → HttpOnly cookie, same register jaisa.
+Refresh token â†’ HttpOnly cookie, same register jaisa.
 
-`email` ya `phone` — dono chalte hain, jo bhi bhejo.
+`email` ya `phone` â€” dono chalte hain, jo bhi bhejo.
 
 **Note:** Ye endpoint sirf password leta hai. `otp` ya `type` field isme nahi
-hote — OTP login ke liye 6.1d use karo. `twoFactorRequired: true` aaye to
+hote â€” OTP login ke liye 6.1d use karo. `twoFactorRequired: true` aaye to
 response me tokens empty honge aur `twoFactorToken` milega, jise
 `POST /auth/verify2FA` par bhejna hoga.
 
@@ -1065,11 +1100,11 @@ response me tokens empty honge aur `twoFactorToken` milega, jise
 par kitni purani sessions band hui. `0` default hai. Rules
 [Account Security Rules](#account-security-rules) me hain.
 
-### Login — OTP
+### Login â€” OTP
 
 Do step. Pehle contact prove karo, usi call me login ho jaata hai.
 
-**Step 1 — code bhejo**
+**Step 1 â€” code bhejo**
 
 ```
 POST /api/v1/auth/sendOtp
@@ -1097,7 +1132,7 @@ Content-Type: application/json
 }
 ```
 
-**Step 2 — code verify karo aur login ho jao**
+**Step 2 â€” code verify karo aur login ho jao**
 
 ```
 POST /api/v1/auth/login/verifyOtp
@@ -1129,15 +1164,15 @@ Content-Type: application/json
 }
 ```
 
-Refresh token → HttpOnly cookie.
+Refresh token â†’ HttpOnly cookie.
 
 **Note:** Ye do step me hota hai, teen me nahi. Code aur session ek hi request me
-aate hain, isliye beech me identifier badalne ka koi mauka hi nahi hota — session
+aate hain, isliye beech me identifier badalne ka koi mauka hi nahi hota â€” session
 hamesha usi contact ke liye banti hai jiska code verify hua. Isiliye yahan
 `verificationToken` ki zaroorat nahi; wo sirf register me chahiye, kyunki wahan
 details ek alag request me aati hain.
 
-Code single-use hai — wahi code dobara bhejne pe `401 OTP_INVALID` milega.
+Code single-use hai â€” wahi code dobara bhejne pe `401 OTP_INVALID` milega.
 
 ### List Categories (Simple Paginated)
 
@@ -1284,7 +1319,7 @@ GET /api/v1/products/getById/unknown-id
 
 Note: `subOrderList` list hai but pagination nahi chahiye (single order ki hai).
 
-### Track Event (Client → Server)
+### Track Event (Client â†’ Server)
 
 ```
 POST /api/v1/track/event
@@ -1412,7 +1447,7 @@ Content-Type: application/json
 
 ## Configuration & Default Values
 
-### App Defaults — `src/config/app.config.ts`
+### App Defaults â€” `src/config/app.config.ts`
 
 ```tsx
 export const APP = {
@@ -1431,7 +1466,7 @@ export const APP = {
 };
 ```
 
-### Pagination — `src/config/pagination.config.ts`
+### Pagination â€” `src/config/pagination.config.ts`
 
 ```tsx
 export const PAGINATION = {
@@ -1444,7 +1479,7 @@ export const PAGINATION = {
 };
 ```
 
-### JWT — `src/config/jwt.config.ts`
+### JWT â€” `src/config/jwt.config.ts`
 
 ```tsx
 export const JWT = {
@@ -1465,7 +1500,7 @@ export const JWT = {
 };
 ```
 
-### Password — `src/config/password.config.ts`
+### Password â€” `src/config/password.config.ts`
 
 ```tsx
 export const PASSWORD = {
@@ -1495,7 +1530,7 @@ export const DELIVERY_INSTRUCTIONS = {
 previous hashes are retained per user, in `PasswordHistory`. Both
 `POST /auth/changePassword` and `POST /auth/resetPassword` push the outgoing
 hash into that table and refuse a new password that matches the live hash or any
-retained one — 422 `PASSWORD_REUSED`. Setting the count to `0` turns the check
+retained one â€” 422 `PASSWORD_REUSED`. Setting the count to `0` turns the check
 off. The trim runs in the same transaction as the write, so the retained set is
 a ceiling and not a backlog.
 
@@ -1505,7 +1540,7 @@ with type, version, IP, and user-agent; `GET /auth/getMyConsents` returns all
 accepted consents for the user. The unique constraint on (userId, type, version)
 prevents duplicate accepts. DPDP compliance for audit trail.
 
-### OTP — `src/config/otp.config.ts`
+### OTP â€” `src/config/otp.config.ts`
 
 ```tsx
 export const OTP = {
@@ -1527,21 +1562,21 @@ export const OTP = {
 
 **Note:** OTP ab single table me store hoga, `type` aur `channel` column ke saath:
 
-- `POST /auth/sendOtp` → `{ type, channel, identifier }`
-- `POST /auth/verifyOtp` → `{ type, identifier, otp }`
-- `POST /auth/register/sendOtp` → `{ identifier }`
-- `POST /auth/register/verifyOtp` → `{ identifier, otp }` → `verificationToken`
-- `POST /auth/login/verifyOtp` → `{ identifier, otp }` → session
+- `POST /auth/sendOtp` â†’ `{ type, channel, identifier }`
+- `POST /auth/verifyOtp` â†’ `{ type, identifier, otp }`
+- `POST /auth/register/sendOtp` â†’ `{ identifier }`
+- `POST /auth/register/verifyOtp` â†’ `{ identifier, otp }` â†’ `verificationToken`
+- `POST /auth/login/verifyOtp` â†’ `{ identifier, otp }` â†’ session
 
 Record channel se keyed hota hai jo identifier se match karta hai (email pe
-`EMAIL`, phone pe `SMS`), client ke requested channel pe nahi — isse SMS code ko
+`EMAIL`, phone pe `SMS`), client ke requested channel pe nahi â€” isse SMS code ko
 email code ki tarah redeem nahi kar sakte.
 
-#### Code ke baad — `verificationToken`
+#### Code ke baad â€” `verificationToken`
 
 Sirf `REGISTER` me code ke baad ek **single-use `verificationToken`** chahiye.
 Wo tab zaroori hai jab code verify hone aur asli kaam hone ke beech ek aur
-request aa jaaye — jaise registration me, jahan details step 3 me aati hain.
+request aa jaaye â€” jaise registration me, jahan details step 3 me aati hain.
 
 Login me ye gap nahi hai: code aur session ek hi request me aate hain
 (`POST /auth/login/verifyOtp`), isliye wahan token ki zaroorat nahi.
@@ -1551,8 +1586,8 @@ pakadta hai:
 
 | Field | Kyun zaroori |
 | --- | --- |
-| `purpose` | kis kaam ka token hai — ek kaam ka doosre me nahi chalega |
-| `identifier` | wo exact email/phone jiska code aaya tha — step 3 me koi aur contact nahi bhej sakte |
+| `purpose` | kis kaam ka token hai â€” ek kaam ka doosre me nahi chalega |
+| `identifier` | wo exact email/phone jiska code aaya tha â€” step 3 me koi aur contact nahi bhej sakte |
 | `usedAt` | ek hi baar chalta hai; dobara bhejne pe `401` `VERIFICATION_INVALID` |
 
 Token plain text me store nahi hota, sirf uska SHA-256. `expiresAt` 15 minute.
@@ -1560,21 +1595,21 @@ Spend hote waqt row ek conditional `UPDATE` se mark hoti hai
 (`usedAt: null` + `expiresAt` future + matching purpose), isliye do saath me aaye
 hue do requests me se sirf ek hi jeet sakta hai.
 
-Identifier mismatch pehle check hota hai, token spend hone se pehle — isliye galat
+Identifier mismatch pehle check hota hai, token spend hone se pehle â€” isliye galat
 identifier bhejne se asli token barbaad nahi hota.
 
 Ye `src/config/verification.config.ts` se configure hota hai (`TTL_MIN`,
 `TOKEN_BYTES`).
 
 **Throttling DB me hai.** Resend cooldown (60s) aur daily cap (10) `Otp` row ke
-`lastSentAt`, `sendDay`, `sendCount` columns pe gina jate hain, Redis pe nahi —
+`lastSentAt`, `sendDay`, `sendCount` columns pe gina jate hain, Redis pe nahi â€”
 warna Redis down hone par limit gayab ho jaati thi. Redis sirf cross-instance
 accelerator hai; uska unavailable hona code bhejne ko rok nahi leta.
 
-#### Master switch — `OTP_REQUIRED`
+#### Master switch â€” `OTP_REQUIRED`
 
 Poore system ka ek hi switch. Har enforcement point ise
-`src/config/otp-policy.ts` se padhta hai, seedha `ENV.OTP_REQUIRED` se nahi —
+`src/config/otp-policy.ts` se padhta hai, seedha `ENV.OTP_REQUIRED` se nahi â€”
 isliye ise off karne pe koi ek code path bhi code demand karte nahi reh jaata.
 
 | Value | Register | Login | Change password |
@@ -1585,7 +1620,7 @@ isliye ise off karne pe koi ek code path bhi code demand karte nahi reh jaata.
 `true` default hai kyunki wahi secure choice hai. Jab koi bhi channel code
 deliver na kar sake to enforce nahi hota, taaki bina provider wala fresh clone
 apni hi login screen pe na phanse. `NODE_ENV=production` me ye combination
-**boot error** hai — code bhejne ka waada karke na bhejna deploy ki galti hai,
+**boot error** hai â€” code bhejne ka waada karke na bhejna deploy ki galti hai,
 runtime condition nahi.
 
 Code in flows me lagta hai: registration, OTP login, forgot/reset password, email
@@ -1600,10 +1635,10 @@ aur phone verification, aur password change.
 | SMS | MSG91 | `MSG91_AUTHKEY` + `OTP_SMS_ENABLED=true` |
 
 Koi provider set nahi hai to `sendOtp` phir bhi 200 deta hai aur code log me
-chala jaata hai — `npm run doctor` is par fail karta hai. `OTP_STATIC_CODE=111111`
+chala jaata hai â€” `npm run doctor` is par fail karta hai. `OTP_STATIC_CODE=111111`
 ke saath poora signup flow offline chal jaata hai.
 
-### Rate Limit — `src/config/rateLimit.config.ts`
+### Rate Limit â€” `src/config/rateLimit.config.ts`
 
 ```tsx
 export const RATE_LIMIT = {
@@ -1619,7 +1654,7 @@ export const RATE_LIMIT = {
 };
 ```
 
-### Upload — `src/config/upload.config.ts`
+### Upload â€” `src/config/upload.config.ts`
 
 ```tsx
 export const UPLOAD = {
@@ -1648,7 +1683,7 @@ export const UPLOAD = {
 };
 ```
 
-### Tracking — `src/config/tracking.config.ts`
+### Tracking â€” `src/config/tracking.config.ts`
 
 ```tsx
 export const TRACKING = {
@@ -1673,7 +1708,7 @@ export const TRACKING = {
 };
 ```
 
-### Analytics — `src/config/analytics.config.ts`
+### Analytics â€” `src/config/analytics.config.ts`
 
 ```tsx
 export const ANALYTICS = {
@@ -1689,7 +1724,7 @@ export const ANALYTICS = {
 };
 ```
 
-### Shipping — `src/config/shipping.config.ts`
+### Shipping â€” `src/config/shipping.config.ts`
 
 ```tsx
 export const SHIPPING = {
@@ -1700,7 +1735,7 @@ export const SHIPPING = {
 };
 ```
 
-### PDF — `src/config/pdf.config.ts`
+### PDF â€” `src/config/pdf.config.ts`
 
 ```tsx
 export const PDF = {
@@ -1712,7 +1747,7 @@ export const PDF = {
 };
 ```
 
-### Socket — `src/config/socket.config.ts`
+### Socket â€” `src/config/socket.config.ts`
 
 ```tsx
 export const SOCKET = {
@@ -1740,7 +1775,7 @@ export const SOCKET = {
 | `site.name` | `"ProjectName"` | general |
 | `site.logo` | `""` | general |
 | `site.supportEmail` | `"support@projectname.com"` | general |
-| `site.supportPhones` | `[]` (JSON array — 3 to 4 numbers) | general |
+| `site.supportPhones` | `[]` (JSON array â€” 3 to 4 numbers) | general |
 | `site.favicon` | `""` | general |
 | `site.tagline` | `""` | general |
 | `site.addressLine` | `""` | general |
@@ -1752,7 +1787,7 @@ export const SOCKET = {
 | Key | Default Value | Category |
 | --- | --- | --- |
 | `currency.code` | `"INR"` | currency |
-| `currency.symbol` | `"₹"` | currency |
+| `currency.symbol` | `"â‚¹"` | currency |
 | `currency.decimals` | `2` | currency |
 | `locale.default` | `"en"` | locale |
 | `locale.supported` | `["en", "hi"]` (JSON array) | locale |
@@ -1783,7 +1818,7 @@ export const SOCKET = {
 | `order.maxPerCustomerPerDay` | `20` | order |
 | `order.showVendorSplit` | `true` | order |
 
-#### Payment — COD / UPI / Bank
+#### Payment â€” COD / UPI / Bank
 
 | Key | Default Value | Category |
 | --- | --- | --- |
@@ -1801,7 +1836,7 @@ export const SOCKET = {
 | `payment.razorpay.keyId` | `""` | payment |
 | `payment.razorpay.webhookSecret` | `""` | payment |
 
-#### Payment — Token / Advance
+#### Payment â€” Token / Advance
 
 **Idea:** Customer chhota token amount (fixed ya % of order) de kar order place kare. Baaki balance delivery ke time ya N days mai pay kare.
 
@@ -1825,12 +1860,12 @@ export const SOCKET = {
 
 **Token flow (order lifecycle):**
 
-1. Cart value ≥ `payment.token.applicableAbove` → token required.
+1. Cart value â‰¥ `payment.token.applicableAbove` â†’ token required.
 2. Token amount = `mode === "percent"` ? `total * percent / 100` : `fixedAmount`, clamped between `minAmount` and `maxAmount`.
-3. Customer pays token via `allowedMethods` → order `status: CONFIRMED`.
+3. Customer pays token via `allowedMethods` â†’ order `status: CONFIRMED`.
 4. Remaining balance paid at delivery / within `balanceDueDays`.
-5. Cancel within `cancelWindowMin` → refund `refundPercent`.
-6. Not paid within `balanceDueDays` → order auto-cancelled, token `forfeitOnNoPay`.
+5. Cancel within `cancelWindowMin` â†’ refund `refundPercent`.
+6. Not paid within `balanceDueDays` â†’ order auto-cancelled, token `forfeitOnNoPay`.
 
 #### Shipping / Delivery
 
@@ -1931,6 +1966,8 @@ export const SOCKET = {
 | `vendor.payoutCycleDays` | `7` | vendor |
 | `vendor.payoutHoldDays` | `3` | vendor |
 | `vendor.commissionOverrideAllowed` | `true` | vendor |
+| `vendor.vacationMaxDays` | `90` | vendor |
+| `vendor.storeProductLimit` | `12` | vendor |
 
 **Note:** `vendor.autoApprove = true` hone pe vendor register karte hi `APPROVED` ho jayega. `false` pe admin `approveVendor/:id` se approve karega.
 
@@ -1958,6 +1995,17 @@ export const SOCKET = {
 | `security.requireEmailVerify` | `false` | security |
 | `security.requirePhoneVerify` | `true` | security |
 | `security.sessionDays` | `7` | security |
+| `security.loginNotifyEnabled` | `true` | security |
+| `security.banMaxDays` | `365` | security |
+
+#### Customer
+
+| Key | Default Value | Category |
+| --- | --- | --- |
+| `customer.segment.repeatOrders` | `2` | customer |
+| `customer.segment.wholesaleOrders` | `10` | customer |
+| `customer.segment.vipSpend` | `10000` | customer |
+| `customer.segment.batchSize` | `500` | customer |
 
 #### System / Maintenance
 
@@ -2020,7 +2068,7 @@ export const SOCKET = {
 
 ```tsx
 const settings: Array<{ key: string; value: any; category: string; isPublic: boolean }> = [
-  // ── General / Site ─────────────────────────────
+  // â”€â”€ General / Site â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'site.name',              value: 'ProjectName',             category: 'general',  isPublic: true  },
   { key: 'site.logo',              value: '',                        category: 'general',  isPublic: true  },
   { key: 'site.supportEmail',      value: 'support@projectname.com', category: 'general',  isPublic: true  },
@@ -2031,9 +2079,9 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'site.socialLinks',       value: { facebook: '', instagram: '', twitter: '', youtube: '' }, category: 'general', isPublic: true },
   { key: 'site.maintenanceImage',  value: '',                        category: 'general',  isPublic: true  },
 
-  // ── Locale / Timezone / Currency ───────────────
+  // â”€â”€ Locale / Timezone / Currency â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'currency.code',          value: 'INR',           category: 'currency', isPublic: true },
-  { key: 'currency.symbol',        value: '₹',             category: 'currency', isPublic: true },
+  { key: 'currency.symbol',        value: 'â‚¹',             category: 'currency', isPublic: true },
   { key: 'currency.decimals',      value: 2,               category: 'currency', isPublic: true },
   { key: 'locale.default',         value: 'en',            category: 'locale',   isPublic: true },
   { key: 'locale.supported',       value: ['en', 'hi'],    category: 'locale',   isPublic: true },
@@ -2041,14 +2089,14 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'date.format',            value: 'DD-MM-YYYY',    category: 'locale',   isPublic: true },
   { key: 'time.format',            value: 'hh:mm A',       category: 'locale',   isPublic: true },
 
-  // ── Business / Commission ──────────────────────
+  // â”€â”€ Business / Commission â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'commission.default',     value: 10,    category: 'business', isPublic: false },
   { key: 'commission.minPercent',  value: 0,     category: 'business', isPublic: false },
   { key: 'commission.maxPercent',  value: 50,    category: 'business', isPublic: false },
   { key: 'tax.defaultGstPercent',  value: 18,    category: 'tax',      isPublic: true  },
   { key: 'tax.inclusive',          value: false, category: 'tax',      isPublic: true  },
 
-  // ── Order ──────────────────────────────────────
+  // â”€â”€ Order â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'order.minAmount',             value: 100,   category: 'business', isPublic: true  },
   { key: 'order.maxItems',              value: 50,    category: 'business', isPublic: true  },
   { key: 'order.cancelWindowMin',       value: 30,    category: 'business', isPublic: true  },
@@ -2058,7 +2106,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'order.maxPerCustomerPerDay',  value: 20,    category: 'order',    isPublic: false },
   { key: 'order.showVendorSplit',       value: true,  category: 'order',    isPublic: true  },
 
-  // ── Payment — COD / UPI / Bank ─────────────────
+  // â”€â”€ Payment â€” COD / UPI / Bank â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'payment.cod.enabled',            value: true,                  category: 'payment', isPublic: true  },
   { key: 'payment.upi.enabled',            value: true,                  category: 'payment', isPublic: true  },
   { key: 'payment.bank.enabled',           value: true,                  category: 'payment', isPublic: true  },
@@ -2073,7 +2121,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'payment.razorpay.keyId',         value: '',                    category: 'payment', isPublic: false },
   { key: 'payment.razorpay.webhookSecret', value: '',                    category: 'payment', isPublic: false },
 
-  // ── Payment — Token / Advance ──────────────────
+  // â”€â”€ Payment â€” Token / Advance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'payment.token.enabled',              value: false,                        category: 'payment', isPublic: true  },
   { key: 'payment.token.mode',                 value: 'percent',                    category: 'payment', isPublic: true  },
   { key: 'payment.token.percent',              value: 20,                           category: 'payment', isPublic: true  },
@@ -2090,7 +2138,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'payment.token.forfeitOnNoPay',       value: true,                         category: 'payment', isPublic: false },
   { key: 'payment.token.autoCancelAfterDue',   value: true,                         category: 'payment', isPublic: false },
 
-  // ── Shipping / Delivery ────────────────────────
+  // â”€â”€ Shipping / Delivery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'shipping.enabled',              value: true, category: 'shipping', isPublic: true },
   { key: 'shipping.defaultCharge',        value: 49,   category: 'shipping', isPublic: true },
   { key: 'shipping.freeAbove',            value: 999,  category: 'shipping', isPublic: true },
@@ -2099,7 +2147,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'shipping.maxDistanceKm',        value: 0,    category: 'shipping', isPublic: true },
   { key: 'shipping.serviceablePincodes',  value: [],   category: 'shipping', isPublic: true },
 
-  // ── Return / Refund ────────────────────────────
+  // â”€â”€ Return / Refund â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'return.enabled',         value: true,       category: 'return', isPublic: true  },
   { key: 'return.windowDays',      value: 7,          category: 'return', isPublic: true  },
   { key: 'return.reasonRequired',  value: true,       category: 'return', isPublic: true  },
@@ -2109,7 +2157,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'refund.processingDays',  value: 5,          category: 'refund', isPublic: true  },
   { key: 'refund.mode',            value: 'original', category: 'refund', isPublic: true  },
 
-  // ── Wallet / Loyalty ───────────────────────────
+  // â”€â”€ Wallet / Loyalty â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'wallet.enabled',          value: false, category: 'wallet',  isPublic: true },
   { key: 'wallet.maxBalance',       value: 50000, category: 'wallet',  isPublic: true },
   { key: 'wallet.minRedeem',        value: 100,   category: 'wallet',  isPublic: true },
@@ -2119,13 +2167,13 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'loyalty.pointValue',      value: 0.01,  category: 'loyalty', isPublic: true },
   { key: 'loyalty.minRedeemPoints', value: 100,   category: 'loyalty', isPublic: true },
 
-  // ── Coupon ────────────────────────────────────
+  // â”€â”€ Coupon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'coupon.maxPerOrder',    value: 1,     category: 'coupon', isPublic: true },
   { key: 'coupon.stackable',      value: false, category: 'coupon', isPublic: true },
   { key: 'coupon.minOrderAmount', value: 0,     category: 'coupon', isPublic: true },
   { key: 'coupon.maxDiscount',    value: 0,     category: 'coupon', isPublic: true },
 
-  // ── Features ──────────────────────────────────
+  // â”€â”€ Features â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'feature.reviews',        value: true,  category: 'feature', isPublic: true },
   { key: 'feature.wishlist',       value: true,  category: 'feature', isPublic: true },
   { key: 'feature.coupons',        value: true,  category: 'feature', isPublic: true },
@@ -2146,27 +2194,29 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'feature.analytics',      value: true,  category: 'feature', isPublic: true },
   { key: 'feature.tracking',       value: true,  category: 'feature', isPublic: true },
 
-  // ── Catalog ───────────────────────────────────
+  // â”€â”€ Catalog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'catalog.productsPerPage',     value: 20,           category: 'catalog', isPublic: true  },
   { key: 'catalog.showOutOfStock',      value: true,         category: 'catalog', isPublic: true  },
   { key: 'catalog.allowBackorder',      value: false,        category: 'catalog', isPublic: true  },
   { key: 'catalog.defaultSort',         value: '-createdAt', category: 'catalog', isPublic: true  },
   { key: 'catalog.maxImagesPerProduct', value: 10,           category: 'catalog', isPublic: false },
 
-  // ── Cart ──────────────────────────────────────
+  // â”€â”€ Cart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'cart.maxItems',             value: 50,   category: 'cart', isPublic: true  },
   { key: 'cart.holdMinutes',          value: 30,   category: 'cart', isPublic: false },
   { key: 'cart.persistAcrossDevices', value: true, category: 'cart', isPublic: true  },
 
-  // ── Vendor / Payout ───────────────────────────
+  // â”€â”€ Vendor / Payout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'vendor.autoApprove',               value: false, category: 'vendor', isPublic: false },
   { key: 'vendor.maxProducts',               value: 500,   category: 'vendor', isPublic: false },
   { key: 'vendor.minPayoutAmount',           value: 500,   category: 'vendor', isPublic: false },
   { key: 'vendor.payoutCycleDays',           value: 7,     category: 'vendor', isPublic: false },
   { key: 'vendor.payoutHoldDays',            value: 3,     category: 'vendor', isPublic: false },
   { key: 'vendor.commissionOverrideAllowed', value: true,  category: 'vendor', isPublic: false },
+  { key: 'vendor.vacationMaxDays', value: 90, category: 'vendor', isPublic: false },
+  { key: 'vendor.storeProductLimit', value: 12, category: 'vendor', isPublic: true },
 
-  // ── Notification ──────────────────────────────
+  // â”€â”€ Notification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'notification.email.enabled',        value: true,  category: 'notification', isPublic: false },
   { key: 'notification.sms.enabled',          value: false, category: 'notification', isPublic: false },
   { key: 'notification.push.enabled',         value: true,  category: 'notification', isPublic: false },
@@ -2174,7 +2224,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'notification.orderEvents',          value: ['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'], category: 'notification', isPublic: false },
   { key: 'notification.tokenBalanceReminder', value: true,  category: 'notification', isPublic: false },
 
-  // ── Security ──────────────────────────────────
+  // â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'security.otpLoginEnabled',    value: false, category: 'security', isPublic: false },
   { key: 'security.twoFactorEnabled',   value: false, category: 'security', isPublic: false },
   { key: 'security.maxLoginAttempts',   value: 5,     category: 'security', isPublic: false },
@@ -2185,14 +2235,14 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'security.requirePhoneVerify', value: true,  category: 'security', isPublic: false },
   { key: 'security.sessionDays',        value: 7,     category: 'security', isPublic: false },
 
-  // ── System / Maintenance ──────────────────────
+  // â”€â”€ System / Maintenance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'maintenance.enabled',       value: false,                 category: 'system', isPublic: false },
   { key: 'maintenance.message',       value: "We'll be back soon.", category: 'system', isPublic: true  },
   { key: 'maintenance.allowedIps',    value: [],                    category: 'system', isPublic: false },
   { key: 'system.encryptionEnabled',  value: false,                 category: 'system', isPublic: false },
   { key: 'system.apiRateLimitPerMin', value: 100,                   category: 'system', isPublic: false },
 
-  // ── App / Android / iOS ───────────────────────
+  // â”€â”€ App / Android / iOS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'app.minAndroidVersion',    value: '1.0.0', category: 'app', isPublic: true },
   { key: 'app.forceUpdateAndroid',   value: false,   category: 'app', isPublic: true },
   { key: 'app.latestAndroidVersion', value: '1.0.0', category: 'app', isPublic: true },
@@ -2201,7 +2251,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'app.latestIosVersion',     value: '1.0.0', category: 'app', isPublic: true },
   { key: 'app.updateMessage',        value: '',      category: 'app', isPublic: true },
 
-  // ── Tracking & Analytics ──────────────────────
+  // â”€â”€ Tracking & Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'tracking.enabled',              value: true,          category: 'tracking',  isPublic: false },
   { key: 'tracking.sessionTimeoutMin',    value: 30,            category: 'tracking',  isPublic: false },
   { key: 'tracking.geoLookupEnabled',     value: true,          category: 'tracking',  isPublic: false },
@@ -2211,7 +2261,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'analytics.aggregationCron',     value: '0 2 * * *',   category: 'analytics', isPublic: false },
   { key: 'analytics.exportMaxRows',       value: 50000,         category: 'analytics', isPublic: false },
 
-  // ── Referral / Gift Cards ─────────────────────
+  // â”€â”€ Referral / Gift Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'referral.enabled',          value: false, category: 'referral', isPublic: true },
   { key: 'referral.referrerReward',   value: 100,   category: 'referral', isPublic: false },
   { key: 'referral.refereeReward',    value: 50,    category: 'referral', isPublic: false },
@@ -2221,7 +2271,7 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
   { key: 'giftCard.maxAmount',        value: 50000, category: 'giftCard', isPublic: true },
   { key: 'giftCard.expiryDays',       value: 365,   category: 'giftCard', isPublic: true },
 
-  // ── Support / Chat ────────────────────────────
+  // â”€â”€ Support / Chat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   { key: 'support.ticket.enabled',    value: true,                                    category: 'support', isPublic: true },
   { key: 'support.chat.enabled',      value: false,                                   category: 'support', isPublic: true },
   { key: 'support.chatAutoReply',     value: true,                                    category: 'support', isPublic: false },
@@ -2231,14 +2281,14 @@ const settings: Array<{ key: string; value: any; category: string; isPublic: boo
 for (const s of settings) {
   await prisma.systemSetting.upsert({
     where:  { key: s.key },
-    // Sirf category update hoti hai — value aur isPublic nahi. Isse admin ne
+    // Sirf category update hoti hai â€” value aur isPublic nahi. Isse admin ne
     // jo tune kiya hai wo re-seed se mitta nahi.
     update: { category: s.category },
     create: { key: s.key, value: s.value, category: s.category, isPublic: s.isPublic },
   });
 }
 
-// ── SUPER_ADMIN seed ───────────────────────────────────
+// â”€â”€ SUPER_ADMIN seed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const superAdminEmail    = process.env.SUPER_ADMIN_EMAIL    || 'superadmin@projectname.com';
 const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || 'SuperSecret@123';
 
@@ -2257,7 +2307,7 @@ await prisma.user.upsert({
 });
 ```
 
-### Token Amount — Quick Formula
+### Token Amount â€” Quick Formula
 
 ```tsx
 function calcTokenAmount(orderTotal: number, cfg: {
@@ -2268,7 +2318,7 @@ function calcTokenAmount(orderTotal: number, cfg: {
   maxAmount: number;
   applicableAbove: number;
 }) {
-  // Rule 1: order total below applicableAbove → token not required
+  // Rule 1: order total below applicableAbove â†’ token not required
   if (orderTotal < cfg.applicableAbove) return 0;
 
   // Rule 2: compute raw
@@ -2284,14 +2334,14 @@ function calcTokenAmount(orderTotal: number, cfg: {
 }
 
 // Example:
-// orderTotal = 2000, mode='percent', percent=20 → 400
-// orderTotal = 2000, mode='fixed',   fixedAmount=100 → 100
-// orderTotal = 500,  applicableAbove=2000 → 0 (token not required)
-// orderTotal = 20000, percent=20 → 4000 → clamped to maxAmount=5000? no → 4000
-// orderTotal = 40000, percent=20 → 8000 → clamped to maxAmount=5000
+// orderTotal = 2000, mode='percent', percent=20 â†’ 400
+// orderTotal = 2000, mode='fixed',   fixedAmount=100 â†’ 100
+// orderTotal = 500,  applicableAbove=2000 â†’ 0 (token not required)
+// orderTotal = 20000, percent=20 â†’ 4000 â†’ clamped to maxAmount=5000? no â†’ 4000
+// orderTotal = 40000, percent=20 â†’ 8000 â†’ clamped to maxAmount=5000
 ```
 
-### Token Order — Response Example
+### Token Order â€” Response Example
 
 ```json
 {
@@ -2388,7 +2438,7 @@ after the fact.
 anything outright: it sets `deletedAt`, releases the email and phone, and stamps
 `purgeAfter` at `security.accountPurgeDays` (default `30`). The restore token is
 emailed at that moment and stored only as a hash, so `POST /auth/restoreAccount`
-matches on `deletionTokenHash` — the released contacts cannot identify the row.
+matches on `deletionTokenHash` â€” the released contacts cannot identify the row.
 The `purge-deleted-accounts` cron deletes accounts whose window has closed, and
 restore returns 410 `ACCOUNT_PURGE_WINDOW` once it has.
 
@@ -2480,7 +2530,7 @@ default 24).
 ### Percentage Rules
 
 Har field jiska naam `percentage` hai, wo **0-100** pe hai, fraction nahi. Ye
-contract hai — clients ise directly template me lagate hain (`width: {percentage}%`),
+contract hai â€” clients ise directly template me lagate hain (`width: {percentage}%`),
 isliye `0.2` ka matlab hai `0.2%`, `20` ka matlab hai `20%`.
 
 Do helper `src/utils/calculations.ts` me hain:
@@ -2491,14 +2541,14 @@ Do helper `src/utils/calculations.ts` me hain:
 | `toPercentDistribution(parts)` | Fixed-bucket columns | Ye bhi 0-100, aur list **exactly 100** kaati hai |
 
 `toPercentDistribution` ka residual sabse bade share pe jaata hai. Ye zaroori
-hai kyunki har share ko alag round karne se drift hota hai — teen barabar
-shares `33.3 + 33.3 + 33.3 = 99.9` ban jaate hain — aur jo distribution 100 se
+hai kyunki har share ko alag round karne se drift hota hai â€” teen barabar
+shares `33.3 + 33.3 + 33.3 = 99.9` ban jaate hain â€” aur jo distribution 100 se
 kam ho, usse stacked bar me gap dikhta hai.
 
 **Call sites:** `reviews/getSummary/:productId` ka `distributionList` (5 star
-buckets, fixed column) → `toPercentDistribution`. Baaki chaar
+buckets, fixed column) â†’ `toPercentDistribution`. Baaki chaar
 (`analytics/getTopPages`, `getTrafficSources`, device breakdown, app versions)
-→ `toPercent`, kyunki wo ranked lists hain, fixed column nahi, aur unhe exactly
+â†’ `toPercent`, kyunki wo ranked lists hain, fixed column nahi, aur unhe exactly
 100 kaatne ki zaroorat nahi.
 
 `tests/percentage.test.ts` ye scale lock karta hai.
@@ -2507,21 +2557,21 @@ buckets, fixed column) → `toPercentDistribution`. Baaki chaar
 
 ### Customer Timeline Rules
 
-`GET /users/getTimeline/:id` paanch streams ko ek ordered list me merge karta hai —
-`ORDER`, `RETURN`, `TICKET`, `CHAT`, `LOGIN` — taaki support agent ko paanch screens
+`GET /users/getTimeline/:id` paanch streams ko ek ordered list me merge karta hai â€”
+`ORDER`, `RETURN`, `TICKET`, `CHAT`, `LOGIN` â€” taaki support agent ko paanch screens
 kholne na pade. `?type=` se ek stream tak filter hota hai, `?from=` / `?to=` range
 set karte hain.
 
-Ye **read-only** hai, koi naya table nahi. `getUserActivity` alag hai — wo sirf
+Ye **read-only** hai, koi naya table nahi. `getUserActivity` alag hai â€” wo sirf
 `ActivityLog` ka event stream padhta hai, business objects nahi.
 
 Ek cheez jo code se nahi dikhti: ye union SQL me nahi hai. Prisma ek `skip`/`take`
 sirf ek table pe lagata hai, aur merge hone se pehle ye nahi pata chalta ki page ki
-boundary kahan padegi. Isliye har source se **`skip + limit`** rows leti hain — union
+boundary kahan padegi. Isliye har source se **`skip + limit`** rows leti hain â€” union
 ke pehle `skip + limit` rows usse poore mil jaate hain, isliye slice sahi hota hai.
 
 Iska matlab: `TIMELINE_MAX_WINDOW` (200) se gehri page pe har source se itni rows
-nahin aati, aur list page ke end se chhoti ho sakti hai. Ye deliberate hai — bina
+nahin aati, aur list page ke end se chhoti ho sakti hai. Ye deliberate hai â€” bina
 cap ke ek deep page paanch unbounded query ban jayegi.
 
 `totalRecord` har source ke alag `count()` ka sum hai, isliye wo merged window se
@@ -2529,10 +2579,221 @@ zyada hota hai. Ye bhi expected hai: count accurate hai, list window ke andar ha
 
 ---
 
+### Customer Ban Rules
+
+`CustomerBan` user se **ek** row hai (`userId @unique`), isliye ek customer ya to
+banned hai ya nahi. `reason` mandatory hai â€” bina reason ke block koi record nahi
+chhodta, aur wahi reason `exportMyData` me customer ko dikhta hai.
+
+| Field | Matlab |
+| --- | --- |
+| `reason` | Kyu block kiya. DPDP export me customer ko dikhta hai |
+| `expiresAt` | `null` = permanent. `durationDays` se set hota hai, `security.banMaxDays` par clamp |
+| `revokedAt` | Admin ne `unbanCustomer` se uthaya |
+| `revokeReason` | Unban ka reason |
+
+**Expiry runtime pe evaluate hota hai**, stored column se nahi:
+`isBanActive(ban)` clock ke against `revokedAt` aur `expiresAt` dono dekhta hai.
+Isliye ek expired ban read ke waqt hi band ho jata hai â€” cron ke chalne ka wait
+nahi karna padta.
+
+**Lekin `isActive` cron ka kaam hai.** `banCustomer` account ko deactivate kar
+deta hai, isliye `lift-expired-bans` (`*/10 * * * *`) expired bans ke `revokedAt`
+set karta hai **aur** `isActive` wapas true karta hai. Ye cron na chale to customer
+hamesha ke liye lockout rahega, isliye 10 minute ki frequency rakhi hai.
+
+**Ban sign-in pe check hota hai, credential verify hone ke baad.** Agar
+`INVALID_CREDENTIALS` se pehle check hota to ek galat password bhi
+`ACCOUNT_BANNED` de deta â€” jo attacker ko batata hai ki account exist karta hai.
+Isliye `assertNotBanned` har sign-in path (password, OTP, 2FA, social) me token
+issue hone se theek pehle lagta hai.
+
+| Situation | Result |
+| --- | --- |
+| Admin apne aap ko ban karta hai | 403 `FORBIDDEN` |
+| Ban without `durationDays` | `expiresAt: null`, permanent |
+| Expired ban, cron nahi chala | Ban inactive; `isActive` cron ke next run par |
+| Unban on a customer who was never banned | 404 `NOT_FOUND` |
+| Banned customer signs in | 403 `ACCOUNT_BANNED`, days remaining message ke andar |
+
+---
+
+### Customer Segment Rules
+
+Do tarah ke segment hain, aur dono ek hi table me hain:
+
+| `kind` | Kaun manage karta hai | Membership |
+| --- | --- | --- |
+| `MANUAL` | Admin, haath se | `source: MANUAL`, `assignedById` set |
+| `NEW`, `REPEAT`, `VIP`, `WHOLESALE`, `BLOCKED` | `refresh-customer-segments` cron | `source: RULE` |
+
+`source` column hi rule hai. Auto segment ka member row `source: RULE` hota hai,
+manual ka `source: MANUAL`, isliye refresh chalta hai to manual assignment chedta
+nahi. Isi wajah se `addSegmentMembers` / `removeSegmentMembers` auto segment pe
+403 `CUSTOMER_SEGMENT_KIND_LOCKED` dete hain â€” admin ka kaam raat me overwrite
+ho jayega.
+
+**Refresh full recompute hai, diff nahi.** Har customer ke order ek grouped query
+me aate hain, qualifying kinds nikalte hain, phir RULE rows replace ho jaate hain.
+Aggregation ek hi query me hoti hai isliye ye per-customer loop nahi, batch loop
+hai: `customer.segment.batchSize` (500) customers ek pass me, `id` cursor se.
+
+**Auto segment ki row pehle banti hai, phir members.** `ensureAutoSegments()`
+har run pe missing kind ki row bana deta hai â€” admin ne VIP segment delete kiya
+to wo khaali ban kar wapas aa jaata hai, rule chup nahi ho jaata.
+
+**Facts ki definition** (`evaluateSegmentKinds`, `src/utils/segments.ts`):
+
+| Kind | Rule |
+| --- | --- |
+| `NEW` | `orderCount === 0` |
+| `REPEAT` | `deliveredOrderCount >= customer.segment.repeatOrders` (2) |
+| `VIP` | `totalSpent >= customer.segment.vipSpend` (10000) |
+| `WHOLESALE` | `deliveredOrderCount >= customer.segment.wholesaleOrders` (10) |
+| `BLOCKED` | Active ban hai |
+
+`REPEAT` aur `WHOLESALE` **delivered** orders count karte hain, placed nahi â€”
+ warna ek cancelled order bhi repeat buyer bana deta. Kind ek list hai, ek flag
+nahi: ek customer VIP aur REPEAT dono ho sakta hai.
+
+**Corrupt threshold khaali segment banata hai, sabko nahi.** Setting se aane wala
+number `NaN` ya `1` se chhota ho to wo threshold unusable maana jaata hai aur
+compare fail hota hai. `1` fallback rakhne se har customer with-an-order har
+segment me chala jaata.
+
+Cron `0 6 * * *` par chalta hai. Same routine `POST /users/refreshSegments` se
+bhi chal jaati hai, to admin ko cron ka wait nahi karna padta.
+
+---
+
+### DPDP Data Export Rules
+
+`GET /users/exportMyData` (self) aur `GET /users/exportData/:id` (admin) ek hi
+service se bante hain: `exportCustomerData()`.
+
+**Secrets select hi nahi hote.** Password hash, 2FA secret, backup codes aur
+refresh token hash query ke `select` me hain hi nahi, isliye koi serializer unhe
+leak nahi kar sakta â€” omission serialize karne se pehle hoti hai. `twoFactorEnabled`
+boolean export hota hai, secret nahi.
+
+**Ban customer ko dikhta hai, notes nahi.** `profileData.banData` me reason aur
+expiry jata hai â€” DPDP ke liye customer ko ye pata hona chahiye ki use block kiya
+gaya hai. Internal `CustomerNote` kabhi export nahi hota; wo doosra insaan ka
+free text hai.
+
+**Notification tail capped hai** (`EXPORT_NOTIFICATION_LIMIT`, 200). Baaki sab
+pura history hai â€” ek customer ke saare notifications bhejna ek unbounded
+response ban sakta hai.
+
+Export `exportedAt` + `profileData` + `statsData` + lists deta hai; keys ka order
+envelope rule ke mutabiq hai (singles, phir objects, phir arrays).
+
+---
+
+### Vendor Storefront Rules
+
+`GET /vendors/getStore/:slug` **public** hai â€” `authenticate` aur guards dono
+skip. Sirf `APPROVED` shop serve hota hai, baaki pe 403 `VENDOR_NOT_APPROVED`.
+Guest storefront dekh sakta hai; token nahi.
+
+Storefront apna serializer use karta hai (`serializeVendorStorefront`), `serializeVendor`
+nahi: rating aur product counts dikhte hain, bank details, KYC state aur vendor ka
+user row kabhi nahi.
+
+| Cheez | Rule |
+| --- | --- |
+| Products | `vendor.storeProductLimit` (12), sirf `ACTIVE`, newest first |
+| Announcements | Sirf `ACTIVE` aur `startsAt <= now <= endsAt`, pinned pehle |
+| Vacation | `vacationData.isAcceptingOrders` = `!isOnVacation` |
+
+**Vacation mode order placement block karta hai.** `updateVacation` flag set karta
+hai; `placeOrder` me `assertVendorAcceptingOrders(vendorIds)` un vendors ko check
+karta hai jinme flag already true hai aur 422 `VENDOR_ON_VACATION` throw karta hai.
+Check stock transaction se **pehle** aata hai, warna refusal ke baad partial write
+rehta hai. `until` future me hona chahiye aur `vendor.vacationMaxDays` par clamp
+hota hai â€” reject nahi.
+
+**Vendor blocklist `UserBlock` par hai, naye model par nahi.** Blocker vendor ka
+`userId` hai, isliye chat ka existing `assertNotBlocked` use hi leti hai â€” koi
+duplicate mechanism nahi. `placeOrder` bhi yahi check karta hai: cart ke vendors
+ke owner `userId` me se koi blocking row ho to 403 `USER_BLOCKED`. Vendor ke
+message me `ERROR.CHAT.USER_BLOCKED` chalta hai ("You have blocked this user"),
+jo direction se mismatch karta hai â€” `BLOCKED_BY_USER` zyada sahi hota, par
+existing key use ki gayi hai.
+
+---
+
+### Vendor Coupon Rules
+
+`Coupon.vendorId` pehle se tha aur cart-side scoping (`cart.service.ts`) pehle se
+thi â€” vendor coupon tabhi lagta hai jab cart me us vendor ka product ho. Is batch
+ne **sirf vendor ka apna surface** add kiya, admin wala nahi chhua.
+
+| Route | Kaun |
+| --- | --- |
+| `GET /coupons/vendorCoupons` | Apni list, `vendorId` scope ke saath |
+| `POST /coupons/vendorCreateCoupon` | Body me `vendorId` **nahi** â€” service stamp karta hai |
+| `PATCH /coupons/vendorUpdateCoupon/:id` | Ownership zaroori |
+| `DELETE /coupons/vendorDeleteCoupon/:id` | Ownership zaroori, soft delete |
+
+`createVendorCoupon` admin wale `createCoupon` ko delegate karta hai, isliye code
+uniqueness aur product/category existence checks ek jagah rehte hain.
+
+**Ownership fail 403 hai, missing coupon 404.** Do alag cases hain aur client ko
+dono alag batane padte hain: coupon exist nahi karta (`NOT_FOUND`) versus doosre
+store ka hai (`VENDOR_NOT_OWN_COUPON`, 403).
+
+---
+
+### Vendor Bulk Order Actions Rules
+
+`POST /orders/vendorBulkStatusUpdate` â€” ek call me ek vendor ke kai sub-orders
+`ACCEPT` (`CONFIRMED`) ya `REJECT` (`CANCELLED`).
+
+**Partial success, all-or-nothing nahi.** `subOrderIds` me se jo id is vendor ka
+nahi hai ya jiska transition allowed nahi hai, use chhod kar baaki apply hote
+hain. Ye hi feature ka point hai â€” vendor jo queue triage kar raha hai usko kaam
+karne wali rows nahi khone chahiye. `skippedList` me `{ subOrderId, reason }`
+wapas aata hai, aur `reason` wahi message constants hai jo baaki API me hain.
+
+Sirf tab 422 `BULK_NO_SUB_ORDERS` jab **koi bhi** id apply na ho.
+
+Ownership `where` ke andar hai (`where: { id: { in: ids }, vendorId }`), isliye
+doosre vendor ka sub-order "not found" maana jaata hai â€” existence leak nahi hoti.
+
+Saare writes ek `prisma.$transaction` me, `tx` client pe. Reject pe
+`restoreStock(tx, orderId, subOrderId)` chalta hai, aur har parent order ke liye
+`refreshParentStatus` â€” warna parent order ka status galat reh jaata hai. Timeout
+`20_000`/`maxWait: 8_000` (`placeOrder` ke same): 50 sub-orders Ã— per-item stock
+restore 5s default se bahar nikalte hain.
+
+---
+
+### Login Notification Rules
+
+Har successful sign-in pe customer ko in-app notification + email jaata hai:
+device, IP, geo location, aur naya device hai ya nahi.
+
+| Setting | Default | Kaam |
+| --- | --- | --- |
+| `security.loginNotifyEnabled` | `true` | Master switch |
+| `security.loginAlerts` | `true` | Email bhejna hai |
+
+Ye pehle se maujood **new-device** alert path ka extension hai, replacement nahi â€”
+`flagNewDevice` ka result `data.isNewDevice` me jaata hai, dobara compute nahi
+hota. `notifyLogin` har path se ek hi jagah se call hota hai: password, OTP, 2FA,
+social. `rotateRefreshToken` jaanbujh kar nahi â€” token rotation sign-in nahi hai.
+
+Notification advisory hai, isliye poora body try/catch me hai aur failure log hoti
+hai par login nahi toot-ta. `Security.loginNotifyEnabled` `getSecurityConfig()`
+ka hissa hai, isliye ek hi settings round-trip.
+
+---
+
 ### Job Retry & Dead Letter Rules
 
 **Retry.** Every job carries `attempts` and an exponential `backoff`, applied per
-job at enqueue time rather than as the Queue's `defaultJobOptions` — `getQueue()`
+job at enqueue time rather than as the Queue's `defaultJobOptions` â€” `getQueue()`
 is synchronous everywhere and reading settings is not. Both numbers come from
 settings first, falling back to `QUEUE_POLICY` in `src/config/queue.config.ts`:
 
@@ -2542,13 +2803,13 @@ settings first, falling back to `QUEUE_POLICY` in `src/config/queue.config.ts`:
 | `queue.backoffDelayMs` | `3000` | First backoff; exponential from there |
 | `queue.maxReplays` | `3` | Manual replays one dead row is allowed |
 
-`queue.maxAttempts` is clamped to at least 1 — a zero there would silently mean
+`queue.maxAttempts` is clamped to at least 1 â€” a zero there would silently mean
 "run once, never retry".
 
 **Dead letter queue.** When BullMQ spends the last attempt, the worker's `failed`
 hook writes a `FailedJob` row. The check is `attemptsMade >= job.opts.attempts`,
 not `attemptsMade > 0`, so the row appears only once the retry is actually spent
-— recording on the first transient failure would defeat the retry entirely.
+â€” recording on the first transient failure would defeat the retry entirely.
 
 The row is keyed `@@unique([queue, jobId])`, so a job that fails, is replayed and
 fails again updates one row instead of accumulating one per attempt, and a
@@ -2578,11 +2839,24 @@ untouched for `DLQ.STALE_PENDING_DAYS` (30) becomes `ABANDONED`, and anything
 deleted. An unreplayed failure that old has almost always been fixed by then,
 and keeping it forever only hides the live ones.
 
+Two more jobs sit on the same `cleanup` queue, both delegating to a module
+service so the cron and the admin endpoint run identical code:
+
+| Job | Cron | Kaam |
+| --- | --- | --- |
+| `lift-expired-bans` | `*/10 * * * *` | Expired `CustomerBan` rows revoke karta hai aur `isActive` wapas true |
+| `refresh-customer-segments` | `0 6 * * *` | `NEW`/`REPEAT`/`VIP`/`WHOLESALE`/`BLOCKED` members recompute |
+
+`lift-expired-bans` itni hi frequent hai kyunki iske na chalne ka matlab hai
+koi customer permanently lockout — [Customer Ban Rules](#customer-ban-rules) dekho.
+`refresh-customer-segments` daily hai kyunki iska kaam aggregated order read hai
+aur membership turant useful nahi hoti.
+
 ---
 
 ## Folder Structure
 
-Module layout **domain-grouped** hai — ek module ke andar multiple routers
+Module layout **domain-grouped** hai â€” ek module ke andar multiple routers
 rehte hain, ek resource per folder nahi. Ye jane bujh kar kiya gaya hai: 49
 alag folder ka matlab 49 routing layer aur 49 serializer file, jabki actual
 surface un modules me aata hi jaata hai. Neeche mapping di hai taaki route
@@ -2594,7 +2868,8 @@ projectname-api/
 |   |-- schema.prisma
 |   |-- migrations/
 |   |   |-- migration_lock.toml
-|   |   `-- 20260101000000_init/   # poori schema ek hi folder me (110 models)
+|   |   |-- 20260101000000_init/              # poori schema (110 models)
+|   |   `-- 20261008000000_customer_vendor_control/   # customer ban, segments, announcements
 |   `-- seed.ts
 |-- src/
 |   |-- constants/        # roles, permissions, statuses, http, countries, tracking
@@ -2626,7 +2901,7 @@ projectname-api/
 |   |   |-- system/       # version, maintenance
 |   |   `-- health/       # /api/v1/health
 |   |-- services/
-|   |   |-- mail/mail.service.ts     # brevo → smtp → log
+|   |   |-- mail/mail.service.ts     # brevo â†’ smtp â†’ log
 |   |   |-- sms/sms.service.ts       # msg91
 |   |   |-- settings, audit, cloudinary, notification, pdf,
 |   |   | socket, email, prisma, redis, logger, template
@@ -2640,7 +2915,7 @@ projectname-api/
 |   |-- types/            # ambient declarations
 |   |-- app.ts
 |   `-- server.ts
-|-- scripts/              # dev tooling — build me compile nahi hota
+|-- scripts/              # dev tooling â€” build me compile nahi hota
 |   |-- db.ts, apply-migrations.ts, db-reset.ts, seed-check.ts
 |   |-- doctor.ts, env-sync.ts, pglite-server.ts
 |   |-- comment-audit.ts, comment-normalise.ts
@@ -2648,36 +2923,36 @@ projectname-api/
 |   `-- e2e-*.ts, run-e2e.ps1
 |-- tests/                # vitest
 |-- .github/workflows/    # ci
-|-- .env, .env.example    # .env.example generated — npm run env:sync
+|-- .env, .env.example    # .env.example generated â€” npm run env:sync
 |-- .gitattributes
 |-- .nvmrc
 |-- render.yaml           # Render blueprint
 |-- tsconfig.json         # typecheck + eslint ke liye (scripts/tests included)
-|-- tsconfig.build.json   # build ke liye — sirf src/, dist/server.js banata hai
+|-- tsconfig.build.json   # build ke liye â€” sirf src/, dist/server.js banata hai
 |-- vitest.config.ts
 |-- docker-compose.yml
 |-- package.json
 |-- package-lock.json
-|-- README.md            # operational README — setup, commands, deploy
+|-- README.md            # operational README â€” setup, commands, deploy
 `-- README.md           # setup + commands
 ```
 
 Har module me: `<name>.routes.ts`, `<name>.controller.ts`, `<name>.service.ts`,
 `<name>.schema.ts`, `<name>.types.ts`.
 
-Entity serializer ka **ek hi registry** hai — `src/utils/serialize.ts`. Ek entity
+Entity serializer ka **ek hi registry** hai â€” `src/utils/serialize.ts`. Ek entity
 ka shape do jagah define kabhi nahi hona chahiye, warna same record do alag JSON
 shapes me chala jaayega. Module ka `<name>.serializer.ts` sirf us module ke
 apne response shapes banata hai (`serializeProfile`, `serializeUserList`,
 `serializeCategoryTree`, `serializeEstimate`) aur canonical entity serializer ko
-import karke use karta hai — re-declare nahi karta. Canonical registry ko chahiye
+import karke use karta hai â€” re-declare nahi karta. Canonical registry ko chahiye
 se chhoti nested projection ke liye alag naam hota hai, jaise `serializeUserSummary`
 (review author, activity-log actor, nested `userData`).
 
 `npm test` me `serializer-registry.test.ts` ye guard karta hai: koi module serializer
 canonical naam dobara declare kare to test fail ho jaata hai.
 
-**Route prefix → module mapping** (`src/routes/index.ts` se):
+**Route prefix â†’ module mapping** (`src/routes/index.ts` se):
 
 | Module | Mounted prefixes |
 | --- | --- |
@@ -2745,15 +3020,15 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - `Currency` / `Country` / `State` / `City`
 - `ApiKey` / `WebhookEndpoint` / `WebhookLog`
 - `BulkJob` / `ReportSchedule`
-- **`FailedJob`** (queue, jobName, jobId, payload, error, replayCount, status) — the dead letter queue; unique on `(queue, jobId)`
+- **`FailedJob`** (queue, jobName, jobId, payload, error, replayCount, status) â€” the dead letter queue; unique on `(queue, jobId)`
 - **`SystemSetting`** (key, value Json, category, isPublic)
 - **`RolePermission`** (role, permission)
 - **`EmailTemplate`**, **`SmsTemplate`**, **`NotificationTemplate`**
 - **`Translation`** (locale, key, value)
 - **`Dropdown`** (type, options Json)
 - **`RefreshToken`** (userId, tokenHash, expiresAt, revokedAt)
-- **`PasswordHistory`** (userId, passwordHash) — the last N hashes, for the reuse check
-- **`UserConsent`** (userId, type, version) — TERMS/PRIVACY/MARKETING audit trail
+- **`PasswordHistory`** (userId, passwordHash) â€” the last N hashes, for the reuse check
+- **`UserConsent`** (userId, type, version) â€” TERMS/PRIVACY/MARKETING audit trail
 - **`Otp`** (id, identifier, type, channel, otpHash, expiresAt, attempts, createdAt)
 - **`Session`** (id, userId, deviceId, ip, userAgent, geo{}, startedAt, endedAt, isActive)
 - **`Device`** (id, deviceId, userId?, platform, os, osVersion, browser, model, fcmToken, isBlocked, isTrusted, lastSeenAt)
@@ -2762,6 +3037,10 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 - **`Event`** (id, sessionId, name, meta Json, createdAt)
 - **`CrashLog`** (id, deviceId, platform, appVersion, errorMessage, stack, breadcrumbs Json, createdAt)
 - **`Funnel`** / **`FunnelStep`**
+- **`CustomerNote`** (userId, createdById, note) â€” internal staff note about a customer, never exposed to them
+- **`CustomerBan`** (userId @unique, reason, expiresAt?, revokedAt?, createdById?) â€” one row per customer; expiry is evaluated at read time
+- **`CustomerSegment`** (name, slug, kind, color) / **`CustomerSegmentMember`** (segmentId, userId, source) â€” `source` separates a hand assignment from a rule-computed one
+- **`VendorAnnouncement`** (vendorId, title, message, linkUrl, status, isPinned, startsAt?, endsAt?)
 
 **Note:** DB mai `null` allowed ho sakta hai (Prisma level) but **serializer** null scrub karega.
 
@@ -2772,7 +3051,7 @@ aur `outDir: ./dist` set karta hai, isliye entry `dist/server.js` banta hai aur
 ## API Routes Outline
 
 Every route in the API, straight off the OpenAPI spec. When this table and
-`GET /api/v1/docs.json` disagree, the spec is right — it is generated from the
+`GET /api/v1/docs.json` disagree, the spec is right â€” it is generated from the
 live Express router, whereas a hand-written list drifts.
 
 ```
@@ -2968,6 +3247,10 @@ live Express router, whereas a hand-written list drifts.
     POST           /countries/checkPincode
     POST           /countries/seedCountries
 /coupons
+DELETE         /coupons/vendorDeleteCoupon/{id}
+GET            /coupons/vendorCoupons
+PATCH          /coupons/vendorUpdateCoupon/{id}
+POST           /coupons/vendorCreateCoupon
     DELETE         /coupons/deleteCoupon/{id}
     GET            /coupons/getAll
     GET            /coupons/getById/{id}
@@ -3068,6 +3351,7 @@ live Express router, whereas a hand-written list drifts.
     POST           /notifications/sendBulk
     POST           /notifications/unregisterDevice
 /orders
+POST           /orders/vendorBulkStatusUpdate
     DELETE         /orders/removeNote/{id}/{noteId}
     DELETE         /orders/removeTag/{id}/{tagId}
     GET            /orders/getAll
@@ -3300,6 +3584,20 @@ live Express router, whereas a hand-written list drifts.
     POST           /uploads/uploadMultiple
     POST           /uploads/uploadVideo
 /users
+DELETE         /users/deleteSegment/{id}
+GET            /users/exportData/{id}
+GET            /users/exportMyData
+GET            /users/getBans
+GET            /users/getSegmentById/{id}
+GET            /users/getSegmentMembers/{id}
+GET            /users/getSegments
+PATCH          /users/updateSegment/{id}
+POST           /users/addSegmentMembers/{id}
+POST           /users/banCustomer/{id}
+POST           /users/createSegment
+POST           /users/refreshSegments
+POST           /users/removeSegmentMembers/{id}
+POST           /users/unbanCustomer/{id}
     DELETE         /users/deleteAccount
     DELETE         /users/deleteAddress/{id}
     DELETE         /users/deleteUser/{id}
@@ -3322,6 +3620,15 @@ live Express router, whereas a hand-written list drifts.
     POST           /users/addNote/{id}
     POST           /users/impersonate/{id}
 /vendors
+DELETE         /vendors/deleteAnnouncement/{id}
+DELETE         /vendors/unblockCustomer/{userId}
+GET            /vendors/getAnnouncements
+GET            /vendors/getBlockedCustomers
+GET            /vendors/getStore/{slug}
+PATCH          /vendors/updateAnnouncement/{id}
+PATCH          /vendors/updateVacation/{id}
+POST           /vendors/blockCustomer/{userId}
+POST           /vendors/createAnnouncement
     GET            /vendors/getAll
     GET            /vendors/getById/{id}
     GET            /vendors/getDocuments
@@ -3371,7 +3678,7 @@ live Express router, whereas a hand-written list drifts.
 
 ## Missing / Planned Features
 
-Jo cheezein abhi **nahi** hain — koi endpoint nahi, koi model nahi, koi setting
+Jo cheezein abhi **nahi** hain â€” koi endpoint nahi, koi model nahi, koi setting
 nahi. Ye gap analysis se nikli hain, implementation nahi. Ye section sirf
 document hai: koi bhi item yahan implement nahi hua hai.
 
@@ -3379,17 +3686,24 @@ Type column me do marker hain:
 
 | Marker | Matlab |
 | --- | --- |
-| 🔴 | Truly Missing — koi endpoint, model ya setting exist hi nahi karti |
-| 🟡 | Partial/Stub — endpoint ya setting hai, par actual kaam nahi karta |
+| ðŸ”´ | Truly Missing â€” koi endpoint, model ya setting exist hi nahi karti |
+| ðŸŸ¡ | Partial/Stub â€” endpoint ya setting hai, par actual kaam nahi karta |
 
-Jin gaps ka kaam poora ho chuka hai, unhe is table se hata diya gaya hai — unka
+Jin gaps ka kaam poora ho chuka hai, unhe is table se hata diya gaya hai â€” unka
 naya behaviour ab [Catalog & Order Rules](#catalog--order-rules),
 [Password](#password--srcconfigpasswordconfigts),
 [Account Security Rules](#account-security-rules),
 [Cart Rules](#cart-rules),
 [Payment Rules](#payment-rules),
 [Percentage Rules](#percentage-rules),
-[Customer Timeline Rules](#customer-timeline-rules) and
+[Customer Timeline Rules](#customer-timeline-rules),
+[Customer Ban Rules](#customer-ban-rules),
+[Customer Segment Rules](#customer-segment-rules),
+[DPDP Data Export Rules](#dpdp-data-export-rules),
+[Vendor Storefront Rules](#vendor-storefront-rules),
+[Vendor Coupon Rules](#vendor-coupon-rules),
+[Vendor Bulk Order Actions Rules](#vendor-bulk-order-actions-rules),
+[Login Notification Rules](#login-notification-rules) and
 [Job Retry & Dead Letter Rules](#job-retry--dead-letter-rules) mai documented hai.
 Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 
@@ -3398,401 +3712,389 @@ Jo row ab bhi yahan hai, uska kaam adhoora hai ya bilkul nahi hua.
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
 | **Account Recovery (no email)** | 🔴 | Email kho gaya to koi recovery nahi. | Alternate recovery (security questions, backup codes). Phone OTP recovery chalta hai. | User permanently locked out ho jata hai. Support load badhta hai. |
-| **Login Notifications (every login)** | 🟡 | Sirf first-time-device pe alert. | Har login pe email/push with device + IP + location. | User ko pata chale koi aur login kiya. |
 
 ### 2. Customer / User
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Saved Payment Methods** | 🔴 | Har baar card/UPI dobara daalna padta hai. | Tokenized card/UPI save, 1-click pay. | Conversion rate 20-30% badhta hai. |
-| **Customer Preferences** | 🟡 | Language/currency partial. | Notification channel prefs, timezone, digest frequency. | Personalization ke liye. |
-| **Customer Segments** | 🔴 | Koi segment/tag nahi. | VIP, wholesale, blocked, new, repeat tags. | Targeted marketing ke liye. |
-| **Customer Merge** | 🔴 | Duplicate accounts merge nahi. | Merge API with conflict resolution. | Duplicate accounts se data mess. |
-| **Customer Export** | 🟡 | Reports me hai, per-customer nahi. | Single customer ka full data export (JSON/CSV). | DPDP right to access. |
-| **DPDP Data Export** | 🔴 | Customer apna data download nahi kar sakta. | Self-service data export endpoint. | DPDP legal requirement. |
-| **Customer Block/Ban** | 🟡 | Sirf `isActive` toggle. | Proper block with reason, duration, auto-unban. | Fraud/abuse rokne ke liye. |
+| **Saved Payment Methods** | ðŸ”´ | Har baar card/UPI dobara daalna padta hai. | Tokenized card/UPI save, 1-click pay. | Conversion rate 20-30% badhta hai. |
+| **Customer Preferences** | ðŸŸ¡ | Language/currency partial. | Notification channel prefs, timezone, digest frequency. | Personalization ke liye. |
+| **Customer Merge** | ðŸ”´ | Duplicate accounts merge nahi. | Merge API with conflict resolution. | Duplicate accounts se data mess. |
 
 ### 3. Vendor
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Vendor Coupons** | 🔴 | `/coupons/createCoupon` sirf ADMIN. | Vendor-scoped coupon create/update/delete, vendor ke products pe apply. | Vendor growth ka #1 tool. Revenue 15-25% badhta hai. |
-| **Vendor Flash Sales** | 🔴 | `/flashSales/create` sirf ADMIN. | Vendor apni flash sale schedule kar sake. | Festive sales, inventory clearance. |
-| **Vendor Banners** | 🔴 | `/banners/create` sirf ADMIN. | Vendor store banner, product banner. | Store branding + promotion. |
-| **Vendor Promoted Listings** | 🔴 | Koi paid promotion nahi. | Bid-based ad slots, CPC/CPM, budget cap. | Naya revenue stream. |
-| **Vendor Bundle Offers** | 🔴 | Combo create nahi ho sakta. | Buy 2 get 1, combo pack, kit. | AOV badhane ke liye. |
-| **Vendor Tiered Discounts** | 🔴 | Volume discount nahi. | Buy 5+ = 10% off, Buy 10+ = 20% off. | B2B/wholesale ke liye. |
-| **Vendor Free Shipping** | 🔴 | Sirf global `shipping.freeAbove`. | Vendor apne products pe free shipping de sake. | Vendor ka competitive edge. |
-| **Vendor Cashback** | 🔴 | Customer ko cashback nahi. | Vendor-funded wallet credit on purchase. | Repeat purchase badhta hai. |
-| **Vendor Email/Push Campaign** | 🔴 | `/newsletter/sendCampaign` sirf ADMIN. | Vendor apne customers ko blast bhej sake. | Vendor retention tool. |
-| **Vendor Referral Program** | 🔴 | `/referral/*` global. | Vendor-specific referral with own rewards. | Vendor ka growth loop. |
-| **Vendor Loyalty Program** | 🔴 | `/loyalty/*` global. | Vendor-specific points program. | Vendor ke repeat customers. |
-| **Vendor Gift Cards** | 🔴 | Global gift cards. | Vendor apne gift cards issue kare. | Vendor branding + revenue. |
-| **Vendor Store Page** | 🔴 | Koi storefront nahi. | Logo, banner, about, policies, theme colors. | Vendor ki identity. |
-| **Store Policies** | 🔴 | Global policies. | Per-vendor return, shipping, privacy. | Vendor ka apna policy. |
-| **Store Vacation Mode** | 🔴 | Store pause nahi. | `isOnVacation` flag, orders block. | Vendor chhutti pe ja sake. |
-| **Store Announcements** | 🔴 | Koi announcement nahi. | Store pe notice banner. | Vendor customer ko inform kare. |
-| **Store Reviews** | 🔴 | Sirf product reviews. | Store-level rating + review. | Vendor reputation. |
-| **Vendor Staff / Sub-Users** | 🔴 | Sirf 1 user per vendor. | Team members with role-based permissions. | Vendor team scale nahi kar sakta. |
-| **Vendor Shipping Preferences** | 🔴 | `/shipping/createZone` sirf ADMIN. | Vendor apne zones/rates set kare. | Vendor apni shipping control kare. |
-| **Vendor Tax Config** | 🔴 | Sirf admin-level `TaxConfig`. | Vendor GSTIN, HSN, tax rate. | India GST compliance. |
-| **Vendor Return Policy** | 🔴 | Global `return.windowDays`. | Vendor apni return window. | Vendor ke business model. |
-| **Vendor Inventory Alerts** | 🔴 | Low stock pe koi alert nahi. | Threshold-based email/push. | Stockout rokne ke liye. |
-| **Vendor Restock Reminder** | 🔴 | Koi suggestion nahi. | Demand forecast + auto restock reminder. | Sales loss rokne ke liye. |
-| **Vendor Bulk Order Accept/Reject** | 🔴 | Ek-ek order handle. | Bulk select + accept/reject. | Vendor time bachta hai. |
-| **Vendor Order Notes** | 🔴 | Internal notes nahi. | Packing notes, internal comments. | Warehouse coordination. |
-| **Vendor Dispute Resolution** | 🔴 | Koi dispute workflow nahi. | Customer-vendor dispute, admin mediation. | Trust building. |
-| **Vendor Dashboard Analytics** | 🟡 | `getStats` hai. Deep analytics nahi. | Traffic, funnel, top products, cohorts. | Vendor informed decisions. |
-| **Vendor Product Performance** | 🟡 | `/analytics/getProductPerformance` hai. Funnel nahi. | View → cart → order funnel per product. | Vendor conversion optimize kare. |
-| **Vendor Traffic Sources** | 🔴 | Koi traffic data nahi. | Source, medium, campaign breakdown. | Marketing ROI. |
-| **Vendor Customer Insights** | 🔴 | Repeat/LTV/churn nahi. | Customer segmentation vendor ke liye. | Retention strategy. |
-| **Vendor Competitor Benchmark** | 🔴 | Category rank nahi. | Rank, competitor pricing, market share. | Competitive intelligence. |
-| **Vendor Payout Forecast** | 🔴 | Next payout nahi pata. | Pending orders → expected payout. | Cash flow planning. |
-| **Vendor Leaderboard** | 🔴 | Koi ranking nahi. | Top vendors, badges (Silver/Gold/Platinum). | Gamification. |
-| **Vendor Performance Score** | 🔴 | Koi score nahi. | Fulfilment, cancellation, response time, rating. | Quality control. |
-| **Vendor Subscription Plans** | 🔴 | Flat commission. | Free/Silver/Gold/Platinum SaaS plans. | New revenue model. |
-| **Vendor Commission Tiers** | 🟡 | Flat + per-vendor override. | Category-wise, volume-based tiers. | Fairness + incentive. |
-| **Vendor Featured Listing** | 🔴 | Koi featured section nahi. | Paid featured product slots. | Revenue + visibility. |
-| **Vendor Sponsored Search** | 🔴 | Search me paid spot nahi. | Bid-based sponsored results. | Revenue. |
-| **Vendor Ad Budget & Billing** | 🔴 | Koi ad wallet nahi. | Ad spend wallet, auto-debit, invoice. | Ad system chalane ke liye. |
-| **Vendor ↔ Admin Chat** | 🔴 | Sirf customer-vendor chat. | Vendor admin se directly chat kare. | Support efficiency. |
-| **Vendor Announcements** | 🔴 | Admin blast nahi bhej sakta. | Policy change, holiday, feature announcement. | Vendor communication. |
-| **Vendor Onboarding Checklist** | 🔴 | Koi progress tracking nahi. | Registration → KYC → first product → first sale. | Vendor activation rate. |
-| **Vendor Help Center** | 🔴 | Koi FAQ/guide nahi. | Vendor-specific docs, videos. | Support load kam. |
-| **Vendor Notification Preferences** | 🔴 | Vendor customize nahi kar sakta. | Per-event channel prefs. | Vendor control. |
-| **Vendor Fraud Detection** | 🔴 | Koi protection nahi. | Fake orders, fake reviews, coupon abuse. | Vendor trust. |
-| **Vendor Chargeback Protection** | 🔴 | Koi alert nahi. | Chargeback alert + evidence upload. | Vendor loss rokne ke liye. |
-| **Vendor Blacklist Customer** | 🔴 | Vendor blacklist nahi kar sakta. | Problematic customer blacklist. | Vendor safety. |
-| **Vendor GST e-Invoice** | 🔴 | Koi e-invoice nahi. | IRN generate, GSTN integration. | India compliance. |
-| **Vendor Payout Statement PDF** | 🟡 | `/payouts/getStatement` hai. Vendor download nahi. | Vendor self-service PDF download. | Vendor record keeping. |
-| **Vendor TDS/GST TDS** | 🔴 | Koi TDS nahi. | Payout pe TDS deduction, certificate. | India tax compliance. |
+| **Vendor Flash Sales** | ðŸ”´ | `/flashSales/create` sirf ADMIN. | Vendor apni flash sale schedule kar sake. | Festive sales, inventory clearance. |
+| **Vendor Banners** | ðŸ”´ | `/banners/create` sirf ADMIN. | Vendor store banner, product banner. | Store branding + promotion. |
+| **Vendor Promoted Listings** | ðŸ”´ | Koi paid promotion nahi. | Bid-based ad slots, CPC/CPM, budget cap. | Naya revenue stream. |
+| **Vendor Bundle Offers** | ðŸ”´ | Combo create nahi ho sakta. | Buy 2 get 1, combo pack, kit. | AOV badhane ke liye. |
+| **Vendor Tiered Discounts** | ðŸ”´ | Volume discount nahi. | Buy 5+ = 10% off, Buy 10+ = 20% off. | B2B/wholesale ke liye. |
+| **Vendor Free Shipping** | ðŸ”´ | Sirf global `shipping.freeAbove`. | Vendor apne products pe free shipping de sake. | Vendor ka competitive edge. |
+| **Vendor Cashback** | ðŸ”´ | Customer ko cashback nahi. | Vendor-funded wallet credit on purchase. | Repeat purchase badhta hai. |
+| **Vendor Email/Push Campaign** | ðŸ”´ | `/newsletter/sendCampaign` sirf ADMIN. | Vendor apne customers ko blast bhej sake. | Vendor retention tool. |
+| **Vendor Referral Program** | ðŸ”´ | `/referral/*` global. | Vendor-specific referral with own rewards. | Vendor ka growth loop. |
+| **Vendor Loyalty Program** | ðŸ”´ | `/loyalty/*` global. | Vendor-specific points program. | Vendor ke repeat customers. |
+| **Vendor Gift Cards** | ðŸ”´ | Global gift cards. | Vendor apne gift cards issue kare. | Vendor branding + revenue. |
+| **Store Policies** | ðŸ”´ | Global policies. | Per-vendor return, shipping, privacy. | Vendor ka apna policy. |
+| **Store Reviews** | ðŸ”´ | Sirf product reviews. | Store-level rating + review. | Vendor reputation. |
+| **Vendor Staff / Sub-Users** | ðŸ”´ | Sirf 1 user per vendor. | Team members with role-based permissions. | Vendor team scale nahi kar sakta. |
+| **Vendor Shipping Preferences** | ðŸ”´ | `/shipping/createZone` sirf ADMIN. | Vendor apne zones/rates set kare. | Vendor apni shipping control kare. |
+| **Vendor Tax Config** | ðŸ”´ | Sirf admin-level `TaxConfig`. | Vendor GSTIN, HSN, tax rate. | India GST compliance. |
+| **Vendor Return Policy** | ðŸ”´ | Global `return.windowDays`. | Vendor apni return window. | Vendor ke business model. |
+| **Vendor Inventory Alerts** | ðŸ”´ | Low stock pe koi alert nahi. | Threshold-based email/push. | Stockout rokne ke liye. |
+| **Vendor Restock Reminder** | ðŸ”´ | Koi suggestion nahi. | Demand forecast + auto restock reminder. | Sales loss rokne ke liye. |
+| **Vendor Order Notes** | ðŸ”´ | Internal notes nahi. | Packing notes, internal comments. | Warehouse coordination. |
+| **Vendor Dispute Resolution** | ðŸ”´ | Koi dispute workflow nahi. | Customer-vendor dispute, admin mediation. | Trust building. |
+| **Vendor Dashboard Analytics** | ðŸŸ¡ | `getStats` hai. Deep analytics nahi. | Traffic, funnel, top products, cohorts. | Vendor informed decisions. |
+| **Vendor Product Performance** | ðŸŸ¡ | `/analytics/getProductPerformance` hai. Funnel nahi. | View â†’ cart â†’ order funnel per product. | Vendor conversion optimize kare. |
+| **Vendor Traffic Sources** | ðŸ”´ | Koi traffic data nahi. | Source, medium, campaign breakdown. | Marketing ROI. |
+| **Vendor Customer Insights** | ðŸ”´ | Repeat/LTV/churn nahi. | Customer segmentation vendor ke liye. | Retention strategy. |
+| **Vendor Competitor Benchmark** | ðŸ”´ | Category rank nahi. | Rank, competitor pricing, market share. | Competitive intelligence. |
+| **Vendor Payout Forecast** | ðŸ”´ | Next payout nahi pata. | Pending orders â†’ expected payout. | Cash flow planning. |
+| **Vendor Leaderboard** | ðŸ”´ | Koi ranking nahi. | Top vendors, badges (Silver/Gold/Platinum). | Gamification. |
+| **Vendor Performance Score** | ðŸ”´ | Koi score nahi. | Fulfilment, cancellation, response time, rating. | Quality control. |
+| **Vendor Subscription Plans** | ðŸ”´ | Flat commission. | Free/Silver/Gold/Platinum SaaS plans. | New revenue model. |
+| **Vendor Commission Tiers** | ðŸŸ¡ | Flat + per-vendor override. | Category-wise, volume-based tiers. | Fairness + incentive. |
+| **Vendor Featured Listing** | ðŸ”´ | Koi featured section nahi. | Paid featured product slots. | Revenue + visibility. |
+| **Vendor Sponsored Search** | ðŸ”´ | Search me paid spot nahi. | Bid-based sponsored results. | Revenue. |
+| **Vendor Ad Budget & Billing** | ðŸ”´ | Koi ad wallet nahi. | Ad spend wallet, auto-debit, invoice. | Ad system chalane ke liye. |
+| **Vendor â†” Admin Chat** | ðŸ”´ | Sirf customer-vendor chat. | Vendor admin se directly chat kare. | Support efficiency. |
+| **Vendor Announcements** | ðŸ”´ | Admin blast nahi bhej sakta. | Policy change, holiday, feature announcement. | Vendor communication. |
+| **Vendor Onboarding Checklist** | ðŸ”´ | Koi progress tracking nahi. | Registration â†’ KYC â†’ first product â†’ first sale. | Vendor activation rate. |
+| **Vendor Help Center** | ðŸ”´ | Koi FAQ/guide nahi. | Vendor-specific docs, videos. | Support load kam. |
+| **Vendor Notification Preferences** | ðŸ”´ | Vendor customize nahi kar sakta. | Per-event channel prefs. | Vendor control. |
+| **Vendor Fraud Detection** | ðŸ”´ | Koi protection nahi. | Fake orders, fake reviews, coupon abuse. | Vendor trust. |
+| **Vendor Chargeback Protection** | ðŸ”´ | Koi alert nahi. | Chargeback alert + evidence upload. | Vendor loss rokne ke liye. |
+| **Vendor GST e-Invoice** | ðŸ”´ | Koi e-invoice nahi. | IRN generate, GSTN integration. | India compliance. |
+| **Vendor Payout Statement PDF** | ðŸŸ¡ | `/payouts/getStatement` hai. Vendor download nahi. | Vendor self-service PDF download. | Vendor record keeping. |
+| **Vendor TDS/GST TDS** | ðŸ”´ | Koi TDS nahi. | Payout pe TDS deduction, certificate. | India tax compliance. |
 
 ### 4. Product / Catalog
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Product Approval Workflow** | 🔴 | Vendor create kare → direct live. | Admin approve/reject step. | Quality control. |
-| **Product Draft / Scheduled Publish** | 🔴 | Sirf active/inactive. | Draft, schedule future publish. | Vendor planning. |
-| **Product Versioning / Audit** | 🟡 | `AuditLog` hai, product-level nahi. | Per-product change history. | Dispute resolution. |
-| **Digital Products** | 🔴 | Sirf physical. | Downloadable files, license keys. | Naya product category. |
-| **Product Bundles / Kits** | 🔴 | Combo nahi. | Bundle with own pricing. | AOV badhta hai. |
-| **Product Variants Matrix** | 🟡 | Partial. | Full size × color × material matrix. | Fashion/electronics ke liye. |
-| **Custom Options / Personalization** | 🔴 | Koi custom field nahi. | Name engraving, custom text, upload. | Personalization products. |
-| **Product Q&A Moderation Queue** | 🟡 | Approve/reject hai. Bulk nahi. | Bulk moderation with filters. | Admin efficiency. |
-| **Product Compare API** | 🟡 | Flag hai, endpoints nahi. | Compare endpoint with attributes. | Conversion tool. |
-| **Product Restock Notification** | 🔴 | "Notify me" nahi. | Out-of-stock pe email/push. | Lost sales recover. |
-| **Product Import Mapping UI** | 🟡 | CSV import hai. Mapping nahi. | Column mapping, preview, validation. | Import UX. |
-| **Product Feed (Google/Facebook)** | 🔴 | Koi feed nahi. | Shopping feed XML/CSV. | Google Shopping. |
-| **Product Recall / Ban** | 🔴 | Admin ban nahi kar sakta. | Recall flag, notification to buyers. | Safety/compliance. |
-| **Category Restrictions** | 🔴 | Koi restriction nahi. | Category-wise vendor allow/block. | Marketplace policy. |
-| **Product Expiry / Batch** | 🔴 | Koi batch nahi. | Batch no, expiry, manufacturing date. | Pharma/food compliance. |
-| **Product Serial / IMEI** | 🔴 | Koi serial nahi. | Serial tracking, warranty activation. | Electronics. |
-| **Product Reviews with Media** | 🔴 | Sirf text review. | Image/video upload. | Trust + conversion. |
-| **Product Size Chart** | 🔴 | Koi size chart nahi. | Fashion size chart per category. | Returns kam. |
-| **Product Ingredients / Specs** | 🟡 | Partial attributes. | Structured ingredients, specs. | Food/cosmetics compliance. |
-| **Product Cross-sell / Upsell Rules** | 🟡 | Manual related. Rules nahi. | Rule-based cross-sell. | AOV badhta hai. |
-| **Product Frequently Bought Together** | 🟡 | Endpoint hai, algorithm nahi. | Actual co-purchase algorithm. | AOV. |
+| **Product Approval Workflow** | ðŸ”´ | Vendor create kare â†’ direct live. | Admin approve/reject step. | Quality control. |
+| **Product Draft / Scheduled Publish** | ðŸ”´ | Sirf active/inactive. | Draft, schedule future publish. | Vendor planning. |
+| **Product Versioning / Audit** | ðŸŸ¡ | `AuditLog` hai, product-level nahi. | Per-product change history. | Dispute resolution. |
+| **Digital Products** | ðŸ”´ | Sirf physical. | Downloadable files, license keys. | Naya product category. |
+| **Product Bundles / Kits** | ðŸ”´ | Combo nahi. | Bundle with own pricing. | AOV badhta hai. |
+| **Product Variants Matrix** | ðŸŸ¡ | Partial. | Full size Ã— color Ã— material matrix. | Fashion/electronics ke liye. |
+| **Custom Options / Personalization** | ðŸ”´ | Koi custom field nahi. | Name engraving, custom text, upload. | Personalization products. |
+| **Product Q&A Moderation Queue** | ðŸŸ¡ | Approve/reject hai. Bulk nahi. | Bulk moderation with filters. | Admin efficiency. |
+| **Product Compare API** | ðŸŸ¡ | Flag hai, endpoints nahi. | Compare endpoint with attributes. | Conversion tool. |
+| **Product Restock Notification** | ðŸ”´ | "Notify me" nahi. | Out-of-stock pe email/push. | Lost sales recover. |
+| **Product Import Mapping UI** | ðŸŸ¡ | CSV import hai. Mapping nahi. | Column mapping, preview, validation. | Import UX. |
+| **Product Feed (Google/Facebook)** | ðŸ”´ | Koi feed nahi. | Shopping feed XML/CSV. | Google Shopping. |
+| **Product Recall / Ban** | ðŸ”´ | Admin ban nahi kar sakta. | Recall flag, notification to buyers. | Safety/compliance. |
+| **Category Restrictions** | ðŸ”´ | Koi restriction nahi. | Category-wise vendor allow/block. | Marketplace policy. |
+| **Product Expiry / Batch** | ðŸ”´ | Koi batch nahi. | Batch no, expiry, manufacturing date. | Pharma/food compliance. |
+| **Product Serial / IMEI** | ðŸ”´ | Koi serial nahi. | Serial tracking, warranty activation. | Electronics. |
+| **Product Reviews with Media** | ðŸ”´ | Sirf text review. | Image/video upload. | Trust + conversion. |
+| **Product Size Chart** | ðŸ”´ | Koi size chart nahi. | Fashion size chart per category. | Returns kam. |
+| **Product Ingredients / Specs** | ðŸŸ¡ | Partial attributes. | Structured ingredients, specs. | Food/cosmetics compliance. |
+| **Product Cross-sell / Upsell Rules** | ðŸŸ¡ | Manual related. Rules nahi. | Rule-based cross-sell. | AOV badhta hai. |
+| **Product Frequently Bought Together** | ðŸŸ¡ | Endpoint hai, algorithm nahi. | Actual co-purchase algorithm. | AOV. |
 
 ### 5. Cart
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Guest Cart Persistence** | 🟡 | `mergeGuestCart` hai. Storage partial. | Cookie/localStorage strategy. | Guest checkout. |
-| **Cart Expiry Notification** | 🔴 | Koi reminder nahi. | Abandon hone se pehle email/push. | Abandoned cart recovery. |
-| **Cart Sharing** | 🔴 | Cart link share nahi. | Shareable cart URL. | Social commerce. |
-| **Cart Stock Hold** | 🟡 | `cart.holdMinutes` setting. Actual reservation nahi. | Real stock reservation during checkout. | Oversell rokne ke liye. |
-| **Cart Per-Vendor Coupon** | 🔴 | Ek coupon. Multiple nahi. | Per-vendor coupon in multi-vendor cart. | Vendor coupons ke saath. |
-| **Cart Scheduled Delivery** | 🔴 | Koi slot nahi. | Date/time slot selection. | Customer convenience. |
+| **Guest Cart Persistence** | ðŸŸ¡ | `mergeGuestCart` hai. Storage partial. | Cookie/localStorage strategy. | Guest checkout. |
+| **Cart Expiry Notification** | ðŸ”´ | Koi reminder nahi. | Abandon hone se pehle email/push. | Abandoned cart recovery. |
+| **Cart Sharing** | ðŸ”´ | Cart link share nahi. | Shareable cart URL. | Social commerce. |
+| **Cart Stock Hold** | ðŸŸ¡ | `cart.holdMinutes` setting. Actual reservation nahi. | Real stock reservation during checkout. | Oversell rokne ke liye. |
+| **Cart Per-Vendor Coupon** | ðŸ”´ | Ek coupon. Multiple nahi. | Per-vendor coupon in multi-vendor cart. | Vendor coupons ke saath. |
+| **Cart Scheduled Delivery** | ðŸ”´ | Koi slot nahi. | Date/time slot selection. | Customer convenience. |
 
 ### 6. Order
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Partial Cancellation** | 🔴 | Full order cancel. | Item-level cancel. | Customer flexibility. |
-| **Partial Shipment** | 🔴 | SubOrder full ship. | SubOrder ke andar bhi partial. | Multi-item orders. |
-| **Order Edit** | 🔴 | Place ke baad edit nahi. | Window me edit (address, items). | Customer mistakes. |
-| **Order Merge** | 🔴 | Multiple orders alag. | Same customer ke merge. | Shipping cost. |
-| **Order Split** | 🔴 | Ek order split nahi. | Split into multiple. | Warehouse ops. |
-| **Order Hold / On-hold** | 🔴 | Koi hold state nahi. | Payment issue pe hold. | Fraud prevention. |
-| **Order Priority** | 🔴 | Koi priority nahi. | VIP order priority. | Premium customers. |
-| **Order Attachments** | 🔴 | Koi attach nahi. | PO, prescription, KYC doc. | B2B orders. |
-| **Order Credit Note** | 🔴 | Koi credit note nahi. | Return ke baad credit note. | GST compliance. |
-| **Order Debit Note** | 🔴 | Koi debit note nahi. | Additional charge note. | GST compliance. |
-| **Order e-Invoice (IRN)** | 🔴 | Koi e-invoice nahi. | IRN generate, GSTN API. | India compliance. |
-| **Order e-Way Bill** | 🔴 | Koi e-way bill nahi. | Transport ke liye generate. | India compliance. |
-| **Order Delivery OTP** | 🟡 | `verifyDeliveryOtp` hai. Partial. | Full OTP flow with retry. | Delivery proof. |
-| **Order Proof of Delivery** | 🔴 | Koi POD nahi. | Photo, signature, geo. | Dispute proof. |
-| **Order Delivery Attempts** | 🔴 | Koi tracking nahi. | Failed attempts count. | NDR flow. |
-| **Order Reschedule Delivery** | 🔴 | Reschedule nahi. | Customer reschedule. | Flexibility. |
-| **Order COD Reconciliation** | 🟡 | Partial. | Cash collection → deposit → reconcile. | Finance accuracy. |
-| **Order Auto-complete** | 🔴 | Manual complete. | Delivered + N days → auto-complete. | Ops automation. |
-| **Order Auto-cancel Unpaid** | 🟡 | Setting hai. Cron nahi. | Nightly job to cancel unpaid. | Inventory release. |
-| **Order Reorder with Substitutions** | 🔴 | Reorder hai, substitute nahi. | Out-of-stock item substitute. | Conversion. |
-| **Order Backorder** | 🟡 | `allowBackorder` setting. Flow nahi. | Backorder accept + fulfil later. | Lost sales recover. |
+| **Partial Cancellation** | ðŸ”´ | Full order cancel. | Item-level cancel. | Customer flexibility. |
+| **Partial Shipment** | ðŸ”´ | SubOrder full ship. | SubOrder ke andar bhi partial. | Multi-item orders. |
+| **Order Edit** | ðŸ”´ | Place ke baad edit nahi. | Window me edit (address, items). | Customer mistakes. |
+| **Order Merge** | ðŸ”´ | Multiple orders alag. | Same customer ke merge. | Shipping cost. |
+| **Order Split** | ðŸ”´ | Ek order split nahi. | Split into multiple. | Warehouse ops. |
+| **Order Hold / On-hold** | ðŸ”´ | Koi hold state nahi. | Payment issue pe hold. | Fraud prevention. |
+| **Order Priority** | ðŸ”´ | Koi priority nahi. | VIP order priority. | Premium customers. |
+| **Order Attachments** | ðŸ”´ | Koi attach nahi. | PO, prescription, KYC doc. | B2B orders. |
+| **Order Credit Note** | ðŸ”´ | Koi credit note nahi. | Return ke baad credit note. | GST compliance. |
+| **Order Debit Note** | ðŸ”´ | Koi debit note nahi. | Additional charge note. | GST compliance. |
+| **Order e-Invoice (IRN)** | ðŸ”´ | Koi e-invoice nahi. | IRN generate, GSTN API. | India compliance. |
+| **Order e-Way Bill** | ðŸ”´ | Koi e-way bill nahi. | Transport ke liye generate. | India compliance. |
+| **Order Delivery OTP** | ðŸŸ¡ | `verifyDeliveryOtp` hai. Partial. | Full OTP flow with retry. | Delivery proof. |
+| **Order Proof of Delivery** | ðŸ”´ | Koi POD nahi. | Photo, signature, geo. | Dispute proof. |
+| **Order Delivery Attempts** | ðŸ”´ | Koi tracking nahi. | Failed attempts count. | NDR flow. |
+| **Order Reschedule Delivery** | ðŸ”´ | Reschedule nahi. | Customer reschedule. | Flexibility. |
+| **Order COD Reconciliation** | ðŸŸ¡ | Partial. | Cash collection â†’ deposit â†’ reconcile. | Finance accuracy. |
+| **Order Auto-complete** | ðŸ”´ | Manual complete. | Delivered + N days â†’ auto-complete. | Ops automation. |
+| **Order Auto-cancel Unpaid** | ðŸŸ¡ | Setting hai. Cron nahi. | Nightly job to cancel unpaid. | Inventory release. |
+| **Order Reorder with Substitutions** | ðŸ”´ | Reorder hai, substitute nahi. | Out-of-stock item substitute. | Conversion. |
+| **Order Backorder** | ðŸŸ¡ | `allowBackorder` setting. Flow nahi. | Backorder accept + fulfil later. | Lost sales recover. |
 
 ### 7. Payment
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Actual Razorpay/Stripe SDK** | 🟡 | Routes hain, SDK call nahi. | Actual SDK integration. | Live payment ke liye. |
-| **Webhook Signature Verification** | 🟡 | Stub hai. | Actual HMAC verify. | Security. |
-| **Webhook Retry + DLQ** | 🔴 | Koi retry nahi. | Failed webhook retry + DLQ. | Reliability. |
-| **Payment Reconciliation** | 🔴 | Koi reconciliation nahi. | Daily settlement vs gateway. | Finance accuracy. |
-| **Refund to Source** | 🟡 | Endpoint hai. Gateway call nahi. | Actual gateway refund API. | Customer trust. |
-| **Payment Retry** | 🔴 | Koi retry nahi. | Failed payment retry. | Conversion. |
-| **Payment Link** | 🔴 | Koi link nahi. | Shareable payment link. | B2B invoices. |
-| **Payment Reminder** | 🟡 | `balanceReminderHours` setting. Job nahi. | Actual cron to remind. | Balance recovery. |
-| **Split Payment** | 🟡 | Partial. | Wallet + card + COD mix. | Flexibility. |
-| **Payment Dispute / Chargeback** | 🔴 | Koi dispute nahi. | Evidence upload, tracking. | Loss rokne ke liye. |
-| **Payment Gateway Fallback** | 🔴 | Ek gateway. | Primary fail → secondary. | Uptime. |
-| **Payment Method Restrictions** | 🟡 | Partial. | Per-category, per-amount. | Risk control. |
+| **Actual Razorpay/Stripe SDK** | ðŸŸ¡ | Routes hain, SDK call nahi. | Actual SDK integration. | Live payment ke liye. |
+| **Webhook Signature Verification** | ðŸŸ¡ | Stub hai. | Actual HMAC verify. | Security. |
+| **Webhook Retry + DLQ** | ðŸ”´ | Koi retry nahi. | Failed webhook retry + DLQ. | Reliability. |
+| **Payment Reconciliation** | ðŸ”´ | Koi reconciliation nahi. | Daily settlement vs gateway. | Finance accuracy. |
+| **Refund to Source** | ðŸŸ¡ | Endpoint hai. Gateway call nahi. | Actual gateway refund API. | Customer trust. |
+| **Payment Retry** | ðŸ”´ | Koi retry nahi. | Failed payment retry. | Conversion. |
+| **Payment Link** | ðŸ”´ | Koi link nahi. | Shareable payment link. | B2B invoices. |
+| **Payment Reminder** | ðŸŸ¡ | `balanceReminderHours` setting. Job nahi. | Actual cron to remind. | Balance recovery. |
+| **Split Payment** | ðŸŸ¡ | Partial. | Wallet + card + COD mix. | Flexibility. |
+| **Payment Dispute / Chargeback** | ðŸ”´ | Koi dispute nahi. | Evidence upload, tracking. | Loss rokne ke liye. |
+| **Payment Gateway Fallback** | ðŸ”´ | Ek gateway. | Primary fail â†’ secondary. | Uptime. |
+| **Payment Method Restrictions** | ðŸŸ¡ | Partial. | Per-category, per-amount. | Risk control. |
 
 ### 8. Shipping / Delivery
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Label Generation** | 🟡 | Endpoint hai. PDF nahi. | Actual label PDF. | Warehouse ops. |
-| **Manifest Generation** | 🔴 | Koi manifest nahi. | Pickup manifest PDF. | Carrier pickup. |
-| **Pickup Scheduling** | 🔴 | Manual pickup. | Carrier pickup API. No need now | Automation. |
-| **AWB Assignment** | 🔴 | Manual AWB. | Auto AWB from carrier. No need now | Automation. |
-| **Serviceability by Weight/Size** | 🟡 | Pincode check. Weight nahi. | Weight/size based serviceability. | Accuracy. |
-| **Hyperlocal Delivery** | 🔴 | Koi hyperlocal nahi. | Same-day, 2-hour. | Quick commerce. |
-| **Delivery Slots** | 🔴 | Koi slot nahi. | Time slot selection. | Customer convenience. |
-| **Multi-Package Shipment** | 🔴 | Ek box. | Multiple boxes per order. | Large orders. |
-| **Return Pickup** | 🟡 | Partial. | Reverse logistics API. | Returns. |
-| **Delivery Boy Earnings** | 🔴 | Koi rider payout nahi. | Per-delivery earnings. | Rider retention. |
-| **Delivery Boy Shift/Roster** | 🔴 | Koi roster nahi. | Shift management. | Ops. |
-| **Delivery Proof** | 🟡 | OTP hai. | Photo, signature, geo. | Dispute proof. |
-| **Delivery Attempts** | 🔴 | Koi tracking nahi. | Attempts count. | NDR. |
-| **NDR (Non-Delivery Report)** | 🔴 | Koi NDR nahi. | NDR flow + reattempt. | Delivery success. |
-| **RTO (Return to Origin)** | 🔴 | Koi RTO nahi. | RTO flow. | Loss control. |
+| **Label Generation** | ðŸŸ¡ | Endpoint hai. PDF nahi. | Actual label PDF. | Warehouse ops. |
+| **Manifest Generation** | ðŸ”´ | Koi manifest nahi. | Pickup manifest PDF. | Carrier pickup. |
+| **Pickup Scheduling** | ðŸ”´ | Manual pickup. | Carrier pickup API. No need now | Automation. |
+| **AWB Assignment** | ðŸ”´ | Manual AWB. | Auto AWB from carrier. No need now | Automation. |
+| **Serviceability by Weight/Size** | ðŸŸ¡ | Pincode check. Weight nahi. | Weight/size based serviceability. | Accuracy. |
+| **Hyperlocal Delivery** | ðŸ”´ | Koi hyperlocal nahi. | Same-day, 2-hour. | Quick commerce. |
+| **Delivery Slots** | ðŸ”´ | Koi slot nahi. | Time slot selection. | Customer convenience. |
+| **Multi-Package Shipment** | ðŸ”´ | Ek box. | Multiple boxes per order. | Large orders. |
+| **Return Pickup** | ðŸŸ¡ | Partial. | Reverse logistics API. | Returns. |
+| **Delivery Boy Earnings** | ðŸ”´ | Koi rider payout nahi. | Per-delivery earnings. | Rider retention. |
+| **Delivery Boy Shift/Roster** | ðŸ”´ | Koi roster nahi. | Shift management. | Ops. |
+| **Delivery Proof** | ðŸŸ¡ | OTP hai. | Photo, signature, geo. | Dispute proof. |
+| **Delivery Attempts** | ðŸ”´ | Koi tracking nahi. | Attempts count. | NDR. |
+| **NDR (Non-Delivery Report)** | ðŸ”´ | Koi NDR nahi. | NDR flow + reattempt. | Delivery success. |
+| **RTO (Return to Origin)** | ðŸ”´ | Koi RTO nahi. | RTO flow. | Loss control. |
 
 ### 9. Returns / Refunds
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Exchange / Replacement** | 🔴 | Sirf return-refund. | Exchange flow. | Customer preference. |
-| **Partial Return** | 🟡 | Partial. | Item-level return. | Flexibility. |
-| **Return QC** | 🔴 | Koi QC step nahi. | Received pe quality check. | Fraud rokne ke liye. |
-| **Return Reason Analytics** | 🟡 | Partial. | Top reasons dashboard. | Product improvement. |
-| **Return Fraud Detection** | 🔴 | Koi detection nahi. | Serial returner flag. | Loss rokne ke liye. |
-| **Refund to Wallet vs Source** | 🟡 | `refund.mode` setting. Partial. | Actual routing. | Speed. |
-| **Return Pickup Scheduling** | 🔴 | Manual. | Auto pickup. | UX. |
-| **Return Window per Category** | 🔴 | Global window. | Category-wise. | Flexibility. |
-| **Return Policy per Vendor** | 🔴 | Global. | Vendor-specific. | Vendor control. |
-| **Return Credit Note** | 🔴 | Koi credit note nahi. | GST credit note. | Compliance. |
+| **Exchange / Replacement** | ðŸ”´ | Sirf return-refund. | Exchange flow. | Customer preference. |
+| **Partial Return** | ðŸŸ¡ | Partial. | Item-level return. | Flexibility. |
+| **Return QC** | ðŸ”´ | Koi QC step nahi. | Received pe quality check. | Fraud rokne ke liye. |
+| **Return Reason Analytics** | ðŸŸ¡ | Partial. | Top reasons dashboard. | Product improvement. |
+| **Return Fraud Detection** | ðŸ”´ | Koi detection nahi. | Serial returner flag. | Loss rokne ke liye. |
+| **Refund to Wallet vs Source** | ðŸŸ¡ | `refund.mode` setting. Partial. | Actual routing. | Speed. |
+| **Return Pickup Scheduling** | ðŸ”´ | Manual. | Auto pickup. | UX. |
+| **Return Window per Category** | ðŸ”´ | Global window. | Category-wise. | Flexibility. |
+| **Return Policy per Vendor** | ðŸ”´ | Global. | Vendor-specific. | Vendor control. |
+| **Return Credit Note** | ðŸ”´ | Koi credit note nahi. | GST credit note. | Compliance. |
 
 ### 10. Reviews / Q&A
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Review with Images/Video** | 🔴 | Text only. | Media upload. | Trust. |
-| **Review Verification Badge** | 🟡 | Partial. | Verified purchase badge. | Trust. |
-| **Review Moderation Queue** | 🟡 | Approve/reject. Bulk nahi. | Bulk moderation. | Admin efficiency. |
-| **Review Reply Threading** | 🟡 | Flat reply. | Nested threads. | Conversation. |
-| **Review Fraud Detection** | 🔴 | Koi detection nahi. | Fake review detection. | Trust. |
-| **Q&A Follow** | 🔴 | Koi follow nahi. | Follow question. | Engagement. |
-| **Q&A Notification** | 🟡 | Partial. | Answer aane pe notify. | Engagement. |
+| **Review with Images/Video** | ðŸ”´ | Text only. | Media upload. | Trust. |
+| **Review Verification Badge** | ðŸŸ¡ | Partial. | Verified purchase badge. | Trust. |
+| **Review Moderation Queue** | ðŸŸ¡ | Approve/reject. Bulk nahi. | Bulk moderation. | Admin efficiency. |
+| **Review Reply Threading** | ðŸŸ¡ | Flat reply. | Nested threads. | Conversation. |
+| **Review Fraud Detection** | ðŸ”´ | Koi detection nahi. | Fake review detection. | Trust. |
+| **Q&A Follow** | ðŸ”´ | Koi follow nahi. | Follow question. | Engagement. |
+| **Q&A Notification** | ðŸŸ¡ | Partial. | Answer aane pe notify. | Engagement. |
 
 ### 11. Coupons / Promotions
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Vendor Coupons** | 🔴 | Sirf admin. | Vendor-scoped coupons. | Vendor growth. |
-| **Category/Brand/Product Coupon** | 🟡 | Partial. | Full scoping. | Targeting. |
-| **Customer-specific Coupon** | 🔴 | Koi customer-specific nahi. | Assign to specific customer. | Loyalty. |
-| **First-order Coupon** | 🔴 | Koi first-order nahi. | Auto-apply new users. | Acquisition. |
-| **Referral Coupon** | 🔴 | Koi referral coupon nahi. | Referrer + referee coupon. | Growth. |
-| **Coupon Stacking Rules** | 🟡 | `stackable` hai. Complex nahi. | Rule engine. | Flexibility. |
-| **Coupon Budget Cap** | 🟡 | Partial. | Total discount cap. | Loss control. |
-| **Coupon Fraud Detection** | 🔴 | Koi detection nahi. | Abuse detection. | Loss. |
-| **Coupon A/B Testing** | 🔴 | Koi A/B nahi. | Variant testing. | Optimization. |
-| **Coupon Analytics** | 🟡 | Usage hai. ROI nahi. | ROI dashboard. | Marketing. |
-| **Bundle Discount** | 🔴 | Koi bundle nahi. | Bundle pricing. | AOV. |
-| **Cart-level Discount** | 🟡 | Partial. | Cart total discount. | AOV. |
-| **Free Gift with Purchase** | 🔴 | Koi free gift nahi. | Auto-add gift. | AOV. |
-| **Loyalty-based Discount** | 🔴 | Koi loyalty discount nahi. | Tier-based discount. | Loyalty. |
-| **Abandoned Cart Coupon** | 🔴 | Koi auto coupon nahi. | Cart recovery coupon. | Conversion. |
+| **Category/Brand/Product Coupon** | ðŸŸ¡ | Partial. | Full scoping. | Targeting. |
+| **Customer-specific Coupon** | ðŸ”´ | Koi customer-specific nahi. | Assign to specific customer. | Loyalty. |
+| **First-order Coupon** | ðŸ”´ | Koi first-order nahi. | Auto-apply new users. | Acquisition. |
+| **Referral Coupon** | ðŸ”´ | Koi referral coupon nahi. | Referrer + referee coupon. | Growth. |
+| **Coupon Stacking Rules** | ðŸŸ¡ | `stackable` hai. Complex nahi. | Rule engine. | Flexibility. |
+| **Coupon Budget Cap** | ðŸŸ¡ | Partial. | Total discount cap. | Loss control. |
+| **Coupon Fraud Detection** | ðŸ”´ | Koi detection nahi. | Abuse detection. | Loss. |
+| **Coupon A/B Testing** | ðŸ”´ | Koi A/B nahi. | Variant testing. | Optimization. |
+| **Coupon Analytics** | ðŸŸ¡ | Usage hai. ROI nahi. | ROI dashboard. | Marketing. |
+| **Bundle Discount** | ðŸ”´ | Koi bundle nahi. | Bundle pricing. | AOV. |
+| **Cart-level Discount** | ðŸŸ¡ | Partial. | Cart total discount. | AOV. |
+| **Free Gift with Purchase** | ðŸ”´ | Koi free gift nahi. | Auto-add gift. | AOV. |
+| **Loyalty-based Discount** | ðŸ”´ | Koi loyalty discount nahi. | Tier-based discount. | Loyalty. |
+| **Abandoned Cart Coupon** | ðŸ”´ | Koi auto coupon nahi. | Cart recovery coupon. | Conversion. |
 
 ### 12. Wallet / Loyalty / Referral / Gift Cards
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Wallet Withdrawal** | 🔴 | Koi withdrawal nahi. | Bank withdrawal. | Trust. |
-| **Loyalty Tiers** | 🟡 | `getTiers` hai. Upgrade nahi. | Auto tier upgrade. | Loyalty. |
-| **Loyalty Redemption Catalog** | 🔴 | Koi catalog nahi. | Points → products. | Redemption. |
-| **Referral Fraud Detection** | 🔴 | Koi detection nahi. | Self-referral block. | Loss. |
-| **Referral Multi-level** | 🔴 | Koi multi-level nahi. | 2-level referral. | Growth. |
-| **Referral Payout** | 🟡 | Partial. | Cash vs points choice. | Flexibility. |
-| **Gift Card Partial Redemption** | 🟡 | Partial. | Balance carry forward. | UX. |
-| **Gift Card Transfer** | 🔴 | Koi transfer nahi. | Gift to friend. | Social. |
-| **Gift Card Bulk Issue** | 🔴 | Koi bulk nahi. | Corporate bulk. | B2B. |
-| **Gift Card Design** | 🔴 | Koi design nahi. | Custom templates. | Branding. |
+| **Wallet Withdrawal** | ðŸ”´ | Koi withdrawal nahi. | Bank withdrawal. | Trust. |
+| **Loyalty Tiers** | ðŸŸ¡ | `getTiers` hai. Upgrade nahi. | Auto tier upgrade. | Loyalty. |
+| **Loyalty Redemption Catalog** | ðŸ”´ | Koi catalog nahi. | Points â†’ products. | Redemption. |
+| **Referral Fraud Detection** | ðŸ”´ | Koi detection nahi. | Self-referral block. | Loss. |
+| **Referral Multi-level** | ðŸ”´ | Koi multi-level nahi. | 2-level referral. | Growth. |
+| **Referral Payout** | ðŸŸ¡ | Partial. | Cash vs points choice. | Flexibility. |
+| **Gift Card Partial Redemption** | ðŸŸ¡ | Partial. | Balance carry forward. | UX. |
+| **Gift Card Transfer** | ðŸ”´ | Koi transfer nahi. | Gift to friend. | Social. |
+| **Gift Card Bulk Issue** | ðŸ”´ | Koi bulk nahi. | Corporate bulk. | B2B. |
+| **Gift Card Design** | ðŸ”´ | Koi design nahi. | Custom templates. | Branding. |
 
 ### 13. Notifications
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **FCM Push Actual Implementation** | 🟡 | Settings hain. Code nahi. | Actual FCM send. | Engagement. |
-| **In-app Notification Center** | 🟡 | `getAll` hai. Realtime partial. | Real-time center. | UX. |
-| **Notification Scheduling** | 🔴 | Koi scheduling nahi. | Schedule future send. | Campaigns. |
-| **Notification A/B Testing** | 🔴 | Koi A/B nahi. | Variant testing. | Optimization. |
-| **Notification Digest** | 🔴 | Koi digest nahi. | Daily/weekly. | Frequency control. |
-| **Notification Quiet Hours** | 🔴 | Koi quiet hours nahi. | Do-not-disturb window. | UX. |
-| **Notification Frequency Cap** | 🔴 | Koi cap nahi. | Per-user cap. | Anti-spam. |
-| **Notification Retry** | 🔴 | Koi retry nahi. | Failed retry. | Reliability. |
-| **Notification Analytics** | 🔴 | Koi analytics nahi. | Delivered, opened, clicked. | Optimization. |
-| **Notification Templates Multilingual** | 🔴 | Single language. | Per-locale templates. | i18n. |
-| **Push Deep Linking** | 🔴 | Koi deep link nahi. | Open specific screen. | UX. |
-| **Rich Push (image, action buttons)** | 🔴 | Plain text. | Rich media. | Engagement. |
+| **FCM Push Actual Implementation** | ðŸŸ¡ | Settings hain. Code nahi. | Actual FCM send. | Engagement. |
+| **In-app Notification Center** | ðŸŸ¡ | `getAll` hai. Realtime partial. | Real-time center. | UX. |
+| **Notification Scheduling** | ðŸ”´ | Koi scheduling nahi. | Schedule future send. | Campaigns. |
+| **Notification A/B Testing** | ðŸ”´ | Koi A/B nahi. | Variant testing. | Optimization. |
+| **Notification Digest** | ðŸ”´ | Koi digest nahi. | Daily/weekly. | Frequency control. |
+| **Notification Quiet Hours** | ðŸ”´ | Koi quiet hours nahi. | Do-not-disturb window. | UX. |
+| **Notification Frequency Cap** | ðŸ”´ | Koi cap nahi. | Per-user cap. | Anti-spam. |
+| **Notification Retry** | ðŸ”´ | Koi retry nahi. | Failed retry. | Reliability. |
+| **Notification Analytics** | ðŸ”´ | Koi analytics nahi. | Delivered, opened, clicked. | Optimization. |
+| **Notification Templates Multilingual** | ðŸ”´ | Single language. | Per-locale templates. | i18n. |
+| **Push Deep Linking** | ðŸ”´ | Koi deep link nahi. | Open specific screen. | UX. |
+| **Rich Push (image, action buttons)** | ðŸ”´ | Plain text. | Rich media. | Engagement. |
 
 ### 14. Chat / Tickets
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Chat File/Image Upload** | 🔴 | Sirf text. | File/image upload. | Support. |
-| **Chat Assignment** | 🔴 | Koi assignment nahi. | Agent assign. | Ops. |
-| **Chat SLA Tracking** | 🔴 | Koi SLA nahi. | Response time SLA. | Quality. |
-| **Chat CSAT Survey** | 🔴 | Koi CSAT nahi. | Post-chat survey. | Quality. |
-| **Ticket SLA / Escalation** | 🔴 | Koi SLA nahi. | Auto escalation. | Quality. |
-| **Ticket Canned Responses** | 🔴 | Koi canned nahi. | Pre-written. | Speed. |
-| **Ticket Attachments** | 🔴 | Koi attach nahi. | File upload. | Support. |
-| **Ticket Merge** | 🔴 | Koi merge nahi. | Merge duplicates. | Ops. |
-| **Ticket CSAT** | 🔴 | Koi CSAT nahi. | Post-resolution survey. | Quality. |
-| **Knowledge Base / Help Center** | 🔴 | Koi KB nahi. | Self-service docs. | Support load. |
+| **Chat File/Image Upload** | ðŸ”´ | Sirf text. | File/image upload. | Support. |
+| **Chat Assignment** | ðŸ”´ | Koi assignment nahi. | Agent assign. | Ops. |
+| **Chat SLA Tracking** | ðŸ”´ | Koi SLA nahi. | Response time SLA. | Quality. |
+| **Chat CSAT Survey** | ðŸ”´ | Koi CSAT nahi. | Post-chat survey. | Quality. |
+| **Ticket SLA / Escalation** | ðŸ”´ | Koi SLA nahi. | Auto escalation. | Quality. |
+| **Ticket Canned Responses** | ðŸ”´ | Koi canned nahi. | Pre-written. | Speed. |
+| **Ticket Attachments** | ðŸ”´ | Koi attach nahi. | File upload. | Support. |
+| **Ticket Merge** | ðŸ”´ | Koi merge nahi. | Merge duplicates. | Ops. |
+| **Ticket CSAT** | ðŸ”´ | Koi CSAT nahi. | Post-resolution survey. | Quality. |
+| **Knowledge Base / Help Center** | ðŸ”´ | Koi KB nahi. | Self-service docs. | Support load. |
 
 ### 15. Content
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Content Versioning** | 🔴 | Koi version nahi. | Revision history. | Editorial. |
-| **Content Scheduling** | 🔴 | Koi scheduling nahi. | Future publish. | Editorial. |
-| **Content Localization** | 🟡 | i18n hai. Content per-locale nahi. | Multi-locale content. | i18n. |
-| **Content Sitemap** | 🔴 | Koi sitemap nahi. | Auto sitemap.xml. | SEO. |
-| **Content RSS Feed** | 🔴 | Koi RSS nahi. | Auto RSS. | Distribution. |
-| **Content Comments** | 🔴 | Koi comments nahi. | Blog comments. | Engagement. |
-| **Content Categories/Tags** | 🟡 | Partial. | Blog taxonomy. | Discovery. |
-| **Content Author** | 🔴 | Koi author nahi. | Author profile. | Attribution. |
-| **Content Preview** | 🔴 | Koi preview nahi. | Draft preview. | Editorial. |
-| **Banner Scheduling** | 🟡 | Partial. | Start/end date. | Campaigns. |
-| **Banner Targeting** | 🔴 | Koi targeting nahi. | Audience, geo, device. | Personalization. |
-| **Banner A/B Testing** | 🔴 | Koi A/B nahi. | Variant testing. | Optimization. |
-| **Banner Click Tracking** | 🔴 | Koi tracking nahi. | CTR tracking. | Analytics. |
-| **Popup / Modal Management** | 🔴 | Koi popup nahi. | Popup builder. | Conversion. |
-| **Announcement Bar** | 🔴 | Koi announcement nahi. | Top bar announcement. | Communication. |
-| **Cookie Consent** | 🔴 | Koi consent nahi. | DPDP cookie banner. | Compliance. |
+| **Content Versioning** | ðŸ”´ | Koi version nahi. | Revision history. | Editorial. |
+| **Content Scheduling** | ðŸ”´ | Koi scheduling nahi. | Future publish. | Editorial. |
+| **Content Localization** | ðŸŸ¡ | i18n hai. Content per-locale nahi. | Multi-locale content. | i18n. |
+| **Content Sitemap** | ðŸ”´ | Koi sitemap nahi. | Auto sitemap.xml. | SEO. |
+| **Content RSS Feed** | ðŸ”´ | Koi RSS nahi. | Auto RSS. | Distribution. |
+| **Content Comments** | ðŸ”´ | Koi comments nahi. | Blog comments. | Engagement. |
+| **Content Categories/Tags** | ðŸŸ¡ | Partial. | Blog taxonomy. | Discovery. |
+| **Content Author** | ðŸ”´ | Koi author nahi. | Author profile. | Attribution. |
+| **Content Preview** | ðŸ”´ | Koi preview nahi. | Draft preview. | Editorial. |
+| **Banner Scheduling** | ðŸŸ¡ | Partial. | Start/end date. | Campaigns. |
+| **Banner Targeting** | ðŸ”´ | Koi targeting nahi. | Audience, geo, device. | Personalization. |
+| **Banner A/B Testing** | ðŸ”´ | Koi A/B nahi. | Variant testing. | Optimization. |
+| **Banner Click Tracking** | ðŸ”´ | Koi tracking nahi. | CTR tracking. | Analytics. |
+| **Popup / Modal Management** | ðŸ”´ | Koi popup nahi. | Popup builder. | Conversion. |
+| **Announcement Bar** | ðŸ”´ | Koi announcement nahi. | Top bar announcement. | Communication. |
+| **Cookie Consent** | ðŸ”´ | Koi consent nahi. | DPDP cookie banner. | Compliance. |
 
 ### 16. Search
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Search Engine (Meilisearch/ES)** | 🟡 | Postgres search. Scale nahi. | Dedicated engine. | Performance. |
-| **Typo Tolerance** | 🔴 | Koi typo tolerance nahi. | Fuzzy match. | UX. |
-| **Synonyms** | 🔴 | Koi synonym nahi. | Custom synonyms. | Recall. |
-| **Zero-result Recovery** | 🟡 | `getZeroResultSearches` hai. Action nahi. | Fallback suggestions. | Conversion. |
-| **Search Filters Facets** | 🟡 | `getFilters` hai. Dynamic partial. | Dynamic facets. | UX. |
+| **Search Engine (Meilisearch/ES)** | ðŸŸ¡ | Postgres search. Scale nahi. | Dedicated engine. | Performance. |
+| **Typo Tolerance** | ðŸ”´ | Koi typo tolerance nahi. | Fuzzy match. | UX. |
+| **Synonyms** | ðŸ”´ | Koi synonym nahi. | Custom synonyms. | Recall. |
+| **Zero-result Recovery** | ðŸŸ¡ | `getZeroResultSearches` hai. Action nahi. | Fallback suggestions. | Conversion. |
+| **Search Filters Facets** | ðŸŸ¡ | `getFilters` hai. Dynamic partial. | Dynamic facets. | UX. |
 
 ### 17. Admin / System
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Admin Impersonation Audit** | 🟡 | `impersonate` hai. Log partial. | Full audit trail. | Security. |
-| **Admin Approval Workflow** | 🔴 | Koi multi-level nahi. | Multi-level approvals. | Governance. |
-| **Admin Bulk Operations** | 🟡 | Partial. | Full bulk actions. | Efficiency. |
-| **Admin Notification Center** | 🔴 | Koi center nahi. | Admin alerts. | Ops. |
-| **Admin Dashboard Widgets** | 🔴 | Koi widgets nahi. | Configurable widgets. | UX. |
-| **Admin Saved Filters** | 🔴 | Koi saved filters nahi. | Save filter presets. | Efficiency. |
-| **Admin Custom Reports** | 🟡 | `reports` hai. Builder nahi. | Report builder. | Flexibility. |
-| **Admin Scheduled Reports** | 🟡 | `schedule` hai. Cron partial. | Actual cron delivery. | Automation. |
-| **Admin Data Import** | 🟡 | Users, orders partial. | Full import. | Migration. |
-| **Admin System Alerts** | 🟡 | Partial. | DB down, queue stuck alerts. | Ops. |
-| **Admin Feature Flag UI** | 🟡 | API hai. UI nahi. | Admin UI. | Usability. |
-| **Admin Audit Log Retention** | 🟡 | `purge` hai. Policy nahi. | Retention policy. | Compliance. |
-| **Admin Session Timeout** | 🔴 | Koi timeout nahi. | Idle timeout. | Security. |
-| **Admin Activity Feed** | 🔴 | Koi feed nahi. | Real-time activity. | Ops. |
+| **Admin Impersonation Audit** | ðŸŸ¡ | `impersonate` hai. Log partial. | Full audit trail. | Security. |
+| **Admin Approval Workflow** | ðŸ”´ | Koi multi-level nahi. | Multi-level approvals. | Governance. |
+| **Admin Bulk Operations** | ðŸŸ¡ | Partial. | Full bulk actions. | Efficiency. |
+| **Admin Notification Center** | ðŸ”´ | Koi center nahi. | Admin alerts. | Ops. |
+| **Admin Dashboard Widgets** | ðŸ”´ | Koi widgets nahi. | Configurable widgets. | UX. |
+| **Admin Saved Filters** | ðŸ”´ | Koi saved filters nahi. | Save filter presets. | Efficiency. |
+| **Admin Custom Reports** | ðŸŸ¡ | `reports` hai. Builder nahi. | Report builder. | Flexibility. |
+| **Admin Scheduled Reports** | ðŸŸ¡ | `schedule` hai. Cron partial. | Actual cron delivery. | Automation. |
+| **Admin Data Import** | ðŸŸ¡ | Users, orders partial. | Full import. | Migration. |
+| **Admin System Alerts** | ðŸŸ¡ | Partial. | DB down, queue stuck alerts. | Ops. |
+| **Admin Feature Flag UI** | ðŸŸ¡ | API hai. UI nahi. | Admin UI. | Usability. |
+| **Admin Audit Log Retention** | ðŸŸ¡ | `purge` hai. Policy nahi. | Retention policy. | Compliance. |
+| **Admin Session Timeout** | ðŸ”´ | Koi timeout nahi. | Idle timeout. | Security. |
+| **Admin Activity Feed** | ðŸ”´ | Koi feed nahi. | Real-time activity. | Ops. |
 
 ### 18. i18n / Currency / Tax / Geo
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **GSTIN Validation** | 🔴 | Koi validation nahi. | GSTN API validation. | Compliance. |
-| **HSN Code Mapping** | 🔴 | Koi HSN nahi. | HSN per product. | GST. |
-| **e-Invoice / e-Way Bill** | 🔴 | Koi e-invoice nahi. | IRN, e-way bill. | India compliance. |
-| **TDS / TCS** | 🔴 | Koi TDS nahi. | TDS/TCS deduction. | India tax. |
+| **GSTIN Validation** | ðŸ”´ | Koi validation nahi. | GSTN API validation. | Compliance. |
+| **HSN Code Mapping** | ðŸ”´ | Koi HSN nahi. | HSN per product. | GST. |
+| **e-Invoice / e-Way Bill** | ðŸ”´ | Koi e-invoice nahi. | IRN, e-way bill. | India compliance. |
+| **TDS / TCS** | ðŸ”´ | Koi TDS nahi. | TDS/TCS deduction. | India tax. |
 
 ### 19. Bulk / Import / Export
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Import Column Mapping** | 🔴 | Koi mapping nahi. | Column map UI. | Import UX. |
-| **Import Validation Preview** | 🔴 | Koi preview nahi. | Preview before commit. | Data safety. |
-| **Import Rollback** | 🔴 | Koi rollback nahi. | Undo import. | Data safety. |
-| **Import Scheduling** | 🔴 | Koi scheduling nahi. | Schedule imports. | Automation. |
-| **Export Streaming** | 🟡 | Partial. | Streaming for large. | Performance. |
-| **Export Templates** | 🔴 | Koi templates nahi. | Saved export formats. | Efficiency. |
+| **Import Column Mapping** | ðŸ”´ | Koi mapping nahi. | Column map UI. | Import UX. |
+| **Import Validation Preview** | ðŸ”´ | Koi preview nahi. | Preview before commit. | Data safety. |
+| **Import Rollback** | ðŸ”´ | Koi rollback nahi. | Undo import. | Data safety. |
+| **Import Scheduling** | ðŸ”´ | Koi scheduling nahi. | Schedule imports. | Automation. |
+| **Export Streaming** | ðŸŸ¡ | Partial. | Streaming for large. | Performance. |
+| **Export Templates** | ðŸ”´ | Koi templates nahi. | Saved export formats. | Efficiency. |
 
 ### 20. API Keys / Webhooks
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **API Key Authentication Middleware** | 🟡 | Routes hain. Auth nahi. | Actual middleware. | Third-party access. |
-| **API Key Scopes/Permissions** | 🔴 | Koi scopes nahi. | Scope-based access. | Security. |
-| **API Key Rate Limit** | 🔴 | Koi per-key limit nahi. | Per-key throttle. | Fairness. |
-| **API Key Expiry** | 🔴 | Koi expiry nahi. | TTL on keys. | Security. |
-| **API Key Usage Analytics** | 🟡 | `getUsage` hai. Deep nahi. | Full analytics. | Monitoring. |
-| **Webhook Retry + DLQ** | 🔴 | Koi retry nahi. | Retry policy + DLQ. | Reliability. |
-| **Webhook Signature** | 🟡 | Partial. | Full HMAC. | Security. |
-| **Webhook Event Filtering** | 🔴 | Koi filter nahi. | Subscribe specific events. | Efficiency. |
-| **Webhook Payload Versioning** | 🔴 | Koi versioning nahi. | API versioning. | Compatibility. |
-| **Webhook Testing Tool** | 🔴 | Koi test tool nahi. | Test endpoint. | DX. |
-| **Webhook Replay** | 🔴 | Koi replay nahi. | Replay events. | Debugging. |
+| **API Key Authentication Middleware** | ðŸŸ¡ | Routes hain. Auth nahi. | Actual middleware. | Third-party access. |
+| **API Key Scopes/Permissions** | ðŸ”´ | Koi scopes nahi. | Scope-based access. | Security. |
+| **API Key Rate Limit** | ðŸ”´ | Koi per-key limit nahi. | Per-key throttle. | Fairness. |
+| **API Key Expiry** | ðŸ”´ | Koi expiry nahi. | TTL on keys. | Security. |
+| **API Key Usage Analytics** | ðŸŸ¡ | `getUsage` hai. Deep nahi. | Full analytics. | Monitoring. |
+| **Webhook Retry + DLQ** | ðŸ”´ | Koi retry nahi. | Retry policy + DLQ. | Reliability. |
+| **Webhook Signature** | ðŸŸ¡ | Partial. | Full HMAC. | Security. |
+| **Webhook Event Filtering** | ðŸ”´ | Koi filter nahi. | Subscribe specific events. | Efficiency. |
+| **Webhook Payload Versioning** | ðŸ”´ | Koi versioning nahi. | API versioning. | Compatibility. |
+| **Webhook Testing Tool** | ðŸ”´ | Koi test tool nahi. | Test endpoint. | DX. |
+| **Webhook Replay** | ðŸ”´ | Koi replay nahi. | Replay events. | Debugging. |
 
 ### 21. Uploads
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Image Optimization** | 🟡 | Cloudinary partial. | WebP, compression. | Performance. |
-| **Image Variants** | 🟡 | Cloudinary partial. | Thumbnail, medium, large. | Performance. |
-| **CDN Invalidation** | 🔴 | Koi invalidation nahi. | Purge cache. | Freshness. |
-| **Upload Progress** | 🔴 | Koi progress nahi. | Progress events. | UX. |
-| **Chunked Upload** | 🔴 | Koi chunked nahi. | Large file chunking. | UX. |
-| **Resumable Upload** | 🔴 | Koi resumable nahi. | Resume failed uploads. | UX. |
-| **Direct-to-Cloud Upload** | 🟡 | Signed URL hai. Actual partial. | Full direct upload. | Performance. |
-| **Upload Retention Policy** | 🔴 | Koi policy nahi. | Auto-delete old. | Storage. |
+| **Image Optimization** | ðŸŸ¡ | Cloudinary partial. | WebP, compression. | Performance. |
+| **Image Variants** | ðŸŸ¡ | Cloudinary partial. | Thumbnail, medium, large. | Performance. |
+| **CDN Invalidation** | ðŸ”´ | Koi invalidation nahi. | Purge cache. | Freshness. |
+| **Upload Progress** | ðŸ”´ | Koi progress nahi. | Progress events. | UX. |
+| **Chunked Upload** | ðŸ”´ | Koi chunked nahi. | Large file chunking. | UX. |
+| **Resumable Upload** | ðŸ”´ | Koi resumable nahi. | Resume failed uploads. | UX. |
+| **Direct-to-Cloud Upload** | ðŸŸ¡ | Signed URL hai. Actual partial. | Full direct upload. | Performance. |
+| **Upload Retention Policy** | ðŸ”´ | Koi policy nahi. | Auto-delete old. | Storage. |
 
 ### 22. Jobs / Queue
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Job Dashboard (Bull Board)** | 🔴 | Koi dashboard nahi. | Bull Board UI. | Ops. |
-| **Job Scheduling UI** | 🔴 | Koi UI nahi. | Schedule management. | Ops. |
-| **Job Metrics** | 🔴 | Koi metrics nahi. | Prometheus metrics. | Monitoring. |
-| **Job Alerting** | 🔴 | Koi alert nahi. | Failed job alerts. | Ops. |
-| **Cron Job Management** | 🟡 | `getCronJobs`, `triggerJob` hai. Actual partial. | Full cron mgmt. | Ops. |
+| **Job Dashboard (Bull Board)** | ðŸ”´ | Koi dashboard nahi. | Bull Board UI. | Ops. |
+| **Job Scheduling UI** | ðŸ”´ | Koi UI nahi. | Schedule management. | Ops. |
+| **Job Metrics** | ðŸ”´ | Koi metrics nahi. | Prometheus metrics. | Monitoring. |
+| **Job Alerting** | ðŸ”´ | Koi alert nahi. | Failed job alerts. | Ops. |
+| **Cron Job Management** | ðŸŸ¡ | `getCronJobs`, `triggerJob` hai. Actual partial. | Full cron mgmt. | Ops. |
 
 ### 23. Realtime / Socket
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Socket JWT Auth** | 🔴 | Koi auth nahi. | Handshake JWT verify. | Security. |
-| **Redis Adapter** | 🔴 | Koi adapter nahi. | Multi-instance scaling. | Scale. |
-| **Room-based Delivery** | 🟡 | Partial. | Full room system. | Efficiency. |
-| **Presence** | 🟡 | Partial. | Online/offline tracking. | UX. |
-| **Read Receipts** | 🟡 | Partial. | Message read status. | UX. |
-| **Live Support Chat** | 🟡 | Partial. | Full live chat. | Support. |
-| **Socket Rate Limit** | 🔴 | Koi limit nahi. | Per-socket throttle. | Abuse. |
-| **Socket Reconnection** | 🔴 | Koi reconnection nahi. | Auto-reconnect. | UX. |
+| **Socket JWT Auth** | ðŸ”´ | Koi auth nahi. | Handshake JWT verify. | Security. |
+| **Redis Adapter** | ðŸ”´ | Koi adapter nahi. | Multi-instance scaling. | Scale. |
+| **Room-based Delivery** | ðŸŸ¡ | Partial. | Full room system. | Efficiency. |
+| **Presence** | ðŸŸ¡ | Partial. | Online/offline tracking. | UX. |
+| **Read Receipts** | ðŸŸ¡ | Partial. | Message read status. | UX. |
+| **Live Support Chat** | ðŸŸ¡ | Partial. | Full live chat. | Support. |
+| **Socket Rate Limit** | ðŸ”´ | Koi limit nahi. | Per-socket throttle. | Abuse. |
+| **Socket Reconnection** | ðŸ”´ | Koi reconnection nahi. | Auto-reconnect. | UX. |
 
 ### 24. Infrastructure / Ops
 
 | Feature | Type | Abhi Kya Hai | Kya Missing | Kyun Zaroori |
 | --- | --- | --- | --- | --- |
-| **Idempotency** | 🟢 | Payment writes key-protected. | Extend to every write route. | Duplicate rokne ke liye. |
-| **Observability (Sentry, OTel, Prometheus)** | 🔴 | Sirf pino logs. | Full observability. | Debugging. |
-| **Alerting (PagerDuty, Slack)** | 🔴 | Koi alert nahi. | Alert channels. | Ops. |
-| **Backup & DR** | 🔴 | Koi backup nahi. | Automated backup. | Data safety. |
-| **CSRF Protection** | 🔴 | Koi CSRF nahi. | CSRF token. | Security. |
-| **WAF** | 🔴 | Koi WAF nahi. | Cloudflare WAF. | Security. |
-| **DB Partitioning** | 🔴 | Koi partition nahi. | Logs/analytics partition. | Scale. |
-| **Caching Strategy (Redis)** | 🟡 | Partial. | Full cache layer. | Performance. |
-| **Compliance (DPDP, PCI)** | 🔴 | Koi compliance nahi. | Full compliance. | Legal. |
+| **Idempotency** | ðŸŸ¢ | Payment writes key-protected. | Extend to every write route. | Duplicate rokne ke liye. |
+| **Observability (Sentry, OTel, Prometheus)** | ðŸ”´ | Sirf pino logs. | Full observability. | Debugging. |
+| **Alerting (PagerDuty, Slack)** | ðŸ”´ | Koi alert nahi. | Alert channels. | Ops. |
+| **Backup & DR** | ðŸ”´ | Koi backup nahi. | Automated backup. | Data safety. |
+| **CSRF Protection** | ðŸ”´ | Koi CSRF nahi. | CSRF token. | Security. |
+| **WAF** | ðŸ”´ | Koi WAF nahi. | Cloudflare WAF. | Security. |
+| **DB Partitioning** | ðŸ”´ | Koi partition nahi. | Logs/analytics partition. | Scale. |
+| **Caching Strategy (Redis)** | ðŸŸ¡ | Partial. | Full cache layer. | Performance. |
+| **Compliance (DPDP, PCI)** | ðŸ”´ | Koi compliance nahi. | Full compliance. | Legal. |

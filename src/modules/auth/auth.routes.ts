@@ -111,7 +111,7 @@ router.post(
  *     responses:
  *       200: { description: Logged in, or 2FA challenge issued }
  *       401: { description: Invalid credentials }
- *       403: { description: Account suspended or locked }
+ *       403: { description: Account suspended, locked or banned }
  */
 router.post('/login', authRateLimit, validate({ body: schema.loginSchema }), controller.login);
 
@@ -127,7 +127,7 @@ router.post('/login', authRateLimit, validate({ body: schema.loginSchema }), con
  *     responses:
  *       200: { description: Logged in; tokens returned }
  *       401: { description: Invalid or expired OTP, or no account for that identifier }
- *       403: { description: Account suspended or not verified }
+ *       403: { description: Account suspended, banned or not verified }
  *       429: { description: Too many OTP attempts }
  */
 router.post(

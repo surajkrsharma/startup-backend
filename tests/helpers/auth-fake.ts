@@ -120,6 +120,8 @@ export interface FakeStore {
     refreshTokens: Row[];
     passwordHistory: Row[];
     vendors: Row[];
+    devices: Row[];
+    bans: Row[];
     seq: number;
   };
   prisma: Record<string, any>;
@@ -134,6 +136,8 @@ export const createFakeStore = (): FakeStore => {
     refreshTokens: [] as Row[],
     passwordHistory: [] as Row[],
     vendors: [] as Row[],
+    devices: [] as Row[],
+    bans: [] as Row[],
     seq: 0,
   };
 
@@ -152,6 +156,8 @@ export const createFakeStore = (): FakeStore => {
     refreshToken: collection(db.refreshTokens, id),
     passwordHistory: collection(db.passwordHistory, id),
     vendorProfile: collection(db.vendors, id),
+    device: collection(db.devices, id),
+    customerBan: collection(db.bans, id),
 
     $transaction: async (arg: any) => {
       if (typeof arg === 'function') return arg(prisma);
@@ -169,6 +175,8 @@ export const createFakeStore = (): FakeStore => {
       db.refreshTokens.length = 0;
       db.passwordHistory.length = 0;
       db.vendors.length = 0;
+      db.devices.length = 0;
+      db.bans.length = 0;
       db.seq = 0;
     },
   };

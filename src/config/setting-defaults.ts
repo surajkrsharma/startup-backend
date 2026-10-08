@@ -164,6 +164,8 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'vendor.payoutCycleDays', value: 7, category: 'vendor', isPublic: false },
   { key: 'vendor.payoutHoldDays', value: 3, category: 'vendor', isPublic: false },
   { key: 'vendor.commissionOverrideAllowed', value: true, category: 'vendor', isPublic: false },
+  { key: 'vendor.vacationMaxDays', value: 90, category: 'vendor', isPublic: false },
+  { key: 'vendor.storeProductLimit', value: 12, category: 'vendor', isPublic: true },
 
   { key: 'notification.email.enabled', value: true, category: 'notification', isPublic: false },
   { key: 'notification.sms.enabled', value: false, category: 'notification', isPublic: false },
@@ -196,6 +198,13 @@ export const SETTINGS: SettingSeed[] = [
   { key: 'security.loginAlerts', value: true, category: 'security', isPublic: false },
   { key: 'security.newDeviceAlerts', value: true, category: 'security', isPublic: false },
   { key: 'security.accountPurgeDays', value: 30, category: 'security', isPublic: false },
+  { key: 'security.loginNotifyEnabled', value: true, category: 'security', isPublic: false },
+  { key: 'security.banMaxDays', value: 365, category: 'security', isPublic: false },
+
+  { key: 'customer.segment.repeatOrders', value: 2, category: 'customer', isPublic: false },
+  { key: 'customer.segment.wholesaleOrders', value: 10, category: 'customer', isPublic: false },
+  { key: 'customer.segment.vipSpend', value: 10000, category: 'customer', isPublic: false },
+  { key: 'customer.segment.batchSize', value: 500, category: 'customer', isPublic: false },
 
   { key: 'maintenance.enabled', value: false, category: 'system', isPublic: false },
   { key: 'maintenance.message', value: "We'll be back soon.", category: 'system', isPublic: true },

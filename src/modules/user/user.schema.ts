@@ -9,6 +9,7 @@ import {
 } from '../../constants/countries';
 import { DELIVERY_INSTRUCTIONS, NAME, PHONE } from '../../config/password.config';
 import { VALIDATION } from '../../messages/validation';
+import { BAN_REASON_MAX_LENGTH, SEGMENT_KIND_VALUES } from '../../constants/segments';
 import { common, paginationSchema } from '../../middlewares/validate.middleware';
 
 const name = z
@@ -165,6 +166,56 @@ export const listTimelineSchema = z
   })
   .merge(paginationSchema)
   .strict();
+
+export const banCustomerSchema = z
+  .object({
+    reason: z.string().trim().min(1, VALIDATION.REQUIRED('reason')).max(BAN_REASON_MAX_LENGTH),
+    durationDays: z.coerce.number().int().min(1).max(3650).optional(),
+  })
+  .strict();
+
+export const unbanCustomerSchema = z
+  .object({
+    reason: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+  })
+  .strict();
+
+export const listBansSchema = paginationSchema.extend({
+  search: z.string().trim().max(120).optional(),
+  isActive: z.enum(['true', 'false']).optional(),
+});
+
+export const createSegmentSchema = z
+  .object({
+    name: z.string().trim().min(1, VALIDATION.REQUIRED('name')).max(60),
+    description: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+    color: z.string().trim().max(20).optional(),
+  })
+  .strict();
+
+export const updateSegmentSchema = z
+  .object({
+    name: z.string().trim().min(1, VALIDATION.REQUIRED('name')).max(60).optional(),
+    description: z.string().trim().max(NAME.COMMENT_MAX_LENGTH).optional(),
+    color: z.string().trim().max(20).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: VALIDATION.INVALID_JSON });
+
+export const listSegmentsSchema = paginationSchema.extend({
+  kind: z.enum(SEGMENT_KIND_VALUES as [string, ...string[]]).optional(),
+  isActive: z.enum(['true', 'false']).optional(),
+  search: z.string().trim().max(120).optional(),
+});
+
+export const segmentMembersSchema = z
+  .object({
+    userIds: z.array(common.cuid).min(1, VALIDATION.REQUIRED('userIds')).max(500),
+  })
+  .strict();
+
+export const segmentMemberParamSchema = z.object({ id: common.cuid });
 
 export const UPLOAD_FIELD = 'avatar';
 export const DEFAULT_DIAL = DEFAULT_DIAL_CODE;

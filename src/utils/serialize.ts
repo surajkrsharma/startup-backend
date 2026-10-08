@@ -138,6 +138,9 @@ export const serializeVendor = (v: any) => ({
   documentsVerifiedAt: D.date(v?.documentsVerifiedAt),
   approvedAt: D.date(v?.approvedAt),
   rejectedReason: D.str(v?.rejectedReason),
+  isOnVacation: D.bool(v?.isOnVacation),
+  vacationMessage: D.str(v?.vacationMessage),
+  vacationUntil: D.date(v?.vacationUntil),
   createdAt: D.date(v?.createdAt),
   updatedAt: D.date(v?.updatedAt),
 
@@ -671,6 +674,121 @@ export const serializeTimelineEvent = (e: any) => ({
 
 export const serializeTimelineList = (rows: any[]) => ({
   timelineList: D.arr(rows).map(serializeTimelineEvent),
+});
+
+export const serializeCustomerBan = (b: any) => ({
+  banId: D.str(b?.id),
+  userId: D.str(b?.userId),
+  reason: D.str(b?.reason),
+  isActive: D.bool(b?.isActive),
+  daysRemaining: D.num(b?.daysRemaining),
+  bannedBy: D.str(b?.createdById),
+  bannedByData: b?.createdBy ? serializeUserSummary(b.createdBy) : ({} as Record<string, never>),
+  expiresAt: D.date(b?.expiresAt),
+  revokedAt: D.date(b?.revokedAt),
+  revokeReason: D.str(b?.revokeReason),
+  createdAt: D.date(b?.createdAt),
+});
+
+export const serializeCustomerBanList = (rows: any[]) => ({
+  banList: D.arr(rows).map(serializeCustomerBan),
+});
+
+export const serializeCustomerSegment = (s: any) => ({
+  segmentId: D.str(s?.id),
+  name: D.str(s?.name),
+  slug: D.str(s?.slug),
+  description: D.str(s?.description),
+  color: D.str(s?.color),
+  kind: D.str(s?.kind),
+  isAuto: D.str(s?.kind) !== 'MANUAL',
+  isActive: D.bool(s?.isActive),
+  memberCount: D.num(s?._count?.members),
+  createdAt: D.date(s?.createdAt),
+  updatedAt: D.date(s?.updatedAt),
+});
+
+export const serializeCustomerSegmentList = (rows: any[]) => ({
+  segmentList: D.arr(rows).map(serializeCustomerSegment),
+});
+
+export const serializeCustomerSegmentMember = (m: any) => ({
+  memberId: D.str(m?.id),
+  segmentId: D.str(m?.segmentId),
+  userId: D.str(m?.userId),
+  source: D.str(m?.source),
+  assignedAt: D.date(m?.assignedAt),
+
+  userData: m?.user ? serializeUserSummary(m.user) : ({} as Record<string, never>),
+  segmentData: m?.segment
+    ? { segmentId: D.str(m.segment.id), name: D.str(m.segment.name), slug: D.str(m.segment.slug) }
+    : ({} as Record<string, never>),
+});
+
+export const serializeCustomerSegmentMemberList = (rows: any[]) => ({
+  memberList: D.arr(rows).map(serializeCustomerSegmentMember),
+});
+
+/** Public storefront view: rating and counts, never bank details or KYC state. */
+export const serializeVendorStorefront = (v: any) => ({
+  vendorId: D.str(v?.id),
+  shopName: D.str(v?.shopName),
+  slug: D.str(v?.slug),
+  description: D.str(v?.description),
+  logo: D.str(v?.logo),
+  banner: D.str(v?.banner),
+  gstNumber: D.str(v?.gstNumber),
+  rating: D.float(v?.rating),
+  ratingCount: D.num(v?.ratingCount),
+  totalSales: D.float(v?.totalSales),
+  memberSince: D.date(v?.createdAt),
+  isOnVacation: D.bool(v?.isOnVacation),
+  vacationMessage: D.str(v?.vacationMessage),
+  vacationUntil: D.date(v?.vacationUntil),
+
+  vacationData: {
+    isAcceptingOrders: !D.bool(v?.isOnVacation),
+    message: D.str(v?.vacationMessage),
+    resumesAt: D.date(v?.vacationUntil),
+  },
+
+  statsData: {
+    productCount: D.num(v?._count?.products),
+    reviewCount: D.num(v?._count?.reviews),
+    subOrderCount: D.num(v?._count?.subOrders),
+  },
+
+  announcementList: D.arr(v?.announcements).map((a: any) => ({
+    announcementId: D.str(a?.id),
+    title: D.str(a?.title),
+    message: D.str(a?.message),
+    linkUrl: D.str(a?.linkUrl),
+    isPinned: D.bool(a?.isPinned),
+    startsAt: D.date(a?.startsAt),
+    endsAt: D.date(a?.endsAt),
+  })),
+
+  productList: D.arr(v?.products).map((p: any) => serializeProductSummary(p)),
+});
+
+export const serializeVendorAnnouncement = (a: any) => ({
+  announcementId: D.str(a?.id),
+  vendorId: D.str(a?.vendorId),
+  title: D.str(a?.title),
+  message: D.str(a?.message),
+  linkUrl: D.str(a?.linkUrl),
+  status: D.str(a?.status),
+  isPinned: D.bool(a?.isPinned),
+  isLive: D.str(a?.status) === 'ACTIVE',
+  startsAt: D.date(a?.startsAt),
+  endsAt: D.date(a?.endsAt),
+  createdBy: D.str(a?.createdById),
+  createdAt: D.date(a?.createdAt),
+  updatedAt: D.date(a?.updatedAt),
+});
+
+export const serializeVendorAnnouncementList = (rows: any[]) => ({
+  announcementList: D.arr(rows).map(serializeVendorAnnouncement),
 });
 
 export const serializeCannedResponse = (c: any) => ({

@@ -270,6 +270,25 @@ enum WebhookProvider {
   CUSTOM
 }
 
+enum SegmentKind {
+  MANUAL
+  NEW
+  REPEAT
+  VIP
+  WHOLESALE
+  BLOCKED
+}
+
+enum SegmentSource {
+  MANUAL
+  RULE
+}
+
+enum AnnouncementStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum AdminAction {
   CREATE
   UPDATE
@@ -357,6 +376,10 @@ model User {
   ticketNotes             TicketNote[]
   customerNotes           CustomerNote[]
   customerNotesAuthored   CustomerNote[]            @relation("CustomerNoteAuthor")
+  customerBan             CustomerBan?
+  customerBansAuthored    CustomerBan[]             @relation("CustomerBanAuthor")
+  segmentMemberships      CustomerSegmentMember[]
+  segmentsAssigned        CustomerSegmentMember[]   @relation("SegmentAssignAuthor")
   loyaltyTier             String                    @default("")
   referredById            String?
   referralsMade           Referral[]                @relation("ReferrerReferrals")
@@ -583,6 +606,10 @@ model VendorProfile {
   documentsVerifiedAt  DateTime?
   approvedAt           DateTime?
   rejectedReason       String       @default("")
+  isOnVacation         Boolean      @default(false)
+  vacationMessage      String       @default("")
+  vacationUntil        DateTime?
+  vacationResumesAt    DateTime?
   deletedAt            DateTime?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
@@ -597,6 +624,7 @@ model VendorProfile {
   questions      Question[]
   conversations  ConversationParticipant[]
   returnRequests ReturnRequest[]
+  announcements  VendorAnnouncement[]
 
   @@index([status])
   @@index([slug])
@@ -620,6 +648,27 @@ model KycDocument {
 
   @@index([vendorId])
   @@index([isVerified])
+}
+
+model VendorAnnouncement {
+  id          String             @id @default(cuid())
+  vendorId    String
+  title       String
+  message     String             @default("")
+  linkUrl     String             @default("")
+  status      AnnouncementStatus @default(ACTIVE)
+  isPinned    Boolean            @default(false)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  vendor VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, status])
+  @@index([status, startsAt, endsAt])
+  @@index([createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1868,6 +1917,57 @@ model CustomerNote {
 
   @@index([userId, createdAt])
   @@index([createdById])
+}
+
+model CustomerBan {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  reason       String    @default("")
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  revokeReason String    @default("")
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("CustomerBanAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model CustomerSegment {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  description String      @default("")
+  color       String      @default("")
+  kind        SegmentKind @default(MANUAL)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  members CustomerSegmentMember[]
+
+  @@index([isActive])
+  @@index([kind])
+}
+
+model CustomerSegmentMember {
+  id           String        @id @default(cuid())
+  segmentId    String
+  userId       String
+  source       SegmentSource @default(MANUAL)
+  assignedById String?
+  assignedAt   DateTime      @default(now())
+
+  segment    CustomerSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User?           @relation("SegmentAssignAuthor", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([segmentId, userId])
+  @@index([userId])
+  @@index([segmentId])
 }
 
 //  CONTENT

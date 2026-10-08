@@ -19,8 +19,16 @@ import {
 import { uniqueVendorSlug } from '../../utils/slug';
 import { AppError } from '../../utils/AppError';
 import { ERROR } from '../../messages/error';
+import { SUCCESS } from '../../messages/success';
 import { ERROR_CODE, HTTP_STATUS } from '../../constants/http';
-import { ROLES, OTP_TYPE, OTP_CHANNEL, OtpType, VENDOR_STATUS } from '../../constants/roles';
+import {
+  ROLES,
+  OTP_TYPE,
+  OTP_CHANNEL,
+  OtpType,
+  VENDOR_STATUS,
+  NOTIFICATION_TYPE,
+} from '../../constants/roles';
 import { VERIFICATION_PURPOSE } from '../../constants/roles';
 import { OTP_TYPES_REQUIRING_ACCOUNT } from '../../constants/roles';
 import { OTP } from '../../config/otp.config';
@@ -36,13 +44,21 @@ import {
 import { REDIS_KEYS } from '../../config/tracking.config';
 import { incr, cacheDel, getRedis } from '../../services/redis.service';
 import { sendOtpEmail } from '../../services/email.service';
-import { notifyUser } from '../../services/notification.service';
+import { notifyUser, sendMailNotification } from '../../services/notification.service';
 import { sendOtpSms } from '../../services/sms/sms.service';
 import { enqueueEmail } from '../../jobs/queues';
 import { writeAuditLog, writeActivityLog } from '../../services/audit.service';
 import { D } from '../../utils/defaults';
 import { addMinutes, daysBetween } from '../../utils/dates';
-import { AUTH_USER_SELECT, AuthUserWithVendor, DeviceContext, TokenPair } from './auth.types';
+import { banDaysRemaining, isBanActive } from '../../utils/segments';
+import { lookupGeo } from '../../utils/geo';
+import {
+  AUTH_USER_SELECT,
+  AuthUserWithVendor,
+  DeviceContext,
+  LoginMethod,
+  TokenPair,
+} from './auth.types';
 import {
   channelForIdentifier,
   consumeVerificationFor,
@@ -89,6 +105,77 @@ const INVALID_IDENTIFIER = (): AppError =>
     HTTP_STATUS.BAD_REQUEST,
     ERROR_CODE.VALIDATION_ERROR,
   );
+
+/**
+ * Runs only once the credential itself has been proven. A ban refused before
+ * that would answer with ACCOUNT_BANNED instead of INVALID_CREDENTIALS, which
+ * is exactly the signal an attacker uses to learn an account exists.
+ */
+const assertNotBanned = async (userId: string): Promise<void> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { customerBan: { select: { expiresAt: true, revokedAt: true } } },
+  });
+
+  const ban = user?.customerBan;
+  if (!isBanActive(ban)) return;
+
+  const days = banDaysRemaining(ban);
+  throw AppError.forbidden(
+    days ? `${ERROR.USER.BANNED} (${days} days)` : ERROR.USER.BANNED,
+    ERROR_CODE.ACCOUNT_BANNED,
+  );
+};
+
+const loginLocation = (req: any, ip: string): string => {
+  const geo = req?.geo ?? (ENV.GEO_LOOKUP_ENABLED ? lookupGeo(ip) : undefined);
+  if (!geo) return '';
+  return [D.str(geo.city), D.str(geo.state), D.str(geo.country)].filter(Boolean).join(', ');
+};
+
+/** The notice is advisory, so nothing it does may cost the caller its session. */
+const notifyLogin = async (
+  user: AuthUserWithVendor,
+  device: DeviceContext,
+  meta: { method: LoginMethod; isNewDevice: boolean },
+  req?: any,
+): Promise<void> => {
+  try {
+    const security = await getSecurityConfig();
+    if (!security.loginNotifyEnabled) return;
+
+    const ip = D.str(device.ip);
+    const location = loginLocation(req, ip);
+    const details = [D.str(device.platform), ip, location].filter(Boolean).join(', ');
+
+    await notifyUser({
+      userId: user.id,
+      type: NOTIFICATION_TYPE.ALERT,
+      title: SUCCESS.AUTH.LOGIN_NOTIFY_TITLE,
+      body: `${SUCCESS.AUTH.LOGIN_NOTIFY_BODY} (${details})`,
+      data: {
+        method: meta.method,
+        sessionKey: D.str(device.sessionKey),
+        deviceId: D.str(device.deviceId),
+        ip,
+        location,
+        isNewDevice: D.bool(meta.isNewDevice),
+        loggedInAt: new Date().toISOString(),
+      },
+    });
+
+    const email = D.str(user.email);
+    if (!security.loginAlerts || !email) return;
+
+    await sendMailNotification({
+      to: email,
+      subject: SUCCESS.AUTH.LOGIN_NOTIFY_EMAIL_SUBJECT,
+      text: `${SUCCESS.AUTH.LOGIN_NOTIFY_BODY} (${details})`,
+    });
+  } catch (err) {
+    logger.error({ err: (err as Error)?.message }, '[auth] login notification failed');
+  }
+};
 
 export const registerCustomer = async (
   input: any,
@@ -503,6 +590,8 @@ export const loginWithPassword = async (
   assertVerified(user);
   assertPasswordNotExpired(user.passwordChangedAt, security.passwordExpiryDays);
 
+  await assertNotBanned(user.id);
+
   if (user.twoFactorEnabled && security.twoFactorEnabled) {
     await prisma.user.update({
       where: { id: user.id },
@@ -541,6 +630,8 @@ export const loginWithPassword = async (
   await cacheDel(REDIS_KEYS.LOGIN_ATTEMPTS(identifier));
 
   const revokedSessionCount = await enforceSessionLimit(user.id, device.sessionKey);
+
+  void notifyLogin(user, device, { method: 'password', isNewDevice }, req);
 
   if (security.loginAlerts && (security.newDeviceAlerts ? isNewDevice : isNewLocation)) {
     void notifyUser({
@@ -609,6 +700,8 @@ export const completeTwoFactorLogin = async (
     );
   }
 
+  await assertNotBanned(user.id);
+
   if (backupIndex >= 0) {
     const remaining = [...backupCodes];
     remaining.splice(backupIndex, 1);
@@ -620,8 +713,12 @@ export const completeTwoFactorLogin = async (
     data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
   });
 
+  const isNewDevice = await flagNewDevice(user.id, device);
+
   const tokens = await issueTokens(user.id, device);
   await linkDeviceToUser(user.id, device);
+
+  void notifyLogin(user, device, { method: 'twoFactor', isNewDevice });
 
   return { user, tokens, twoFactorRequired: false };
 };
@@ -851,10 +948,16 @@ export const verifyLoginOtp = async (
 
   assertVerified(user);
 
+  await assertNotBanned(user.id);
+
+  const isNewDevice = await flagNewDevice(user.id, device);
+
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
   const tokens = await issueTokens(user.id, device);
   await linkDeviceToUser(user.id, device);
+
+  void notifyLogin(user, device, { method: 'otp', isNewDevice }, req);
 
   void writeActivityLog({
     req,
@@ -1538,8 +1641,16 @@ export const socialLogin = async (
         ERROR_CODE.ACCOUNT_SUSPENDED,
       );
     }
+
+    await assertNotBanned(user.id);
+
+    const isNewDevice = await flagNewDevice(user.id, device);
+
     const tokens = await issueTokens(user.id, device);
     await linkDeviceToUser(user.id, device);
+
+    void notifyLogin(user, device, { method: 'social', isNewDevice });
+
     return { user, tokens, isNewUser: false };
   }
 
@@ -1590,8 +1701,14 @@ export const socialLogin = async (
   }
   assertVerified(user);
 
+  await assertNotBanned(user.id);
+
+  const isNewDevice = await flagNewDevice(userId, device);
+
   const tokens = await issueTokens(userId, device);
   await linkDeviceToUser(userId, device);
+
+  void notifyLogin(user, device, { method: 'social', isNewDevice });
 
   return { user, tokens, isNewUser: !byEmail };
 };

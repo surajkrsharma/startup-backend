@@ -19,6 +19,7 @@ import { PAYOUT_STATUS, PAYMENT_STATUS, VENDOR_STATUS } from '../constants/roles
 import { generatePayoutStatementPdf } from '../services/pdf.service';
 import { ANALYTICS } from '../config/analytics.config';
 import { scanPriceDrops } from '../modules/cart/cart.service';
+import { liftExpiredBans, refreshCustomerSegments } from '../modules/user/user.service';
 
 const log = moduleLogger('jobs');
 const workers: Worker[] = [];
@@ -458,6 +459,13 @@ register(QUEUE.NOTIFICATION, JOB.PRICE_DROP_SCAN, async () => {
 });
 
 register(QUEUE.CLEANUP, JOB.PRUNE_FAILED_JOBS, async () => pruneFailedJobs());
+
+register(QUEUE.CLEANUP, JOB.LIFT_EXPIRED_BANS, async () => {
+  const lifted = await liftExpiredBans();
+  return { lifted };
+});
+
+register(QUEUE.CLEANUP, JOB.REFRESH_CUSTOMER_SEGMENTS, async () => refreshCustomerSegments());
 
 export const startWorkers = (): void => {
   if (!ENV.WORKER_ENABLED) {

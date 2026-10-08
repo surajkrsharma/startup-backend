@@ -8,7 +8,8 @@ import { ReviewStatus, type CouponType } from '@prisma/client';
 import { ORDER_STATUS } from '../../constants/statuses';
 import { calcCouponDiscount, toPercentDistribution } from '../../utils/calculations';
 import { getCouponConfig, getReviewEditWindowDays } from '../../services/settings.service';
-import { writeActivityLog } from '../../services/audit.service';
+import { writeActivityLog, writeAuditLog } from '../../services/audit.service';
+import { ADMIN_ACTION } from '../../constants/roles';
 import { daysBetween, isFuture, isPast } from '../../utils/dates';
 import { uniqueFlashSaleSlug } from '../../utils/slug';
 
@@ -570,6 +571,100 @@ export const listCoupons = async (
   ]);
 
   return { rows, total };
+};
+
+/**
+ * Ownership guard for the vendor coupon surface: a coupon that does not exist is a
+ * 404, while one that belongs to another store is a 403, so the two stay
+ * distinguishable instead of collapsing into one answer.
+ */
+const requireOwnCoupon = async (couponId: string, vendorId: string): Promise<any> => {
+  const coupon = await prisma.coupon.findFirst({
+    where: { id: couponId, deletedAt: null },
+    select: { id: true, code: true, vendorId: true },
+  });
+
+  if (!coupon) throw AppError.notFound(ERROR.COUPON.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  if (D.str(coupon.vendorId) !== D.str(vendorId)) {
+    throw AppError.forbidden(ERROR.VENDOR.NOT_OWN_COUPON, ERROR_CODE.FORBIDDEN);
+  }
+
+  return coupon;
+};
+
+export const listVendorCoupons = async (
+  vendorId: string,
+  query: Record<string, any>,
+): Promise<{ rows: any[]; total: number }> => {
+  const where: Prisma.CouponWhereInput = { vendorId, deletedAt: null };
+
+  if (D.str(query.status)) where.status = query.status as any;
+  if (D.str(query.isActive) === 'true') where.isActive = true;
+  if (D.str(query.isActive) === 'false') where.isActive = false;
+
+  if (D.str(query.search)) {
+    where.OR = [
+      { code: { contains: D.str(query.search), mode: 'insensitive' } },
+      { title: { contains: D.str(query.search), mode: 'insensitive' } },
+    ];
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.coupon.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: D.num(query.skip),
+      take: D.num(query.take),
+    }),
+    prisma.coupon.count({ where }),
+  ]);
+
+  return { rows, total };
+};
+
+/** The store id is taken from the authenticated vendor, never from the body. */
+export const createVendorCoupon = async (
+  vendorId: string,
+  input: Record<string, any>,
+  actorId?: string,
+  req?: any,
+): Promise<any> => createCoupon({ ...input, vendorId }, actorId, req);
+
+export const updateVendorCoupon = async (
+  couponId: string,
+  vendorId: string,
+  input: Record<string, any>,
+  actorId?: string,
+  req?: any,
+): Promise<any> => {
+  await requireOwnCoupon(couponId, vendorId);
+
+  return updateCoupon(couponId, input, actorId, req);
+};
+
+export const deleteVendorCoupon = async (
+  couponId: string,
+  vendorId: string,
+  actorId?: string,
+  req?: any,
+): Promise<void> => {
+  const coupon = await requireOwnCoupon(couponId, vendorId);
+
+  await prisma.coupon.update({
+    where: { id: couponId },
+    data: { deletedAt: new Date(), isActive: false },
+  });
+
+  void writeAuditLog({
+    req,
+    actorId,
+    action: ADMIN_ACTION.DELETE,
+    entity: 'Coupon',
+    entityId: couponId,
+    description: `Coupon soft deleted: ${coupon.code}`,
+    meta: { softDelete: true },
+  });
 };
 
 export const getCouponById = async (id: string): Promise<any> => {

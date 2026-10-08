@@ -169,6 +169,38 @@ coupon.post(
 );
 
 coupon.get(
+  '/vendorCoupons',
+  authenticate,
+  ...controller.guards.vendorCoupon,
+  validate({ query: schema.listVendorCouponsSchema }),
+  controller.vendorCouponList,
+);
+
+coupon.post(
+  '/vendorCreateCoupon',
+  authenticate,
+  ...controller.guards.vendorCoupon,
+  validate({ body: schema.createVendorCouponSchema }),
+  controller.vendorCouponCreate,
+);
+
+coupon.patch(
+  '/vendorUpdateCoupon/:id',
+  authenticate,
+  ...controller.guards.vendorCoupon,
+  validate({ params: schema.couponIdParamSchema, body: schema.updateVendorCouponSchema }),
+  controller.vendorCouponUpdate,
+);
+
+coupon.delete(
+  '/vendorDeleteCoupon/:id',
+  authenticate,
+  ...controller.guards.vendorCoupon,
+  validate({ params: schema.couponIdParamSchema }),
+  controller.vendorCouponDelete,
+);
+
+coupon.get(
   '/getUsages/:id',
   authenticate,
   ...controller.guards.admin,

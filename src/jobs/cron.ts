@@ -70,6 +70,20 @@ export const CRON_JOB_LIST: CronDefinition[] = [
     cron: CRON.PRUNE_FAILED_JOBS,
     description: 'Age out resolved and abandoned dead letter rows',
   },
+  {
+    name: 'lift-expired-bans',
+    queue: QUEUE.CLEANUP,
+    job: JOB.LIFT_EXPIRED_BANS,
+    cron: CRON.LIFT_EXPIRED_BANS,
+    description: 'Reactivate customers whose block duration has ended',
+  },
+  {
+    name: 'refresh-customer-segments',
+    queue: QUEUE.CLEANUP,
+    job: JOB.REFRESH_CUSTOMER_SEGMENTS,
+    cron: CRON.REFRESH_CUSTOMER_SEGMENTS,
+    description: 'Recompute VIP, repeat, new, wholesale and blocked segments',
+  },
 ];
 
 export const startCronJobs = async (): Promise<number> => {

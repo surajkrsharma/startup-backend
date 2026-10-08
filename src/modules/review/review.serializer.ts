@@ -104,6 +104,10 @@ export const serializeFlashSaleDetail = (s: any) => {
   };
 };
 
+export const serializeCouponList = (rows: any[]) => ({
+  couponList: D.arr(rows).map(serializeCoupon),
+});
+
 export const serializeCouponUsage = (u: any) => ({
   usageId: D.str(u?.id),
   couponId: D.str(u?.couponId),

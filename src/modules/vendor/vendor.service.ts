@@ -12,6 +12,7 @@ import {
   VendorStatus,
 } from '../../constants/roles';
 import { ORDER_STATUS } from '../../constants/statuses';
+import { ANNOUNCEMENT_STATUS } from '../../constants/segments';
 import { getPagination } from '../../utils/pagination';
 import { uniqueVendorSlug } from '../../utils/slug';
 import { diffChanges, writeActivityLog, writeAuditLog } from '../../services/audit.service';
@@ -23,6 +24,7 @@ import {
   getVendorMaxProducts,
   getMinPayoutAmount,
   getVendorPayoutHoldDays,
+  getVendorStoreConfig,
 } from '../../services/settings.service';
 import { deleteTempFiles } from '../../middlewares/upload.middleware';
 import { addDays, toDayKey } from '../../utils/dates';
@@ -53,6 +55,9 @@ const VENDOR_SELECT = {
   documentsVerifiedAt: true,
   approvedAt: true,
   rejectedReason: true,
+  isOnVacation: true,
+  vacationMessage: true,
+  vacationUntil: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -987,3 +992,444 @@ export const isAutoApproveOn = async (): Promise<boolean> => getVendorAutoApprov
 
 export const regenerateSlug = async (shopName: string): Promise<string> =>
   uniqueVendorSlug(shopName);
+
+const STORE_PRODUCT_SELECT = {
+  id: true,
+  vendorId: true,
+  name: true,
+  slug: true,
+  sku: true,
+  price: true,
+  mrpPrice: true,
+  stock: true,
+  condition: true,
+  warrantyMonths: true,
+  isNonReturnable: true,
+  status: true,
+  isFeatured: true,
+  rating: true,
+  soldCount: true,
+  createdAt: true,
+  category: { select: { id: true, name: true } },
+  images: { select: { url: true, sortOrder: true } },
+} satisfies Prisma.ProductSelect;
+
+export const getStorefront = async (slug: string, query?: any): Promise<any> => {
+  const { storeProductLimit } = await getVendorStoreConfig();
+  const requested = D.num(query?.limit);
+  const productLimit = requested > 0 ? Math.min(requested, storeProductLimit) : storeProductLimit;
+  const now = new Date();
+
+  const vendor = await prisma.vendorProfile.findUnique({
+    where: { slug: D.str(slug) },
+    include: {
+      announcements: {
+        where: {
+          status: ANNOUNCEMENT_STATUS.ACTIVE,
+          AND: [
+            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+            { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+          ],
+        },
+        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+      },
+      products: {
+        where: { status: PRODUCT_STATUS.ACTIVE, deletedAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: productLimit,
+        select: STORE_PRODUCT_SELECT,
+      },
+      _count: { select: { products: true, reviews: true, subOrders: true } },
+    },
+  });
+
+  if (!vendor) throw AppError.notFound(ERROR.VENDOR.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  if (vendor.status !== VENDOR_STATUS.APPROVED) {
+    throw AppError.forbidden(ERROR.VENDOR.NOT_APPROVED, ERROR_CODE.VENDOR_NOT_APPROVED);
+  }
+
+  return {
+    vendor,
+    announcements: vendor.announcements,
+    products: vendor.products,
+    config: { productLimit },
+  };
+};
+
+export const updateVacation = async (
+  vendorId: string,
+  input: { isOnVacation: boolean; message?: string; until?: string },
+  req?: any,
+): Promise<any> => {
+  const before = await requireVendorRecord(vendorId);
+  const { vacationMaxDays } = await getVendorStoreConfig();
+
+  let vacationUntil: Date | null = before.vacationUntil;
+
+  if (!input.isOnVacation) {
+    vacationUntil = null;
+  } else if (input.until) {
+    const requested = new Date(D.str(input.until));
+    const latest = addDays(vacationMaxDays);
+
+    if (Number.isNaN(requested.getTime()) || requested <= new Date()) {
+      throw AppError.badRequest(ERROR.VENDOR.VACATION_UNTIL_PAST, ERROR_CODE.VALIDATION_ERROR);
+    }
+
+    vacationUntil = new Date(Math.min(requested.getTime(), latest.getTime()));
+  }
+
+  const updated = await prisma.vendorProfile.update({
+    where: { id: vendorId },
+    data: {
+      isOnVacation: input.isOnVacation,
+      ...(input.message !== undefined ? { vacationMessage: D.str(input.message) } : {}),
+      vacationUntil,
+    },
+    select: VENDOR_SELECT,
+  });
+
+  void writeActivityLog({
+    req,
+    userId: before.userId,
+    action: 'VENDOR_VACATION_UPDATED',
+    entity: 'VendorProfile',
+    entityId: vendorId,
+    meta: { isOnVacation: updated.isOnVacation, vacationUntil: updated.vacationUntil },
+  });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.UPDATE,
+    entity: 'VendorProfile',
+    entityId: vendorId,
+    description: `Vendor vacation mode set to ${updated.isOnVacation}`,
+    changes: diffChanges(before, updated),
+  });
+
+  return updated;
+};
+
+/** Throws on the first listed shop that is on vacation; ids with no shop are ignored. */
+export const assertVendorAcceptingOrders = async (vendorIds: string[]): Promise<void> => {
+  const ids = [
+    ...new Set(
+      D.arr(vendorIds)
+        .map((id) => D.str(id))
+        .filter(Boolean),
+    ),
+  ];
+  if (!ids.length) return;
+
+  const vendors = await prisma.vendorProfile.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, isOnVacation: true },
+  });
+
+  if (vendors.some((vendor) => vendor.isOnVacation)) {
+    throw AppError.unprocessable(ERROR.VENDOR.ON_VACATION, ERROR_CODE.VENDOR_ON_VACATION);
+  }
+};
+
+const ANNOUNCEMENT_SELECT = {
+  id: true,
+  vendorId: true,
+  title: true,
+  message: true,
+  linkUrl: true,
+  status: true,
+  isPinned: true,
+  startsAt: true,
+  endsAt: true,
+  createdById: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.VendorAnnouncementSelect;
+
+const requireOwnAnnouncement = async (announcementId: string, vendorId: string): Promise<any> => {
+  const announcement = await prisma.vendorAnnouncement.findFirst({
+    where: { id: D.str(announcementId), vendorId },
+    select: ANNOUNCEMENT_SELECT,
+  });
+
+  if (!announcement) {
+    throw AppError.notFound(ERROR.VENDOR.ANNOUNCEMENT_NOT_FOUND, ERROR_CODE.NOT_FOUND);
+  }
+  return announcement;
+};
+
+export const listAnnouncements = async (
+  vendorId: string,
+  query: any,
+): Promise<{ rows: any[]; total: number }> => {
+  await requireVendorRecord(vendorId);
+  const { limit, skip } = getPagination(query);
+
+  const where: Prisma.VendorAnnouncementWhereInput = {
+    vendorId,
+    ...(D.str(query?.status) ? { status: D.str(query.status) as any } : {}),
+    ...(D.str(query?.search)
+      ? {
+          OR: [
+            { title: { contains: D.str(query.search), mode: 'insensitive' } },
+            { message: { contains: D.str(query.search), mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [rows, total] = await Promise.all([
+    prisma.vendorAnnouncement.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: ANNOUNCEMENT_SELECT,
+    }),
+    prisma.vendorAnnouncement.count({ where }),
+  ]);
+
+  return { rows, total };
+};
+
+export const createAnnouncement = async (
+  vendorId: string,
+  input: {
+    title: string;
+    message?: string;
+    linkUrl?: string;
+    isPinned?: boolean;
+    startsAt?: string;
+    endsAt?: string;
+  },
+  req?: any,
+): Promise<any> => {
+  await requireVendorRecord(vendorId);
+
+  const created = await prisma.vendorAnnouncement.create({
+    data: {
+      vendorId,
+      title: D.str(input.title),
+      message: D.str(input.message),
+      linkUrl: D.str(input.linkUrl),
+      isPinned: D.bool(input.isPinned),
+      startsAt: input.startsAt ? new Date(D.str(input.startsAt)) : null,
+      endsAt: input.endsAt ? new Date(D.str(input.endsAt)) : null,
+      status: ANNOUNCEMENT_STATUS.ACTIVE,
+      createdById: D.str(req?.auth?.userId) || null,
+    },
+    select: ANNOUNCEMENT_SELECT,
+  });
+
+  void writeActivityLog({
+    req,
+    action: 'VENDOR_ANNOUNCEMENT_CREATED',
+    entity: 'VendorAnnouncement',
+    entityId: created.id,
+    meta: { vendorId, isPinned: created.isPinned },
+  });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.CREATE,
+    entity: 'VendorAnnouncement',
+    entityId: created.id,
+    description: `Vendor created announcement: ${created.title}`,
+  });
+
+  return created;
+};
+
+export const updateAnnouncement = async (
+  vendorId: string,
+  announcementId: string,
+  input: Record<string, any>,
+  req?: any,
+): Promise<any> => {
+  const before = await requireOwnAnnouncement(announcementId, vendorId);
+
+  const data: Prisma.VendorAnnouncementUpdateInput = {};
+
+  if (input.title !== undefined) data.title = D.str(input.title);
+  if (input.message !== undefined) data.message = D.str(input.message);
+  if (input.linkUrl !== undefined) data.linkUrl = D.str(input.linkUrl);
+  if (input.isPinned !== undefined) data.isPinned = D.bool(input.isPinned);
+  if (input.status !== undefined) data.status = D.str(input.status) as any;
+  if (input.startsAt !== undefined) data.startsAt = new Date(D.str(input.startsAt));
+  if (input.endsAt !== undefined) data.endsAt = new Date(D.str(input.endsAt));
+
+  const updated = await prisma.vendorAnnouncement.update({
+    where: { id: before.id },
+    data,
+    select: ANNOUNCEMENT_SELECT,
+  });
+
+  void writeActivityLog({
+    req,
+    action: 'VENDOR_ANNOUNCEMENT_UPDATED',
+    entity: 'VendorAnnouncement',
+    entityId: updated.id,
+    meta: { vendorId, fields: Object.keys(data) },
+  });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.UPDATE,
+    entity: 'VendorAnnouncement',
+    entityId: updated.id,
+    description: `Vendor updated announcement: ${updated.title}`,
+    changes: diffChanges(before, updated),
+  });
+
+  return updated;
+};
+
+export const deleteAnnouncement = async (
+  vendorId: string,
+  announcementId: string,
+  req?: any,
+): Promise<any> => {
+  const before = await requireOwnAnnouncement(announcementId, vendorId);
+
+  await prisma.vendorAnnouncement.delete({ where: { id: before.id } });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.DELETE,
+    entity: 'VendorAnnouncement',
+    entityId: before.id,
+    description: `Vendor deleted announcement: ${before.title}`,
+  });
+
+  return before;
+};
+
+const BLOCK_SELECT = {
+  id: true,
+  blockerId: true,
+  blockedId: true,
+  reason: true,
+  createdAt: true,
+  blocked: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      avatarUrl: true,
+      isActive: true,
+    },
+  },
+} satisfies Prisma.UserBlockSelect;
+
+export const blockCustomer = async (
+  vendorId: string,
+  targetUserId: string,
+  input: { reason?: string },
+  req?: any,
+): Promise<any> => {
+  const vendor = await requireVendorRecord(vendorId);
+  const blockerId = D.str(vendor.userId);
+
+  if (D.str(targetUserId) === blockerId) {
+    throw AppError.unprocessable(ERROR.VENDOR.SELF_BLOCK, ERROR_CODE.VALIDATION_ERROR);
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: D.str(targetUserId) },
+    select: { id: true },
+  });
+
+  if (!target) throw AppError.notFound(ERROR.USER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  const row = await prisma.userBlock.upsert({
+    where: { blockerId_blockedId: { blockerId, blockedId: target.id } },
+    create: { blockerId, blockedId: target.id, reason: D.str(input?.reason) },
+    update: { reason: D.str(input?.reason) },
+    select: BLOCK_SELECT,
+  });
+
+  void writeActivityLog({
+    req,
+    userId: blockerId,
+    action: 'CUSTOMER_BLOCKED_BY_VENDOR',
+    entity: 'VendorProfile',
+    entityId: vendorId,
+    meta: { customerId: target.id },
+  });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.CREATE,
+    entity: 'UserBlock',
+    entityId: row.id,
+    description: `Vendor blocked customer ${target.id}`,
+    meta: { vendorId, customerId: target.id },
+  });
+
+  return row;
+};
+
+export const unblockCustomer = async (
+  vendorId: string,
+  targetUserId: string,
+  req?: any,
+): Promise<any> => {
+  const vendor = await requireVendorRecord(vendorId);
+  const blockerId = D.str(vendor.userId);
+
+  const row = await prisma.userBlock.findFirst({
+    where: { blockerId, blockedId: D.str(targetUserId) },
+    select: BLOCK_SELECT,
+  });
+
+  if (!row) {
+    throw AppError.notFound(ERROR.VENDOR.CUSTOMER_NOT_BLOCKED, ERROR_CODE.NOT_FOUND);
+  }
+
+  await prisma.userBlock.delete({ where: { id: row.id } });
+
+  void writeActivityLog({
+    req,
+    userId: blockerId,
+    action: 'CUSTOMER_UNBLOCKED_BY_VENDOR',
+    entity: 'VendorProfile',
+    entityId: vendorId,
+    meta: { customerId: D.str(targetUserId) },
+  });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.DELETE,
+    entity: 'UserBlock',
+    entityId: row.id,
+    description: `Vendor unblocked customer ${D.str(targetUserId)}`,
+    meta: { vendorId, customerId: D.str(targetUserId) },
+  });
+
+  return row;
+};
+
+export const getBlockedCustomers = async (
+  vendorId: string,
+  query: any,
+): Promise<{ rows: any[]; total: number }> => {
+  const vendor = await requireVendorRecord(vendorId);
+  const { limit, skip } = getPagination(query);
+
+  const where: Prisma.UserBlockWhereInput = { blockerId: vendor.userId };
+
+  const [rows, total] = await Promise.all([
+    prisma.userBlock.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: BLOCK_SELECT,
+    }),
+    prisma.userBlock.count({ where }),
+  ]);
+
+  return { rows, total };
+};

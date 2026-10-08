@@ -1,20 +1,30 @@
-import { Prisma } from '@prisma/client';
+﻿import { Prisma } from '@prisma/client';
 import { prisma } from '../../services/prisma.service';
 import { AppError } from '../../utils/AppError';
 import { D, money } from '../../utils/defaults';
 import { ERROR } from '../../messages/error';
 import { VALIDATION } from '../../messages/validation';
 import { ERROR_CODE } from '../../constants/http';
-import { Role, ADMIN_ACTION, ADDRESS_TYPE } from '../../constants/roles';
+import { Role, ADMIN_ACTION, ADDRESS_TYPE, ROLES } from '../../constants/roles';
 import { RETURN_STATUS, TICKET_STATUS } from '../../constants/statuses';
 import { randomString, sha256, signAccessToken } from '../../utils/crypto';
 import { getPagination } from '../../utils/pagination';
 import { addDays } from '../../utils/dates';
-import { getSecurityConfig } from '../../services/settings.service';
+import { getSecurityConfig as getSecuritySettings } from '../../services/settings.service';
 import { sendMailNotification } from '../../services/notification.service';
 import { diffChanges, writeActivityLog, writeAuditLog } from '../../services/audit.service';
 import { COUNTRY_CODE, EMAIL_REGEX } from '../../constants/countries';
 import { normalisePhone } from '../../utils/validate';
+import { uniqueCustomerSegmentSlug } from '../../utils/slug';
+import {
+  AUTO_SEGMENT_KINDS,
+  SEGMENT_KIND,
+  SEGMENT_SOURCE,
+  isAutoSegmentKind,
+} from '../../constants/segments';
+import { banDaysRemaining, evaluateSegmentKinds, isBanActive } from '../../utils/segments';
+import { getBanConfig, getSegmentConfig } from '../../services/settings.service';
+import { DELIVERED_ORDER_STATUSES, type OrderStatus } from '../../constants/statuses';
 import {
   ListUsersFilters,
   UserActivityFilters,
@@ -22,7 +32,11 @@ import {
   TimelineEvent,
   TimelineType,
   TIMELINE_TYPE,
+  CustomerExport,
 } from './user.types';
+
+/** The notification tail of an export is capped; the rest is a full history. */
+const EXPORT_NOTIFICATION_LIMIT = 200;
 
 const PROFILE_INCLUDE: Prisma.UserInclude = {
   vendorProfile: {
@@ -176,7 +190,7 @@ export const deleteAccount = async (
 
   const now = new Date();
 
-  const security = await getSecurityConfig();
+  const security = await getSecuritySettings();
   const restoreToken = randomString(32);
   const previous = await prisma.user.findUnique({
     where: { id: userId },
@@ -583,7 +597,7 @@ export const hardDeleteUser = async (targetUserId: string, req?: any): Promise<b
 
   if (user._count.orders > 0) {
     throw AppError.conflict(
-      'User has order history — deactivate instead of deleting.',
+      'User has order history â€” deactivate instead of deleting.',
       ERROR_CODE.FORBIDDEN,
     );
   }
@@ -741,7 +755,7 @@ export const impersonateUser = async (
     action: ADMIN_ACTION.IMPERSONATE,
     entity: 'User',
     entityId: target.id,
-    description: `Impersonated ${target.email} for ${expiresIn / 60} min — ${D.str(input.reason)}`,
+    description: `Impersonated ${target.email} for ${expiresIn / 60} min â€” ${D.str(input.reason)}`,
     meta: { reason: D.str(input.reason), expiresIn, targetRole: target.role },
     impersonatedById: req?.auth?.userId,
   });
@@ -749,7 +763,7 @@ export const impersonateUser = async (
   return { accessToken, expiresIn, target };
 };
 
-// ── Internal customer notes ──────────────────────────────────────────
+// â”€â”€ Internal customer notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const addCustomerNote = async (
   targetUserId: string,
@@ -832,7 +846,794 @@ export const deleteCustomerNote = async (
   return true;
 };
 
-// ── Customer timeline ────────────────────────────────────────────────
+// â”€â”€ Customer ban â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const BAN_SELECT = {
+  id: true,
+  userId: true,
+  reason: true,
+  expiresAt: true,
+  revokedAt: true,
+  revokeReason: true,
+  createdById: true,
+  createdAt: true,
+  createdBy: { select: { id: true, name: true, email: true } },
+} as const;
+
+const withBanState = (ban: any): Record<string, any> => ({
+  ...ban,
+  isActive: isBanActive(ban),
+  daysRemaining: banDaysRemaining(ban),
+});
+
+export const banCustomer = async (
+  targetUserId: string,
+  actorId: string,
+  input: { reason: string; durationDays?: number },
+  req?: any,
+): Promise<any> => {
+  if (targetUserId === actorId) {
+    throw AppError.forbidden(ERROR.USER.SELF_BAN, ERROR_CODE.FORBIDDEN);
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, email: true },
+  });
+
+  if (!target) throw AppError.notFound(ERROR.USER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  const config = await getBanConfig();
+  const days = D.num(input.durationDays);
+  const expiresAt = days > 0 ? addDays(Math.min(days, config.maxDays), new Date()) : null;
+  const now = new Date();
+
+  const ban = await prisma.$transaction(async (tx) => {
+    const row = await tx.customerBan.upsert({
+      where: { userId: targetUserId },
+      create: {
+        userId: targetUserId,
+        reason: D.str(input.reason),
+        expiresAt,
+        createdById: D.str(actorId) || null,
+      },
+      update: {
+        reason: D.str(input.reason),
+        expiresAt,
+        revokedAt: null,
+        revokeReason: '',
+        createdById: D.str(actorId) || null,
+      },
+      select: BAN_SELECT,
+    });
+
+    await tx.user.update({ where: { id: targetUserId }, data: { isActive: false } });
+    await tx.refreshToken.updateMany({
+      where: { userId: targetUserId, revokedAt: null },
+      data: { revokedAt: now },
+    });
+    await tx.session.updateMany({
+      where: { userId: targetUserId, isActive: true },
+      data: { isActive: false, endedAt: now },
+    });
+
+    return row;
+  });
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.SUSPEND,
+    entity: 'CustomerBan',
+    entityId: ban.id,
+    description: `Blocked customer ${target.email}: ${D.str(input.reason)}`,
+    meta: { userId: targetUserId, durationDays: days, isPermanent: !days },
+  });
+
+  return withBanState(ban);
+};
+
+export const unbanCustomer = async (
+  targetUserId: string,
+  actorId: string,
+  input: { reason?: string },
+  req?: any,
+): Promise<any> => {
+  const existing = await prisma.customerBan.findUnique({
+    where: { userId: targetUserId },
+    select: BAN_SELECT,
+  });
+
+  if (!existing) throw AppError.notFound(ERROR.USER.NOT_BANNED, ERROR_CODE.NOT_FOUND);
+
+  const ban = await prisma.$transaction(async (tx) => {
+    const row = await tx.customerBan.update({
+      where: { id: existing.id },
+      data: { revokedAt: new Date(), revokeReason: D.str(input.reason) },
+      select: BAN_SELECT,
+    });
+
+    await tx.user.update({ where: { id: targetUserId }, data: { isActive: true } });
+
+    return row;
+  });
+
+  void writeAuditLog({
+    req,
+    actorId,
+    action: ADMIN_ACTION.ACTIVATE,
+    entity: 'CustomerBan',
+    entityId: ban.id,
+    description: `Lifted the block on customer ${targetUserId}: ${D.str(input.reason)}`,
+  });
+
+  return withBanState(ban);
+};
+
+export const listCustomerBans = async (
+  query: any,
+): Promise<{ rows: any[]; total: number; filters: { search: string; isActive: string } }> => {
+  const { limit, skip } = getPagination(query);
+  const search = D.str(query?.search);
+  const isActiveFilter = D.str(query?.isActive);
+
+  const where: Prisma.CustomerBanWhereInput = {
+    ...(search
+      ? {
+          OR: [
+            { reason: { contains: search, mode: 'insensitive' } },
+            { user: { email: { contains: search, mode: 'insensitive' } } },
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [all, total] = await Promise.all([
+    prisma.customerBan.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: { ...BAN_SELECT, user: { select: { id: true, name: true, email: true } } },
+    }),
+    prisma.customerBan.count({ where }),
+  ]);
+
+  /**
+   * `isActive` is derived from `expiresAt` against the clock rather than a stored
+   * column, so it cannot be filtered in SQL â€” the page is narrowed first and the
+   * filter applied to it, which means `totalRecord` counts bans of both states.
+   */
+  const decorated = all.map(withBanState);
+  const rows =
+    isActiveFilter === 'true'
+      ? decorated.filter((b) => b.isActive)
+      : isActiveFilter === 'false'
+        ? decorated.filter((b) => !b.isActive)
+        : decorated;
+
+  return { rows, total, filters: { search, isActive: isActiveFilter } };
+};
+
+/**
+ * Banning flips `isActive` off, so an expired ban has to put it back or the
+ * customer is locked out forever with no row saying why. Runs on a schedule
+ * rather than on read because the account state is what has to change.
+ */
+export const liftExpiredBans = async (): Promise<number> => {
+  const now = new Date();
+
+  const expired = await prisma.customerBan.findMany({
+    where: { revokedAt: null, expiresAt: { lte: now } },
+    select: { id: true, userId: true, expiresAt: true },
+  });
+
+  if (!expired.length) return 0;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customerBan.updateMany({
+      where: { id: { in: expired.map((b) => b.id) } },
+      data: { revokedAt: now, revokeReason: 'Ban period ended' },
+    });
+
+    for (const ban of expired) {
+      await tx.user.update({ where: { id: ban.userId }, data: { isActive: true } });
+    }
+  });
+
+  void writeAuditLog({
+    action: ADMIN_ACTION.ACTIVATE,
+    entity: 'CustomerBan',
+    description: `Auto-lifted ${expired.length} expired customer ban(s)`,
+    meta: { userIds: expired.map((b) => b.userId) },
+  });
+
+  return expired.length;
+};
+
+// â”€â”€ Customer segments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const SEGMENT_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  color: true,
+  kind: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const AUTO_SEGMENT_NAMES: Record<string, string> = {
+  NEW: 'New customers',
+  REPEAT: 'Repeat customers',
+  VIP: 'VIP customers',
+  WHOLESALE: 'Wholesale buyers',
+  BLOCKED: 'Blocked customers',
+};
+
+export const listSegments = async (
+  query: any,
+): Promise<{
+  rows: any[];
+  total: number;
+  filters: { kind: string; isActive: string; search: string };
+}> => {
+  const { limit, skip } = getPagination(query);
+  const kind = D.str(query?.kind);
+  const isActive = D.str(query?.isActive);
+  const search = D.str(query?.search);
+
+  const where: Prisma.CustomerSegmentWhereInput = {
+    ...(kind ? { kind: kind as any } : {}),
+    ...(isActive === 'true' ? { isActive: true } : {}),
+    ...(isActive === 'false' ? { isActive: false } : {}),
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
+
+  const [rows, total] = await Promise.all([
+    prisma.customerSegment.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      select: { ...SEGMENT_SELECT, _count: { select: { members: true } } },
+    }),
+    prisma.customerSegment.count({ where }),
+  ]);
+
+  return { rows, total, filters: { kind, isActive, search } };
+};
+
+export const getSegmentById = async (segmentId: string): Promise<any> => {
+  const segment = await prisma.customerSegment.findUnique({
+    where: { id: segmentId },
+    select: { ...SEGMENT_SELECT, _count: { select: { members: true } } },
+  });
+
+  if (!segment) {
+    throw AppError.notFound(
+      ERROR.CUSTOMER_SEGMENT.NOT_FOUND,
+      ERROR_CODE.CUSTOMER_SEGMENT_NOT_FOUND,
+    );
+  }
+
+  return segment;
+};
+
+const requireManualSegment = async (segmentId: string): Promise<any> => {
+  const segment = await getSegmentById(segmentId);
+  if (isAutoSegmentKind(D.str(segment.kind))) {
+    throw AppError.forbidden(
+      ERROR.CUSTOMER_SEGMENT.KIND_LOCKED,
+      ERROR_CODE.CUSTOMER_SEGMENT_KIND_LOCKED,
+    );
+  }
+  return segment;
+};
+
+export const createSegment = async (
+  input: { name: string; description?: string; color?: string },
+  actorId: string,
+  req?: any,
+): Promise<any> => {
+  const name = D.str(input.name);
+  const slug = await uniqueCustomerSegmentSlug(name);
+
+  const segment = await prisma.customerSegment.create({
+    data: {
+      name,
+      slug,
+      description: D.str(input.description),
+      color: D.str(input.color),
+      kind: SEGMENT_KIND.MANUAL as any,
+      isActive: true,
+    },
+    select: { ...SEGMENT_SELECT, _count: { select: { members: true } } },
+  });
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'CUSTOMER_SEGMENT_CREATED',
+    entity: 'CustomerSegment',
+    entityId: segment.id,
+    meta: { name },
+  });
+
+  return segment;
+};
+
+export const updateSegment = async (
+  segmentId: string,
+  input: { name?: string; description?: string; color?: string; isActive?: boolean },
+  actorId: string,
+  req?: any,
+): Promise<any> => {
+  const existing = await getSegmentById(segmentId);
+
+  if (input.name !== undefined && D.str(input.name) !== existing.name) {
+    const clash = await prisma.customerSegment.findFirst({
+      where: { name: D.str(input.name), id: { not: segmentId } },
+      select: { id: true },
+    });
+    if (clash) {
+      throw AppError.conflict(
+        ERROR.CUSTOMER_SEGMENT.ALREADY_EXISTS,
+        ERROR_CODE.CUSTOMER_SEGMENT_DUPLICATE,
+      );
+    }
+  }
+
+  const data: Prisma.CustomerSegmentUpdateInput = {};
+  if (input.name !== undefined) {
+    data.name = D.str(input.name);
+    data.slug = await uniqueCustomerSegmentSlug(D.str(input.name), segmentId);
+  }
+  if (input.description !== undefined) data.description = D.str(input.description);
+  if (input.color !== undefined) data.color = D.str(input.color);
+  if (input.isActive !== undefined) data.isActive = Boolean(input.isActive);
+
+  const segment = await prisma.customerSegment.update({
+    where: { id: segmentId },
+    data,
+    select: { ...SEGMENT_SELECT, _count: { select: { members: true } } },
+  });
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'CUSTOMER_SEGMENT_UPDATED',
+    entity: 'CustomerSegment',
+    entityId: segmentId,
+    meta: { fields: Object.keys(data) },
+  });
+
+  return segment;
+};
+
+export const deleteSegment = async (
+  segmentId: string,
+  actorId: string,
+  req?: any,
+): Promise<boolean> => {
+  await getSegmentById(segmentId);
+
+  await prisma.customerSegment.delete({ where: { id: segmentId } });
+
+  void writeAuditLog({
+    req,
+    actorId,
+    action: ADMIN_ACTION.DELETE,
+    entity: 'CustomerSegment',
+    entityId: segmentId,
+    description: 'Deleted customer segment',
+  });
+
+  return true;
+};
+
+export const listSegmentMembers = async (
+  segmentId: string,
+  query: any,
+): Promise<{ rows: any[]; total: number }> => {
+  await getSegmentById(segmentId);
+  const { limit, skip } = getPagination(query);
+
+  const where: Prisma.CustomerSegmentMemberWhereInput = { segmentId };
+
+  const [rows, total] = await Promise.all([
+    prisma.customerSegmentMember.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { assignedAt: 'desc' },
+      select: {
+        id: true,
+        segmentId: true,
+        userId: true,
+        source: true,
+        assignedAt: true,
+        user: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
+      },
+    }),
+    prisma.customerSegmentMember.count({ where }),
+  ]);
+
+  return { rows, total };
+};
+
+export const addSegmentMembers = async (
+  segmentId: string,
+  input: { userIds: string[] },
+  actorId: string,
+  req?: any,
+): Promise<number> => {
+  const segment = await requireManualSegment(segmentId);
+  const userIds = Array.from(new Set(D.arr(input.userIds).map(String)));
+
+  const found = await prisma.user.count({
+    where: { id: { in: userIds }, deletedAt: null },
+  });
+
+  if (found !== userIds.length) {
+    throw AppError.unprocessable(ERROR.USER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+  }
+
+  const result = await prisma.customerSegmentMember.createMany({
+    data: userIds.map((userId) => ({
+      segmentId: segment.id,
+      userId,
+      source: SEGMENT_SOURCE.MANUAL as any,
+      assignedById: D.str(actorId) || null,
+    })),
+    skipDuplicates: true,
+  });
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'CUSTOMER_SEGMENT_MEMBERS_ADDED',
+    entity: 'CustomerSegment',
+    entityId: segmentId,
+    meta: { added: result.count, requested: userIds.length },
+  });
+
+  return result.count;
+};
+
+export const removeSegmentMembers = async (
+  segmentId: string,
+  input: { userIds: string[] },
+  actorId: string,
+  req?: any,
+): Promise<number> => {
+  await requireManualSegment(segmentId);
+  const userIds = Array.from(new Set(D.arr(input.userIds).map(String)));
+
+  const result = await prisma.customerSegmentMember.deleteMany({
+    where: { segmentId, userId: { in: userIds } },
+  });
+
+  void writeActivityLog({
+    req,
+    userId: actorId,
+    action: 'CUSTOMER_SEGMENT_MEMBERS_REMOVED',
+    entity: 'CustomerSegment',
+    entityId: segmentId,
+    meta: { removed: result.count },
+  });
+
+  return result.count;
+};
+
+/**
+ * Auto segments are recomputed rather than hand-maintained, so each run first
+ * makes sure the row for every auto kind exists â€” a deleted segment comes back
+ * empty instead of the rule silently going unrouted.
+ */
+const ensureAutoSegments = async (): Promise<Map<string, string>> => {
+  const rows = await prisma.customerSegment.findMany({
+    where: { kind: { in: AUTO_SEGMENT_KINDS as any[] } },
+    select: { id: true, kind: true },
+  });
+
+  const byKind = new Map(rows.map((r) => [D.str(r.kind), r.id]));
+
+  for (const kind of AUTO_SEGMENT_KINDS) {
+    if (byKind.has(kind)) continue;
+
+    const created = await prisma.customerSegment.create({
+      data: {
+        name: AUTO_SEGMENT_NAMES[kind] ?? kind,
+        slug: `${kind.toLowerCase()}-customers`,
+        kind: kind as any,
+        isActive: true,
+      },
+      select: { id: true, kind: true },
+    });
+
+    byKind.set(kind, created.id);
+  }
+
+  return byKind;
+};
+
+/**
+ * Membership is a full recompute, not a diff: each customer's qualifying kinds
+ * are derived from one aggregate query, and the RULE-sourced rows for those
+ * segments are replaced wholesale. Manual assignments live in separate rows with
+ * a different `source`, so they survive untouched. Runs in batches because the
+ * aggregate is a grouped query over every order and a single unbounded pass is
+ * what makes this job expensive.
+ */
+export const refreshCustomerSegments = async (
+  req?: any,
+): Promise<{ processed: number; assigned: number; removed: number }> => {
+  const config = await getSegmentConfig();
+  const segmentIds = await ensureAutoSegments();
+  const autoIds = Array.from(segmentIds.values());
+
+  let processed = 0;
+  let assigned = 0;
+  let removed = 0;
+
+  let cursor: string | undefined;
+  for (;;) {
+    const users = await prisma.user.findMany({
+      where: { deletedAt: null, role: ROLES.CUSTOMER },
+      orderBy: { id: 'asc' },
+      take: config.batchSize,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: { id: true },
+    });
+
+    if (!users.length) break;
+
+    const userIds = users.map((u) => u.id);
+
+    const [orders, bans, existing] = await Promise.all([
+      prisma.order.groupBy({
+        by: ['userId', 'status'],
+        where: { userId: { in: userIds }, deletedAt: null },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      prisma.customerBan.findMany({
+        where: { userId: { in: userIds }, revokedAt: null },
+        select: { userId: true, expiresAt: true },
+      }),
+      prisma.customerSegmentMember.findMany({
+        where: { segmentId: { in: autoIds }, source: SEGMENT_SOURCE.RULE as any },
+        select: { id: true, userId: true, segmentId: true },
+      }),
+    ]);
+
+    const live = new Map(bans.filter((b) => isBanActive(b)).map((b) => [b.userId, true] as const));
+    const current = new Map<string, { id: string }>(
+      existing.map((m) => [`${m.userId}:${m.segmentId}`, { id: m.id }]),
+    );
+
+    const add: Array<{ segmentId: string; userId: string }> = [];
+    const drop: string[] = [];
+
+    for (const userId of userIds) {
+      const mine = orders.filter((o) => o.userId === userId);
+      const orderCount = mine.reduce((sum, o) => sum + D.num(o._count._all), 0);
+      const delivered = mine.filter((o) =>
+        DELIVERED_ORDER_STATUSES.includes(D.str(o.status) as OrderStatus),
+      );
+      const deliveredCount = delivered.reduce((sum, o) => sum + D.num(o._count._all), 0);
+      const totalSpent = delivered.reduce((sum, o) => sum + D.float(o._sum.total), 0);
+
+      const kinds = evaluateSegmentKinds(
+        { orderCount, deliveredOrderCount: deliveredCount, totalSpent, isBanned: live.has(userId) },
+        config.thresholds,
+      );
+
+      for (const [kind, segmentId] of segmentIds) {
+        const key = `${userId}:${segmentId}`;
+        const shouldHave = kinds.includes(kind as any);
+        const has = current.has(key);
+        if (shouldHave && !has) add.push({ segmentId, userId });
+        else if (!shouldHave && has) drop.push(key);
+      }
+    }
+
+    if (add.length) {
+      await prisma.customerSegmentMember.createMany({
+        data: add.map((row) => ({ ...row, source: SEGMENT_SOURCE.RULE as any })),
+        skipDuplicates: true,
+      });
+      assigned += add.length;
+    }
+
+    if (drop.length) {
+      const dropIds = drop
+        .map((key) => current.get(key)?.id)
+        .filter((id): id is string => Boolean(id));
+      if (dropIds.length) {
+        await prisma.customerSegmentMember.deleteMany({ where: { id: { in: dropIds } } });
+        removed += dropIds.length;
+      }
+    }
+
+    processed += users.length;
+    cursor = users[users.length - 1].id;
+  }
+
+  void writeActivityLog({
+    req,
+    action: 'CUSTOMER_SEGMENTS_REFRESHED',
+    entity: 'CustomerSegment',
+    meta: { processed, assigned, removed },
+  });
+
+  return { processed, assigned, removed };
+};
+
+// â”€â”€ Customer data export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+/**
+ * DPDP/GDPR access request: everything the customer holds, in one payload.
+ * Secrets are never selected, so they cannot leak through a serializer â€” the
+ * ban row is included because the customer is entitled to know they are
+ * blocked and why, but the note is only ever the admin's own free text.
+ */
+export const exportCustomerData = async (targetUserId: string): Promise<CustomerExport> => {
+  const [user, addresses, orders, reviews, wishlist, notifications, consents, ban, memberships] =
+    await Promise.all([
+      prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
+          role: true,
+          isActive: true,
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          twoFactorEnabled: true,
+          loyaltyTier: true,
+          lastLoginAt: true,
+          lastLoginIp: true,
+          createdAt: true,
+          updatedAt: true,
+          vendorProfile: {
+            select: { id: true, shopName: true, slug: true, status: true, gstNumber: true },
+          },
+          socialAccounts: { select: { provider: true, createdAt: true } },
+        },
+      }),
+      prisma.address.findMany({ where: { userId: targetUserId }, orderBy: { createdAt: 'asc' } }),
+      prisma.order.findMany({
+        where: { userId: targetUserId, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          items: true,
+          subOrders: {
+            select: { id: true, status: true, total: true, vendor: { select: { shopName: true } } },
+          },
+          payments: true,
+          refunds: true,
+        },
+      }),
+      prisma.review.findMany({
+        where: { userId: targetUserId },
+        orderBy: { createdAt: 'asc' },
+        include: { product: { select: { name: true } } },
+      }),
+      prisma.wishlistItem.findMany({
+        where: { wishlist: { userId: targetUserId } },
+        include: { product: { select: { name: true, slug: true, price: true } } },
+      }),
+      prisma.notification.findMany({
+        where: { userId: targetUserId },
+        orderBy: { createdAt: 'desc' },
+        take: EXPORT_NOTIFICATION_LIMIT,
+      }),
+      prisma.userConsent.findMany({
+        where: { userId: targetUserId },
+        orderBy: { acceptedAt: 'asc' },
+      }),
+      prisma.customerBan.findUnique({ where: { userId: targetUserId }, select: BAN_SELECT }),
+      prisma.customerSegmentMember.findMany({
+        where: { userId: targetUserId },
+        select: { segment: { select: { id: true, name: true, slug: true, kind: true } } },
+      }),
+    ]);
+
+  if (!user) throw AppError.notFound(ERROR.USER.NOT_FOUND, ERROR_CODE.NOT_FOUND);
+
+  return {
+    profile: {
+      userId: D.str(user.id),
+      name: D.str(user.name),
+      email: D.str(user.email),
+      phone: D.str(user.phone),
+      avatarUrl: D.str(user.avatarUrl),
+      role: D.str(user.role),
+      isActive: D.bool(user.isActive),
+      isEmailVerified: D.bool(user.isEmailVerified),
+      isPhoneVerified: D.bool(user.isPhoneVerified),
+      twoFactorEnabled: D.bool(user.twoFactorEnabled),
+      loyaltyTier: D.str(user.loyaltyTier),
+      lastLoginAt: D.date(user.lastLoginAt),
+      lastLoginIp: D.str(user.lastLoginIp),
+      createdAt: D.date(user.createdAt),
+      updatedAt: D.date(user.updatedAt),
+
+      vendorData: user.vendorProfile
+        ? {
+            vendorId: D.str(user.vendorProfile.id),
+            shopName: D.str(user.vendorProfile.shopName),
+            slug: D.str(user.vendorProfile.slug),
+            status: D.str(user.vendorProfile.status),
+            gstNumber: D.str(user.vendorProfile.gstNumber),
+          }
+        : {},
+      socialProviderList: D.arr(user.socialAccounts).map((s: any) => D.str(s.provider)),
+      segmentList: D.arr(memberships).map((m: any) => ({
+        segmentId: D.str(m.segment.id),
+        name: D.str(m.segment.name),
+        slug: D.str(m.segment.slug),
+        kind: D.str(m.segment.kind),
+      })),
+      banData: ban
+        ? {
+            isBlocked: true,
+            reason: D.str(ban.reason),
+            expiresAt: D.date(ban.expiresAt),
+            blockedAt: D.date(ban.createdAt),
+          }
+        : {},
+    },
+    addresses: D.arr(addresses),
+    orders: D.arr(orders),
+    reviews: D.arr(reviews),
+    wishlist: D.arr(wishlist),
+    notifications: D.arr(notifications),
+    consents: D.arr(consents),
+    bans: ban ? [withBanState(ban)] : [],
+    segments: D.arr(memberships).map((m: any) => m.segment),
+    stats: {
+      orderCount: D.num(orders.length),
+      addressCount: D.num(addresses.length),
+      reviewCount: D.num(reviews.length),
+      wishlistCount: D.num(wishlist.length),
+      segmentCount: D.num(memberships.length),
+    },
+  };
+};
+
+export const serializeCustomerExport = (data: CustomerExport) => ({
+  exportedAt: new Date().toISOString(),
+
+  profileData: D.obj(data.profile),
+
+  statsData: D.obj(data.stats),
+
+  addressList: D.arr(data.addresses),
+  orderList: D.arr(data.orders),
+  reviewList: D.arr(data.reviews),
+  wishlistList: D.arr(data.wishlist),
+  notificationList: D.arr(data.notifications),
+  consentList: D.arr(data.consents),
+  banList: D.arr(data.bans),
+  segmentList: D.arr(data.segments),
+});
+
+// â”€â”€ Customer timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Each source is read up to `skip + limit` rows rather than `limit`. The merged

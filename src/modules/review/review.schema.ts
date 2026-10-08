@@ -155,20 +155,40 @@ const couponRules = [
   },
 ];
 
-export const createCouponSchema = couponBody.superRefine((v, ctx) => {
+const applyCouponRules = (v: Record<string, any>, ctx: z.RefinementCtx): void => {
   for (const rule of couponRules) {
     if (!rule.check(v as any)) ctx.addIssue({ code: 'custom', message: rule.message });
   }
-});
+};
+
+export const createCouponSchema = couponBody.superRefine(applyCouponRules);
 
 export const updateCouponSchema = couponBody.partial().superRefine((v, ctx) => {
   if (Object.keys(v).length === 0) {
     ctx.addIssue({ code: 'custom', message: VALIDATION.INVALID_JSON });
   }
-  for (const rule of couponRules) {
-    if (!rule.check(v as any)) ctx.addIssue({ code: 'custom', message: rule.message });
-  }
+  applyCouponRules(v, ctx);
 });
+
+// The store is never client-supplied, so the body drops the field entirely and the service stamps it.
+const vendorCouponBody = couponBody.omit({ vendorId: true });
+
+export const createVendorCouponSchema = vendorCouponBody.superRefine(applyCouponRules);
+
+export const updateVendorCouponSchema = vendorCouponBody.partial().superRefine((v, ctx) => {
+  if (Object.keys(v).length === 0) {
+    ctx.addIssue({ code: 'custom', message: VALIDATION.INVALID_JSON });
+  }
+  applyCouponRules(v, ctx);
+});
+
+export const listVendorCouponsSchema = z
+  .object({
+    status: z.nativeEnum(CouponStatus).optional(),
+    isActive: z.enum(['true', 'false']).optional(),
+  })
+  .merge(paginationSchema)
+  .strict();
 
 export const toggleCouponSchema = z
   .object({

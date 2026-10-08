@@ -213,6 +213,178 @@ router.get(
 
 /**
  * @openapi
+ * /users/banCustomer/{id}:
+ *   post:
+ *     tags: [Users]
+ *     summary: Block a customer with a reason and optional duration
+ *     description: >
+ *       Deactivates the account, revokes every refresh token and ends active
+ *       sessions. A ban with no `durationDays` is permanent; the nightly job
+ *       lifts the ones whose duration has passed.
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 40 } }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason: { type: string, maxLength: 500, example: Repeated chargebacks }
+ *               durationDays: { type: integer, minimum: 1, maximum: 3650, example: 30 }
+ *     responses:
+ *       200: { description: Customer blocked }
+ *       400: { description: Reason missing }
+ *       403: { description: Attempt to block your own account }
+ *       404: { description: No such customer }
+ */
+router.post(
+  '/banCustomer/:id',
+  ...controller.guards.adminBan,
+  validate({ params: schema.getUserByIdSchema, body: schema.banCustomerSchema }),
+  controller.banCustomer,
+);
+
+router.post(
+  '/unbanCustomer/:id',
+  ...controller.guards.adminBan,
+  validate({ params: schema.getUserByIdSchema, body: schema.unbanCustomerSchema }),
+  controller.unbanCustomer,
+);
+
+/**
+ * @openapi
+ * /users/getBans:
+ *   get:
+ *     tags: [Users]
+ *     summary: List blocked customers
+ *     description: Supports `?search=`, `?isActive=true|false`, `?page=`, `?limit=`.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Paginated ban list, newest first }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ */
+router.get(
+  '/getBans',
+  ...controller.guards.adminView,
+  validate({ query: schema.listBansSchema }),
+  controller.getBans,
+);
+
+/**
+ * @openapi
+ * /users/exportMyData:
+ *   get:
+ *     tags: [Users]
+ *     summary: Download everything held about the signed-in customer (DPDP)
+ *     description: >
+ *       Profile, addresses, orders, payments, refunds, reviews, wishlist,
+ *       consents and segments. Secrets are never selected, so no credential
+ *       material can appear in the payload.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Full customer record }
+ *       401: { description: Not signed in }
+ */
+router.get('/exportMyData', controller.exportMyData);
+
+router.get(
+  '/exportData/:id',
+  ...controller.guards.adminExport,
+  validate({ params: schema.getUserByIdSchema }),
+  controller.exportData,
+);
+
+/**
+ * @openapi
+ * /users/getSegments:
+ *   get:
+ *     tags: [Users]
+ *     summary: List customer segments
+ *     description: Supports `?kind=`, `?isActive=true|false`, `?search=`.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Paginated segment list }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ */
+router.get(
+  '/getSegments',
+  ...controller.guards.adminView,
+  validate({ query: schema.listSegmentsSchema }),
+  controller.getSegments,
+);
+
+router.get(
+  '/getSegmentById/:id',
+  ...controller.guards.adminView,
+  validate({ params: schema.segmentMemberParamSchema }),
+  controller.getSegmentById,
+);
+
+router.post(
+  '/createSegment',
+  ...controller.guards.adminSegment,
+  validate({ body: schema.createSegmentSchema }),
+  controller.createSegment,
+);
+
+router.patch(
+  '/updateSegment/:id',
+  ...controller.guards.adminSegment,
+  validate({ params: schema.segmentMemberParamSchema, body: schema.updateSegmentSchema }),
+  controller.updateSegment,
+);
+
+router.delete(
+  '/deleteSegment/:id',
+  ...controller.guards.adminSegment,
+  validate({ params: schema.segmentMemberParamSchema }),
+  controller.deleteSegment,
+);
+
+router.get(
+  '/getSegmentMembers/:id',
+  ...controller.guards.adminView,
+  validate({ params: schema.segmentMemberParamSchema, query: schema.listSegmentsSchema }),
+  controller.getSegmentMembers,
+);
+
+router.post(
+  '/addSegmentMembers/:id',
+  ...controller.guards.adminSegment,
+  validate({ params: schema.segmentMemberParamSchema, body: schema.segmentMembersSchema }),
+  controller.addSegmentMembers,
+);
+
+router.post(
+  '/removeSegmentMembers/:id',
+  ...controller.guards.adminSegment,
+  validate({ params: schema.segmentMemberParamSchema, body: schema.segmentMembersSchema }),
+  controller.removeSegmentMembers,
+);
+
+/**
+ * @openapi
+ * /users/refreshSegments:
+ *   post:
+ *     tags: [Users]
+ *     summary: Recompute the automatic segments now
+ *     description: >
+ *       The same routine the nightly cron runs. Manual segments and their
+ *       hand-assigned members are left alone.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Counts of customers processed, added and removed }
+ *       401: { description: Not signed in }
+ *       403: { description: Admin only }
+ */
+router.post('/refreshSegments', ...controller.guards.adminSegment, controller.refreshSegments);
+
+/**
+ * @openapi
  * /users/impersonate/:id:
  *   post:
  *     tags: [Users]

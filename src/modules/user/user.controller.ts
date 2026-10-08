@@ -23,7 +23,15 @@ import {
   serializeCustomerNote,
   serializeCustomerNoteList,
   serializeTimelineList,
+  serializeCustomerBan,
+  serializeCustomerBanList,
+  serializeCustomerSegment,
+  serializeCustomerSegmentList,
+  serializeCustomerSegmentMemberList,
 } from '../../utils/serialize';
+import { serializeCustomerExport } from './user.service';
+import { writeActivityLog, writeAuditLog } from '../../services/audit.service';
+import { ADMIN_ACTION } from '../../constants/roles';
 
 const userId = (req: Request): string => req.auth!.userId;
 const adminOnly = requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN);
@@ -298,6 +306,177 @@ export const impersonate = asyncHandler(async (req, res) => {
   });
 });
 
+export const banCustomer = asyncHandler(async (req, res) => {
+  const ban = await service.banCustomer(req.params.id, userId(req), req.body, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.BANNED,
+    result: serializeCustomerBan(ban),
+  });
+});
+
+export const unbanCustomer = asyncHandler(async (req, res) => {
+  const ban = await service.unbanCustomer(req.params.id, userId(req), req.body ?? {}, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.UNBANNED,
+    result: serializeCustomerBan(ban),
+  });
+});
+
+export const getBans = asyncHandler(async (req, res) => {
+  const { rows, total, filters } = await service.listCustomerBans(req.query);
+  const { limit, page } = getPagination(req.query);
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.USER.BANS_FETCHED,
+    result: {
+      filterData: { search: D.str(filters.search), isActive: D.str(filters.isActive) },
+      ...serializeCustomerBanList(rows),
+    },
+    totalRecord: total,
+    totalPage: Math.ceil(total / limit),
+    currentPage: page,
+    limit,
+    hasNext: page * limit < total,
+    hasPrevious: page > 1,
+    nextPage: page * limit < total ? page + 1 : 0,
+    previousPage: page > 1 ? page - 1 : 0,
+  });
+});
+
+export const exportMyData = asyncHandler(async (req, res) => {
+  const data = await service.exportCustomerData(userId(req));
+
+  void writeActivityLog({
+    req,
+    userId: userId(req),
+    action: 'CUSTOMER_DATA_EXPORTED',
+    entity: 'User',
+    entityId: userId(req),
+  });
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.DATA_EXPORTED,
+    result: serializeCustomerExport(data),
+  });
+});
+
+export const exportData = asyncHandler(async (req, res) => {
+  const data = await service.exportCustomerData(req.params.id);
+
+  void writeAuditLog({
+    req,
+    action: ADMIN_ACTION.EXPORT,
+    entity: 'User',
+    entityId: req.params.id,
+    description: 'Exported a customer data record',
+  });
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.DATA_EXPORTED,
+    result: serializeCustomerExport(data),
+  });
+});
+
+export const getSegments = asyncHandler(async (req, res) => {
+  const { rows, total, filters } = await service.listSegments(req.query);
+  const { limit, page } = getPagination(req.query);
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.USER.SEGMENTS_FETCHED,
+    result: {
+      filterData: {
+        kind: D.str(filters.kind),
+        isActive: D.str(filters.isActive),
+        search: D.str(filters.search),
+      },
+      ...serializeCustomerSegmentList(rows),
+    },
+    totalRecord: total,
+    totalPage: Math.ceil(total / limit),
+    currentPage: page,
+    limit,
+    hasNext: page * limit < total,
+    hasPrevious: page > 1,
+    nextPage: page * limit < total ? page + 1 : 0,
+    previousPage: page > 1 ? page - 1 : 0,
+  });
+});
+
+export const getSegmentById = asyncHandler(async (req, res) => {
+  const segment = await service.getSegmentById(req.params.id);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.SEGMENTS_FETCHED,
+    result: serializeCustomerSegment(segment),
+  });
+});
+
+export const createSegment = asyncHandler(async (req, res) => {
+  const segment = await service.createSegment(req.body, userId(req), req);
+  return ApiResponse.created(res, SUCCESS.USER.SEGMENT_CREATED, serializeCustomerSegment(segment));
+});
+
+export const updateSegment = asyncHandler(async (req, res) => {
+  const segment = await service.updateSegment(req.params.id, req.body, userId(req), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.SEGMENT_UPDATED,
+    result: serializeCustomerSegment(segment),
+  });
+});
+
+export const deleteSegment = asyncHandler(async (req, res) => {
+  await service.deleteSegment(req.params.id, userId(req), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.SEGMENT_DELETED,
+    result: { segmentId: D.str(req.params.id), isDeleted: true },
+  });
+});
+
+export const getSegmentMembers = asyncHandler(async (req, res) => {
+  const { rows, total } = await service.listSegmentMembers(req.params.id, req.query);
+  const { limit, page } = getPagination(req.query);
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.USER.SEGMENTS_FETCHED,
+    result: serializeCustomerSegmentMemberList(rows),
+    totalRecord: total,
+    totalPage: Math.ceil(total / limit),
+    currentPage: page,
+    limit,
+    hasNext: page * limit < total,
+    hasPrevious: page > 1,
+    nextPage: page * limit < total ? page + 1 : 0,
+    previousPage: page > 1 ? page - 1 : 0,
+  });
+});
+
+export const addSegmentMembers = asyncHandler(async (req, res) => {
+  const added = await service.addSegmentMembers(req.params.id, req.body, userId(req), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.SEGMENT_MEMBERS_ADDED,
+    result: { segmentId: D.str(req.params.id), addedCount: D.num(added) },
+  });
+});
+
+export const removeSegmentMembers = asyncHandler(async (req, res) => {
+  const removed = await service.removeSegmentMembers(req.params.id, req.body, userId(req), req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.SEGMENT_MEMBERS_REMOVED,
+    result: { segmentId: D.str(req.params.id), removedCount: D.num(removed) },
+  });
+});
+
+export const refreshSegments = asyncHandler(async (req, res) => {
+  const stats = await service.refreshCustomerSegments(req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.USER.SEGMENTS_REFRESHED,
+    result: {
+      processedCount: D.num(stats.processed),
+      assignedCount: D.num(stats.assigned),
+      removedCount: D.num(stats.removed),
+    },
+  });
+});
+
 export const guards = {
   self: [],
   customer: [requireRole('CUSTOMER')],
@@ -316,6 +495,18 @@ export const guards = {
   adminSuspend: [
     requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN),
     requirePermission(PERMISSION.USER_SUSPEND),
+  ],
+  adminBan: [
+    requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN),
+    requirePermission(PERMISSION.USER_BAN),
+  ],
+  adminSegment: [
+    requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN),
+    requirePermission(PERMISSION.USER_SEGMENT_MANAGE),
+  ],
+  adminExport: [
+    requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN),
+    requirePermission(PERMISSION.USER_EXPORT),
   ],
   adminDelete: [requireRole(ROLES.SUPER_ADMIN), requirePermission(PERMISSION.USER_DELETE)],
   adminImpersonate: [

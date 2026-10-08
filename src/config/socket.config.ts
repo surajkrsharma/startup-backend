@@ -66,6 +66,8 @@ export const JOB = {
   PURGE_DELETED_ACCOUNTS: 'purge-deleted-accounts',
   PRICE_DROP_SCAN: 'price-drop-scan',
   PRUNE_FAILED_JOBS: 'prune-failed-jobs',
+  LIFT_EXPIRED_BANS: 'lift-expired-bans',
+  REFRESH_CUSTOMER_SEGMENTS: 'refresh-customer-segments',
 } as const;
 
 export type JobName = (typeof JOB)[keyof typeof JOB];
@@ -80,4 +82,6 @@ export const CRON = {
   PRICE_DROP_SCAN: '0 */2 * * *',
   REALTIME_FLUSH: '*/1 * * * *',
   PRUNE_FAILED_JOBS: '0 5 * * *',
+  LIFT_EXPIRED_BANS: '*/10 * * * *',
+  REFRESH_CUSTOMER_SEGMENTS: '0 6 * * *',
 } as const;

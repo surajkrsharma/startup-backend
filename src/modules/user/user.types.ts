@@ -86,3 +86,16 @@ export interface UserRow {
   vendorProfile?: { id: string; shopName: string; slug: string; status: string } | null;
   _count?: { orders: number; reviews: number };
 }
+
+export interface CustomerExport {
+  profile: Record<string, any>;
+  addresses: any[];
+  orders: any[];
+  reviews: any[];
+  wishlist: any[];
+  notifications: any[];
+  consents: any[];
+  bans: any[];
+  segments: any[];
+  stats: Record<string, number>;
+}

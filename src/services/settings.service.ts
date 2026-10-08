@@ -3,6 +3,7 @@ import { cacheGet, cacheSet, cacheDel, cacheDelByPattern, getRedis } from './red
 import { REDIS_KEYS, CACHE_TTL } from '../config/tracking.config';
 import { SETTING_KEY, SETTING_CATEGORY, SettingCategory } from '../config/setting.config';
 import { DLQ, QUEUE_POLICY } from '../config/queue.config';
+import { VACATION_MAX_DAYS } from '../constants/segments';
 import { logger } from './logger.service';
 import { money } from '../utils/calculations';
 
@@ -455,6 +456,7 @@ export const getSecurityConfig = async () => {
     loginAlerts,
     newDeviceAlerts,
     accountPurgeDays,
+    loginNotifyEnabled,
   ] = await Promise.all([
     getSetting<number>(SETTING_KEY.SECURITY_MAX_LOGIN_ATTEMPTS, 5),
     getSetting<number>(SETTING_KEY.SECURITY_LOCKOUT_MINUTES, 15),
@@ -469,6 +471,7 @@ export const getSecurityConfig = async () => {
     getSetting<boolean>(SETTING_KEY.SECURITY_LOGIN_ALERTS, true),
     getSetting<boolean>(SETTING_KEY.SECURITY_NEW_DEVICE_ALERTS, true),
     getSetting<number>(SETTING_KEY.SECURITY_ACCOUNT_PURGE_DAYS, 30),
+    getSetting<boolean>(SETTING_KEY.SECURITY_LOGIN_NOTIFY_ENABLED, true),
   ]);
   return {
     maxAttempts: Number(maxAttempts ?? 5),
@@ -484,6 +487,51 @@ export const getSecurityConfig = async () => {
     loginAlerts: Boolean(loginAlerts),
     newDeviceAlerts: Boolean(newDeviceAlerts),
     accountPurgeDays: Math.max(1, Number(accountPurgeDays ?? 30)),
+    loginNotifyEnabled: Boolean(loginNotifyEnabled),
+  };
+};
+
+/**
+ * A ban without an expiry is permanent, so the day cap cannot be applied to the
+ * duration field alone — the caller has to be told that a blank duration is a
+ * deliberate choice rather than a missing value.
+ */
+export const getBanConfig = async () => {
+  const [maxDays] = await Promise.all([getSetting<number>(SETTING_KEY.SECURITY_BAN_MAX_DAYS, 365)]);
+
+  return {
+    maxDays: Math.max(1, Number(maxDays ?? 365)),
+    allowPermanent: true,
+  };
+};
+
+export const getSegmentConfig = async () => {
+  const [repeatOrders, wholesaleOrders, vipSpend, batchSize] = await Promise.all([
+    getSetting<number>(SETTING_KEY.CUSTOMER_SEGMENT_REPEAT_ORDERS, 2),
+    getSetting<number>(SETTING_KEY.CUSTOMER_SEGMENT_WHOLESALE_ORDERS, 10),
+    getSetting<number>(SETTING_KEY.CUSTOMER_SEGMENT_VIP_SPEND, 10000),
+    getSetting<number>(SETTING_KEY.CUSTOMER_SEGMENT_BATCH_SIZE, 500),
+  ]);
+
+  return {
+    thresholds: {
+      repeatOrderCount: Math.max(1, Number(repeatOrders ?? 2)),
+      wholesaleOrderCount: Math.max(1, Number(wholesaleOrders ?? 10)),
+      vipSpendAmount: Math.max(0, Number(vipSpend ?? 10000)),
+    },
+    batchSize: Math.min(5000, Math.max(50, Number(batchSize ?? 500))),
+  };
+};
+
+export const getVendorStoreConfig = async () => {
+  const [vacationMaxDays, storeProductLimit] = await Promise.all([
+    getSetting<number>(SETTING_KEY.VENDOR_VACATION_MAX_DAYS, 90),
+    getSetting<number>(SETTING_KEY.VENDOR_STORE_PRODUCT_LIMIT, 12),
+  ]);
+
+  return {
+    vacationMaxDays: Math.min(VACATION_MAX_DAYS, Math.max(1, Number(vacationMaxDays ?? 90))),
+    storeProductLimit: Math.min(50, Math.max(1, Number(storeProductLimit ?? 12))),
   };
 };
 

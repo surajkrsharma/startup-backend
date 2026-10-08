@@ -107,6 +107,25 @@ export const updateSubOrderStatusSchema = z
   })
   .strict();
 
+export const VENDOR_BULK_ACTION = {
+  ACCEPT: 'ACCEPT',
+  REJECT: 'REJECT',
+} as const;
+
+export const vendorBulkStatusUpdateSchema = z
+  .object({
+    subOrderIds: z
+      .array(id)
+      .min(1, ERROR.ORDER.BULK_NO_SUB_ORDERS)
+      .max(50, VALIDATION.MAX_LENGTH('subOrderIds', 50)),
+
+    action: z.enum([VENDOR_BULK_ACTION.ACCEPT, VENDOR_BULK_ACTION.REJECT]),
+
+    reason: z.string().trim().max(500).optional(),
+    remark: z.string().trim().max(500).optional(),
+  })
+  .strict();
+
 export const cancelOrderSchema = z
   .object({
     reason: z.string().trim().min(3, VALIDATION.REQUIRED('reason')).max(500),
@@ -210,3 +229,4 @@ export const ORDER_STATUS_VALUES = Object.values(ORDER_STATUS);
 
 export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 export type ListOrdersInput = z.infer<typeof listOrdersSchema>;
+export type VendorBulkStatusUpdateInput = z.infer<typeof vendorBulkStatusUpdateSchema>;

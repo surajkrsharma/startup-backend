@@ -110,6 +110,15 @@ export const uniqueTicketCategorySlug = (value: string) =>
     return Boolean(row);
   });
 
+export const uniqueCustomerSegmentSlug = (value: string, excludeId?: string) =>
+  uniqueSlug(value, async (slug) => {
+    const row = await prisma.customerSegment.findFirst({
+      where: { slug, ...(excludeId ? { id: { not: excludeId } } : {}) },
+      select: { id: true },
+    });
+    return Boolean(row);
+  });
+
 export const uniqueFunnelSlug = (value: string) =>
   uniqueSlug(value, async (slug) => {
     const row = await prisma.funnel.findUnique({ where: { slug }, select: { id: true } });

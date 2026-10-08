@@ -91,6 +91,19 @@ export const serializeKycDocumentList = (rows: any[]) => ({
   documentList: D.arr(rows).map(serializeKycDocument),
 });
 
+export const serializeBlockedCustomer = (b: any) => ({
+  blockId: D.str(b?.id),
+  customerId: D.str(b?.blockedId),
+  reason: D.str(b?.reason),
+  blockedAt: D.date(b?.createdAt),
+
+  userData: b?.blocked ? serializeUserSummary(b.blocked) : {},
+});
+
+export const serializeBlockedCustomerList = (rows: any[]) => ({
+  blockedCustomerList: D.arr(rows).map(serializeBlockedCustomer),
+});
+
 export const serializeRatingSummary = (input: {
   average: number;
   total: number;

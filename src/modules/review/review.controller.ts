@@ -6,6 +6,8 @@ import { isAdminRole, ROLES } from '../../constants/roles';
 import { D } from '../../utils/defaults';
 import { getPagination } from '../../utils/pagination';
 import { requireRole } from '../../middlewares/auth.middleware';
+import { requirePermission } from '../../middlewares/rbac.middleware';
+import { PERMISSION } from '../../constants/permissions';
 import * as service from './review.service';
 import * as cartService from '../cart/cart.service';
 import { serializeCartDetail } from '../cart/cart.serializer';
@@ -13,6 +15,7 @@ import {
   serializeReviewDetail,
   serializeQuestion,
   serializeCoupon,
+  serializeCouponList,
   serializeCouponUsage,
   serializeFlashSaleDetail,
 } from './review.serializer';
@@ -33,6 +36,7 @@ export const guards = {
   admin: [requireRole(ROLES.SUPER_ADMIN, ROLES.SUB_ADMIN)],
   vendor: [requireRole('VENDOR')],
   customer: [requireRole('CUSTOMER')],
+  vendorCoupon: [requireRole('VENDOR'), requirePermission(PERMISSION.VENDOR_COUPON_MANAGE)],
 };
 
 /**
@@ -220,7 +224,7 @@ export const rejectReview = moderateReviewStatus('REJECTED', SUCCESS.REVIEW.REJE
  */
 export const listQuestions = asyncHandler(async (req, res) => {
   const { page, limit, skip, take } = getPagination(req.query as any);
-  const role = req.auth!.role;
+  const role = req.auth?.role;
 
   const { rows, total } = await service.listQuestions(
     { ...(req.query as any), skip, take },
@@ -445,6 +449,101 @@ export const couponApply = asyncHandler(async (req, res) => {
       totals,
       couponExtras(totals),
     ),
+  });
+});
+
+/**
+ * @openapi
+ * /coupons/vendorCoupons:
+ *   get:
+ *     tags: [Coupons]
+ *     summary: Coupons created by the caller's own store
+ *     description: >
+ *       Scoped to the authenticated vendor; `?search=` matches code or title.
+ *     responses:
+ *       200: { description: Paginated store coupons }
+ */
+export const vendorCouponList = asyncHandler(async (req, res) => {
+  const { page, limit, skip, take } = getPagination(req.query as any);
+  const { rows, total } = await service.listVendorCoupons(vendorId(req), {
+    ...(req.query as any),
+    skip,
+    take,
+  });
+
+  return ApiResponse.paginated(res, {
+    message: SUCCESS.COUPON.VENDOR_FETCHED,
+    result: {
+      filterData: {
+        status: D.str(req.query?.['status'] as string),
+        isActive: D.bool(req.query?.isActive === 'true'),
+        search: D.str(req.query?.search as string),
+      },
+      ...serializeCouponList(rows),
+    },
+    totalRecord: total,
+    currentPage: page,
+    limit,
+  });
+});
+
+/**
+ * @openapi
+ * /coupons/vendorCreateCoupon:
+ *   post:
+ *     tags: [Coupons]
+ *     summary: Create a coupon for the caller's own store
+ *     responses:
+ *       201: { description: Coupon created }
+ *       409: { description: Code already in use }
+ */
+export const vendorCouponCreate = asyncHandler(async (req, res) => {
+  const row = await service.createVendorCoupon(vendorId(req), req.body, req.auth!.userId, req);
+  return ApiResponse.created(res, SUCCESS.COUPON.VENDOR_CREATED, serializeCoupon(row));
+});
+
+/**
+ * @openapi
+ * /coupons/vendorUpdateCoupon/{id}:
+ *   patch:
+ *     tags: [Coupons]
+ *     summary: Update a coupon owned by the caller's store
+ *     responses:
+ *       200: { description: Coupon updated }
+ *       403: { description: Coupon belongs to another store }
+ *       404: { description: No such coupon }
+ */
+export const vendorCouponUpdate = asyncHandler(async (req, res) => {
+  const row = await service.updateVendorCoupon(
+    D.str(req.params.id),
+    vendorId(req),
+    req.body,
+    req.auth!.userId,
+    req,
+  );
+
+  return ApiResponse.success(res, {
+    message: SUCCESS.COUPON.VENDOR_UPDATED,
+    result: serializeCoupon(row),
+  });
+});
+
+/**
+ * @openapi
+ * /coupons/vendorDeleteCoupon/{id}:
+ *   delete:
+ *     tags: [Coupons]
+ *     summary: Soft-delete a coupon owned by the caller's store
+ *     responses:
+ *       200: { description: Coupon deleted }
+ *       403: { description: Coupon belongs to another store }
+ *       404: { description: No such coupon }
+ */
+export const vendorCouponDelete = asyncHandler(async (req, res) => {
+  await service.deleteVendorCoupon(D.str(req.params.id), vendorId(req), req.auth!.userId, req);
+  return ApiResponse.success(res, {
+    message: SUCCESS.COUPON.VENDOR_DELETED,
+    result: { id: D.str(req.params.id) },
   });
 });
 
